@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import authRoutes from '../server/authRoutes.js';
+import deviceRoutes from '../server/deviceRoutes.js';
 
 const app = express();
 
@@ -14,6 +15,8 @@ app.use(express.json());
 // Support both /api/auth and /auth paths depending on Vercel rewrite configuration
 app.use('/api/auth', authRoutes);
 app.use('/auth', authRoutes);
+app.use('/api', deviceRoutes);
+app.use('/', deviceRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({

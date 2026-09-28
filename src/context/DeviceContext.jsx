@@ -80,6 +80,10 @@ export function DeviceProvider({ children }) {
     maxGas: 500
   });
 
+  const [lastKnownData, setLastKnownData] = useState(null);
+  const [previousData, setPreviousData] = useState(null);
+  const [loadingStage, setLoadingStage] = useState('Connecting to ESP32...');
+
   const consecutiveErrorsRef = useRef(0);
 
   // Load and auto-verify saved device when user logs in or page refreshes
@@ -110,15 +114,19 @@ export function DeviceProvider({ children }) {
         // Do not falsely show Connected based only on saved data
         if (parsed.ipAddress && validateIPAddress(parsed.ipAddress)) {
           setIsCheckingReachability(true);
+          setLoadingStage('Connecting to ESP32...');
           getDeviceStatus(parsed.ipAddress)
             .then(async (res) => {
               if (res.success) {
+                setLoadingStage('Reading sensor data...');
                 // Fetch real sensor data as well
                 try {
                   const sData = await getSensorData(parsed.ipAddress);
                   setSensorData(sData);
+                  setLastKnownData(sData);
                   setIsConnected(true);
                   setConnectionLost(false);
+                  setLoadingStage('Live monitoring active');
                   setDevice((prev) => ({
                     ...prev,
                     id: parsed.deviceId || parsed.id || 'ESP32-001',
@@ -133,6 +141,7 @@ export function DeviceProvider({ children }) {
                 } catch (sErr) {
                   // Device status ok but sensor read failed
                   setIsConnected(false);
+                  setConnectionLost(true);
                   setDevice((prev) => ({
                     ...prev,
                     ip: parsed.ipAddress,
@@ -143,6 +152,7 @@ export function DeviceProvider({ children }) {
                 }
               } else {
                 setIsConnected(false);
+                setConnectionLost(true);
                 setDevice((prev) => ({
                   ...prev,
                   ip: parsed.ipAddress,
@@ -154,6 +164,7 @@ export function DeviceProvider({ children }) {
             })
             .catch(() => {
               setIsConnected(false);
+              setConnectionLost(true);
               setDevice((prev) => ({
                 ...prev,
                 ip: parsed.ipAddress,
@@ -175,7 +186,7 @@ export function DeviceProvider({ children }) {
     }
   }, [isAuthenticated, currentUser]);
 
-  // Real-time Sensor Polling (every 3 seconds) when connected to an ESP32
+  // Real-time Sensor Polling (every 5 seconds, Section 5) when connected to an ESP32
   useEffect(() => {
     if (!isConnected || !device.ipAddress) {
       stopSensorPolling();
@@ -189,7 +200,9 @@ export function DeviceProvider({ children }) {
       // On real data received from ESP32:
       (newData) => {
         consecutiveErrorsRef.current = 0;
+        setPreviousData(sensorData);
         setSensorData(newData);
+        setLastKnownData(newData);
         setConnectionLost(false);
         setDevice((prev) => ({
           ...prev,
@@ -197,18 +210,20 @@ export function DeviceProvider({ children }) {
           signal: 'Strong'
         }));
 
-        // Update history chart data dynamically
+        // Update history chart data dynamically: maximum 30 FIFO points (Section 13)
         setHistory((prev) => {
-          const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
           const newPoint = {
             time: nowStr,
             temp: newData.temperature,
+            temperature: newData.temperature,
             humidity: newData.humidity,
             gas: newData.gasLevel,
-            risk: newData.spoilageRisk
+            risk: newData.spoilageRisk,
+            spoilageRisk: newData.spoilageRisk
           };
           const updated = [...prev, newPoint];
-          return updated.slice(-8); // Keep last 8 data points
+          return updated.slice(-30); // Keep last 30 data points exactly
         });
       },
       // On error communicating with ESP32:
@@ -226,7 +241,7 @@ export function DeviceProvider({ children }) {
           stopSensorPolling();
         }
       },
-      3000 // Poll every 3 seconds
+      5000 // Exact 5-second polling interval (Section 5)
     );
 
     return () => {
@@ -342,6 +357,9 @@ export function DeviceProvider({ children }) {
     connectDevice,
     disconnectDevice,
     reconnectDevice,
+    lastKnownData,
+    previousData,
+    loadingStage,
     clearSavedDevice,
     addVegetableBatch,
     markAlertsAsRead,

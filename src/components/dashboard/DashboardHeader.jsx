@@ -1,0 +1,120 @@
+import React from 'react';
+import { BrandLogo } from '../BrandLogo';
+import { useAppearance } from '../../context/AppearanceContext';
+import { useNavigate } from '../../router/Router';
+import {
+  Bell,
+  Sun,
+  Moon,
+  Cpu,
+  Wifi,
+  User,
+  ShieldCheck,
+  CheckCircle2,
+  AlertTriangle
+} from 'lucide-react';
+
+export function DashboardHeader({
+  device,
+  isConnected,
+  isOffline,
+  unreadAlertsCount = 0
+}) {
+  const { settings, toggleMode } = useAppearance();
+  const navigate = useNavigate();
+
+  const isNight = settings.theme === 'night-monitor';
+  const displayIp = device?.ipAddress || device?.ip || '192.168.1.105';
+  const deviceName = device?.name || device?.id || 'ESP32-001';
+
+  return (
+    <header className="dashboard-header-container">
+      {/* Left: Brand Identity */}
+      <div className="dashboard-header-brand" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
+        <BrandLogo size={32} showText={true} />
+        <span className="header-brand-divider" />
+        <span className="header-tagline-text">Smart Storage Intelligence</span>
+      </div>
+
+      {/* Center: Live Storage Device Status Pill */}
+      <div className="dashboard-header-status">
+        <div
+          className={`live-device-status-pill ${isConnected && !isOffline ? 'pill-connected' : 'pill-offline'}`}
+          onClick={() => navigate('/connect-device')}
+          title="Click to view device telemetry or change IP"
+        >
+          <span className="live-stream-pulse">
+            <span className={`pulse-dot-indicator ${isConnected && !isOffline ? 'dot-active' : 'dot-offline'}`} />
+            <span className="live-stream-label">Storage Live</span>
+          </span>
+
+          <span className="pill-separator">•</span>
+
+          <span className="device-id-tag">
+            <Cpu size={14} />
+            <span>{deviceName}</span>
+          </span>
+
+          <span className="pill-separator">•</span>
+
+          <span className="device-conn-state">
+            {isConnected && !isOffline ? (
+              <span style={{ color: 'var(--status-green, #16a34a)', fontWeight: 700 }}>Connected</span>
+            ) : (
+              <span style={{ color: 'var(--accent-red, #dc2626)', fontWeight: 700 }}>Device Offline</span>
+            )}
+          </span>
+
+          <span className="pill-separator">•</span>
+
+          <span className="device-ip-tag" title="Dynamic ESP32 IP">
+            IP: {displayIp}
+          </span>
+        </div>
+      </div>
+
+      {/* Right Controls: Notifications, Appearance, Profile */}
+      <div className="dashboard-header-actions">
+        {/* Theme Quick Toggle */}
+        <button
+          type="button"
+          className="header-action-btn theme-quick-btn"
+          onClick={toggleMode}
+          title={isNight ? 'Switch to Forest (Organic)' : 'Switch to Night Monitor (Dark Pro)'}
+          aria-label="Toggle Theme"
+        >
+          {isNight ? <Sun size={17} color="#f59e0b" /> : <Moon size={17} color="var(--primary)" />}
+          <span className="theme-toggle-label">{isNight ? 'Forest' : 'Night Pro'}</span>
+        </button>
+
+        {/* Notifications */}
+        <button
+          type="button"
+          className="header-action-btn notif-btn"
+          onClick={() => navigate('/alerts')}
+          title="Recent Storage Alerts"
+          aria-label="Alerts"
+        >
+          <Bell size={18} />
+          {unreadAlertsCount > 0 && (
+            <span className="notif-badge">{unreadAlertsCount}</span>
+          )}
+        </button>
+
+        {/* Profile Link */}
+        <button
+          type="button"
+          className="header-profile-pill"
+          onClick={() => navigate('/settings')}
+          title="Account Settings"
+        >
+          <div className="profile-avatar-circle">
+            <User size={15} />
+          </div>
+          <span className="profile-pill-label">Profile</span>
+        </button>
+      </div>
+    </header>
+  );
+}
+export default DashboardHeader;

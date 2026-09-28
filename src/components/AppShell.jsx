@@ -81,7 +81,7 @@ export function AppShell({ children }) {
   const navLinks = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/connect-device', label: 'Device', icon: Radio },
-    { href: '/vegetable-storage', label: 'Storage', icon: Boxes },
+    { href: '/storage', label: 'Storage', icon: Boxes },
     { href: '/sensors', label: 'Sensors', icon: Gauge },
     { href: '/spoilage', label: 'Spoilage', icon: ShieldAlert },
     { href: '/alerts', label: 'Alerts', icon: Bell, badge: unreadAlertsCount > 0 ? unreadAlertsCount : null },
@@ -393,6 +393,50 @@ export function AppShell({ children }) {
         <main className="vegsense-content-body">
           {children}
         </main>
+
+        {/* Mobile Bottom Navigation Bar (Section 34) */}
+        <nav className="mobile-bottom-nav" aria-label="Mobile Navigation">
+          <Link
+            href="/dashboard"
+            className={`mobile-bottom-nav-item ${pathname === '/dashboard' ? 'active' : ''}`}
+          >
+            <LayoutDashboard size={20} />
+            <span>Home</span>
+          </Link>
+
+          <Link
+            href="/connect-device"
+            className={`mobile-bottom-nav-item ${pathname === '/connect-device' ? 'active' : ''}`}
+          >
+            <Radio size={20} />
+            <span>Device</span>
+          </Link>
+
+          <Link
+            href="/storage"
+            className={`mobile-bottom-nav-item ${pathname === '/storage' || pathname === '/vegetable-storage' ? 'active' : ''}`}
+          >
+            <Boxes size={20} />
+            <span>Storage</span>
+          </Link>
+
+          <Link
+            href="/alerts"
+            className={`mobile-bottom-nav-item ${pathname === '/alerts' ? 'active' : ''}`}
+          >
+            <Bell size={20} />
+            {unreadAlertsCount > 0 && <span className="mobile-nav-dot" />}
+            <span>Alerts</span>
+          </Link>
+
+          <Link
+            href="/settings"
+            className={`mobile-bottom-nav-item ${pathname === '/settings' ? 'active' : ''}`}
+          >
+            <Settings size={20} />
+            <span>Settings</span>
+          </Link>
+        </nav>
       </div>
     </div>
   );
