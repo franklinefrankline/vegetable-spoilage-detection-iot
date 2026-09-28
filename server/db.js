@@ -83,4 +83,22 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_storage_user ON storage_items(user_id);
 `);
 
+// Auto-seed demo account for production live evaluation
+try {
+  const demoUser = db.prepare('SELECT id FROM users WHERE email = ?').get('demo@vegsense.io');
+  if (!demoUser) {
+    db.prepare(`
+      INSERT INTO users (id, name, email, password_hash)
+      VALUES (?, ?, ?, ?)
+    `).run(
+      'usr_demo_vegsense_001',
+      'Dr. Aris Thorne',
+      'demo@vegsense.io',
+      '$2b$10$p7J1xm5RnPLX66VEJu7F8Oy1AzvRSvYFxnNY3xG3oSUBFTItXkw/O'
+    );
+  }
+} catch (seedErr) {
+  console.warn('Notice: Could not seed demo user:', seedErr.message);
+}
+
 export default db;
