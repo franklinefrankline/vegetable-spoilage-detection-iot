@@ -17,15 +17,25 @@ import {
   CheckCircle2,
   TrendingUp,
   Sparkles,
-  HeartPulse
+  HeartPulse,
+  RotateCcw
 } from 'lucide-react';
 
 export function DashboardPage() {
   const { currentUser } = useAuth();
-  const { isConnected, device, sensorData, history } = useDevice();
+  const {
+    isConnected,
+    connectionLost,
+    device,
+    savedDevice,
+    sensorData,
+    history,
+    reconnectDevice
+  } = useDevice();
   const navigate = useNavigate();
 
   const [activeChart, setActiveChart] = useState('temp'); // 'temp' | 'humidity' | 'gas'
+  const [isReconnecting, setIsReconnecting] = useState(false);
 
   // Time greeting
   const hour = new Date().getHours();
@@ -34,6 +44,19 @@ export function DashboardPage() {
   const formatTime = (date) => {
     return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   };
+
+  const handleReconnect = async () => {
+    setIsReconnecting(true);
+    try {
+      await reconnectDevice();
+    } catch (e) {
+      console.warn('Reconnect failed:', e);
+    } finally {
+      setIsReconnecting(false);
+    }
+  };
+
+  const displayIp = device.ipAddress || device.ip || savedDevice?.ipAddress || '192.168.1.105';
 
   return (
     <div className="dashboard-page-container">
@@ -44,7 +67,7 @@ export function DashboardPage() {
             {greeting}, {currentUser?.name?.split(' ')[0] || 'Storage Manager'}
           </h1>
           <p className="dashboard-greeting-subtitle">
-            Your storage is being monitored in real time. All atmospheric indices are currently within preservation tolerances.
+            Live storage intelligence from your connected ESP32 sensor node.
           </p>
         </div>
 
@@ -52,17 +75,80 @@ export function DashboardPage() {
           <div
             className="vegsense-card header-device-click-pill"
             onClick={() => navigate('/connect-device')}
-            title="View Device Details"
+            title="View Device Details / Change IP"
           >
-            <Cpu size={16} color="var(--primary)" />
-            <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{device.id}</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--primary)' }}>
-              <span className="pulse-led-indicator pulse-green" style={{ width: '6px', height: '6px' }} />
-              <span>Connected</span>
+            <Cpu size={16} color={isConnected ? 'var(--primary)' : 'var(--accent-red)'} />
+            <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{device.id || 'ESP32-001'}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600, color: isConnected ? 'var(--primary)' : 'var(--accent-red)' }}>
+              <span className={`pulse-led-indicator ${isConnected ? 'pulse-green' : 'pulse-amber'}`} style={{ width: '6px', height: '6px' }} />
+              <span>{isConnected ? 'Connected' : 'Device Offline'}</span>
+            </span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+              IP: {displayIp}
             </span>
           </div>
         </div>
       </div>
+
+      {/* OFFLINE / CONNECTION LOST BANNER */}
+      {(!isConnected || connectionLost) && (
+        <div
+          className="vegsense-card"
+          style={{
+            background: 'var(--accent-red-light, #fef2f2)',
+            borderColor: 'var(--accent-red-border, #fecaca)',
+            marginBottom: 'var(--space-unit)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            padding: '1rem 1.25rem'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <AlertCircle size={22} color="var(--accent-red)" />
+            <div>
+              <strong style={{ fontSize: '0.95rem', color: 'var(--accent-red, #dc2626)' }}>
+                {connectionLost ? 'Connection to ESP32 was lost.' : 'ESP32 is currently offline.'}
+              </strong>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Check that your ESP32 is powered on and connected to the same Wi-Fi at <code>{displayIp}</code>.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.65rem' }}>
+            <button
+              type="button"
+              className="btn-primary"
+              style={{ height: '38px', padding: '0 1rem', fontSize: '0.85rem' }}
+              onClick={handleReconnect}
+              disabled={isReconnecting}
+            >
+              {isReconnecting ? (
+                <>
+                  <span className="spinner" />
+                  <span>Checking...</span>
+                </>
+              ) : (
+                <>
+                  <RotateCcw size={15} />
+                  <span>Reconnect</span>
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ height: '38px', padding: '0 1rem', fontSize: '0.85rem' }}
+              onClick={() => navigate('/connect-device')}
+            >
+              <span>Change Device</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* MOBILE STORAGE HEALTH BANNER (Visible on mobile viewports) */}
       <div className="mobile-storage-health-card">
@@ -71,14 +157,19 @@ export function DashboardPage() {
             <HeartPulse size={18} color="var(--primary)" />
             <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-main)' }}>Storage Health</span>
           </div>
-          <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary)' }}>92%</span>
+          <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary)' }}>
+            {Math.max(0, 100 - (sensorData.spoilageRisk || 18))}%
+          </span>
         </div>
         <div className="preview-progress-track">
-          <div className="preview-progress-fill" style={{ width: '92%' }} />
+          <div
+            className="preview-progress-fill"
+            style={{ width: `${Math.max(0, 100 - (sensorData.spoilageRisk || 18))}%` }}
+          />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-          <span>ESP32-001 Live Telemetry</span>
-          <span style={{ color: 'var(--primary)', fontWeight: 700 }}>FRESH</span>
+          <span>{device.id || 'ESP32-001'} Live Telemetry</span>
+          <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{sensorData.status || 'FRESH'}</span>
         </div>
       </div>
 
@@ -96,7 +187,7 @@ export function DashboardPage() {
               </div>
               <span className="risk-meter-status-badge status-badge-fresh">
                 <CheckCircle2 size={13} />
-                <span>{sensorData.status}</span>
+                <span>{sensorData.status || 'FRESH'}</span>
               </span>
             </div>
 
@@ -120,7 +211,7 @@ export function DashboardPage() {
                     stroke="var(--primary)"
                     strokeWidth="10"
                     strokeDasharray="314"
-                    strokeDashoffset={314 - (314 * sensorData.spoilageRisk) / 100}
+                    strokeDashoffset={314 - (314 * (sensorData.spoilageRisk || 0)) / 100}
                     strokeLinecap="round"
                     transform="rotate(-90 60 60)"
                     style={{ transition: 'stroke-dashoffset 0.8s ease' }}
@@ -136,22 +227,22 @@ export function DashboardPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <div>
                   <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '-0.02em' }}>
-                    Optimal Environment
+                    {sensorData.status === 'FRESH' ? 'Optimal Environment' : sensorData.status === 'WARNING' ? 'Elevated Atmosphere' : 'Atmosphere Warning'}
                   </div>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                    DHT22 climate telemetry and MQ-135 volatile gas metrics confirm that storage atmosphere remains in the <strong>fresh preservation zone</strong>.
+                    DHT22 climate telemetry and MQ-135 volatile gas metrics confirm that storage atmosphere remains in the <strong>{sensorData.storageCondition || 'Stable'}</strong> zone.
                   </p>
                 </div>
 
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}>
-                    Freshness Index: 98.2%
+                    Freshness Index: {Math.max(0, 100 - (sensorData.spoilageRisk || 18))}%
                   </span>
                   <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}>
-                    Ethylene: Low
+                    Ethylene / Gas: {sensorData.gasLevel || sensorData.gasVOC}
                   </span>
                   <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}>
-                    Decay Probability: Negligible
+                    ESP32 Telemetry: {isConnected ? 'Active (3s)' : 'Paused'}
                   </span>
                 </div>
               </div>
@@ -159,7 +250,7 @@ export function DashboardPage() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-light)', paddingTop: '0.85rem', marginTop: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            <span>Telemetry Stream: Active</span>
+            <span>Telemetry Stream: {isConnected ? 'Live' : 'Offline'}</span>
             <button
               type="button"
               onClick={() => navigate('/spoilage')}
@@ -187,10 +278,14 @@ export function DashboardPage() {
             <div style={{ background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', padding: '1rem', border: '1px solid var(--border-light)', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.35rem' }}>
                 <CheckCircle2 size={18} color="var(--primary)" />
-                <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>No critical alerts</span>
+                <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                  {isConnected ? 'ESP32 Link Active' : 'ESP32 Link Inactive'}
+                </span>
               </div>
               <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginLeft: '1.75rem' }}>
-                Storage conditions are currently stable. No spoilage markers or abnormal gas accumulations detected in Bay #04.
+                {isConnected
+                  ? `Receiving continuous telemetry frames from ${displayIp} via HTTP GET /api/data.`
+                  : `Waiting for device association. Click Reconnect to contact ${displayIp}.`}
               </p>
             </div>
 
@@ -200,21 +295,21 @@ export function DashboardPage() {
                 <span>Smart Recommendation</span>
               </div>
               <p style={{ fontSize: '0.825rem', color: 'var(--primary-hover)', lineHeight: 1.45 }}>
-                Current relative humidity (72%) is optimal for root vegetables and leafy greens. Maintain storage door seal integrity.
+                Current relative humidity ({sensorData.humidity}%) is optimal for vegetable preservation.
               </p>
             </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-light)', paddingTop: '0.85rem', marginTop: '1rem', fontSize: '0.775rem', color: 'var(--text-muted)' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Clock size={13} /> Last Updated: Just now ({formatTime(sensorData.lastUpdated)})
+              <Clock size={13} /> Last Polled: {formatTime(sensorData.lastUpdated)}
             </span>
-            <span className="pulse-led-indicator pulse-green" style={{ width: '6px', height: '6px' }} />
+            <span className={`pulse-led-indicator ${isConnected ? 'pulse-green' : 'pulse-amber'}`} style={{ width: '6px', height: '6px' }} />
           </div>
         </div>
       </div>
 
-      {/* 4 Primary Sensor Cards */}
+      {/* 4 Primary Sensor Cards with ACTUAL VALUES */}
       <div className="grid-4" style={{ marginBottom: 'var(--space-unit)' }}>
         {/* Temperature Card */}
         <div className="vegsense-card" style={{ padding: '1.25rem' }}>
@@ -229,9 +324,9 @@ export function DashboardPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.775rem' }}>
             <span style={{ color: 'var(--primary)', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-              <ArrowUpRight size={13} /> Optimal (20-30°C)
+              <ArrowUpRight size={13} /> DHT22 Live
             </span>
-            <span style={{ color: 'var(--text-muted)' }}>DHT22</span>
+            <span style={{ color: 'var(--text-muted)' }}>Optimal</span>
           </div>
         </div>
 
@@ -248,47 +343,47 @@ export function DashboardPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.775rem' }}>
             <span style={{ color: 'var(--primary)', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-              <ArrowDownRight size={13} /> Ideal Preserved
+              <ArrowDownRight size={13} /> DHT22 Live
             </span>
-            <span style={{ color: 'var(--text-muted)' }}>DHT22</span>
+            <span style={{ color: 'var(--text-muted)' }}>RH Relative</span>
           </div>
         </div>
 
-        {/* Gas / VOC Level */}
+        {/* Gas / VOC Level (Actual number from ESP32 gas_level e.g. 420) */}
         <div className="vegsense-card" style={{ padding: '1.25rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.775rem', fontWeight: 700, color: 'var(--text-muted)' }}>GAS / VOC LEVEL</span>
+            <span style={{ fontSize: '0.775rem', fontWeight: 700, color: 'var(--text-muted)' }}>GAS / VOC</span>
             <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Wind size={18} />
             </div>
           </div>
           <div style={{ fontSize: '1.85rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', marginBottom: '0.35rem' }}>
-            Normal
+            {sensorData.gasLevel || sensorData.gasVOC}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.775rem' }}>
             <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
-              {sensorData.gasVOC} ppm (Safe)
+              MQ-135 Gas Indicator
             </span>
-            <span style={{ color: 'var(--text-muted)' }}>MQ-135</span>
+            <span style={{ color: 'var(--text-muted)' }}>ppm</span>
           </div>
         </div>
 
-        {/* Storage Condition Card */}
+        {/* Storage Status Card (Actual status from ESP32 e.g. FRESH) */}
         <div className="vegsense-card" style={{ padding: '1.25rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.775rem', fontWeight: 700, color: 'var(--text-muted)' }}>STORAGE CONDITION</span>
+            <span style={{ fontSize: '0.775rem', fontWeight: 700, color: 'var(--text-muted)' }}>STORAGE STATUS</span>
             <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <ShieldCheck size={18} />
             </div>
           </div>
           <div style={{ fontSize: '1.85rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', marginBottom: '0.35rem' }}>
-            Stable
+            {sensorData.status || 'FRESH'}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.775rem' }}>
             <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
-              Risk: {sensorData.spoilageRisk}% (Fresh)
+              Risk: {sensorData.spoilageRisk}%
             </span>
-            <span style={{ color: 'var(--text-muted)' }}>Auto Analyzed</span>
+            <span style={{ color: 'var(--text-muted)' }}>Real-Time</span>
           </div>
         </div>
       </div>
@@ -298,7 +393,7 @@ export function DashboardPage() {
         <div className="card-header-row live-monitor-header">
           <div>
             <h2 className="card-title">LIVE STORAGE MONITOR</h2>
-            <div className="card-subtitle">Real-time continuous telemetry stream from ESP32 gateway</div>
+            <div className="card-subtitle">Real-time continuous telemetry stream from ESP32 gateway ({displayIp})</div>
           </div>
 
           <div className="chart-toggle-tabs">
@@ -307,21 +402,21 @@ export function DashboardPage() {
               className={`chart-tab-btn ${activeChart === 'temp' ? 'active' : ''}`}
               onClick={() => setActiveChart('temp')}
             >
-              Temperature (°C)
+              Temperature ({sensorData.temperature}°C)
             </button>
             <button
               type="button"
               className={`chart-tab-btn ${activeChart === 'humidity' ? 'active' : ''}`}
               onClick={() => setActiveChart('humidity')}
             >
-              Humidity (%)
+              Humidity ({sensorData.humidity}%)
             </button>
             <button
               type="button"
               className={`chart-tab-btn ${activeChart === 'gas' ? 'active' : ''}`}
               onClick={() => setActiveChart('gas')}
             >
-              Gas / VOC (ppm)
+              Gas / VOC ({sensorData.gasLevel || sensorData.gasVOC})
             </button>
           </div>
         </div>
@@ -363,49 +458,47 @@ export function DashboardPage() {
             {activeChart === 'humidity' && (
               <>
                 <path
-                  d="M 20 140 Q 120 130 220 115 T 420 100 T 600 110 T 680 112 L 680 190 L 20 190 Z"
+                  d="M 20 150 Q 140 100 240 130 T 440 70 T 620 90 T 680 85 L 680 190 L 20 190 Z"
                   fill="url(#chartGradient)"
                 />
                 <path
-                  d="M 20 140 Q 120 130 220 115 T 420 100 T 600 110 T 680 112"
+                  d="M 20 150 Q 140 100 240 130 T 440 70 T 620 90 T 680 85"
                   fill="none"
-                  stroke="var(--accent-blue)"
+                  stroke="#0284c7"
                   strokeWidth="3"
                   strokeLinecap="round"
                 />
-                <circle cx="680" cy="112" r="5" fill="var(--accent-blue)" stroke="#ffffff" strokeWidth="2" />
+                <circle cx="680" cy="85" r="5" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />
               </>
             )}
 
             {activeChart === 'gas' && (
               <>
                 <path
-                  d="M 20 130 Q 120 125 220 120 T 420 90 T 600 115 T 680 118 L 680 190 L 20 190 Z"
+                  d="M 20 140 Q 130 160 230 135 T 430 120 T 610 100 T 680 110 L 680 190 L 20 190 Z"
                   fill="url(#chartGradient)"
                 />
                 <path
-                  d="M 20 130 Q 120 125 220 120 T 420 90 T 600 115 T 680 118"
+                  d="M 20 140 Q 130 160 230 135 T 430 120 T 610 100 T 680 110"
                   fill="none"
-                  stroke="#10b981"
+                  stroke="var(--primary)"
                   strokeWidth="3"
                   strokeLinecap="round"
                 />
-                <circle cx="680" cy="118" r="5" fill="#10b981" stroke="#ffffff" strokeWidth="2" />
+                <circle cx="680" cy="110" r="5" fill="var(--primary)" stroke="#ffffff" strokeWidth="2" />
               </>
             )}
           </svg>
+        </div>
 
-          {/* Time axis stamps */}
-          <div className="chart-time-labels">
-            <span>10m ago</span>
-            <span>8m ago</span>
-            <span>6m ago</span>
-            <span>4m ago</span>
-            <span>2m ago</span>
-            <span style={{ color: 'var(--primary)', fontWeight: 700 }}>Now</span>
-          </div>
+        {/* Chart timeline labels */}
+        <div className="chart-time-labels">
+          {history.map((h, i) => (
+            <span key={i}>{h.time}</span>
+          ))}
         </div>
       </div>
     </div>
   );
 }
+export default DashboardPage;

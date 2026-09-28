@@ -26,7 +26,7 @@ import { BrandLogo } from './components/BrandLogo';
 
 function AppContent() {
   const { loading, isAuthenticated } = useAuth();
-  const { isConnected } = useDevice();
+  const { isConnected, hasSavedDevice } = useDevice();
   const { pathname } = useLocation();
 
   if (loading) {
@@ -70,9 +70,8 @@ function AppContent() {
     return <LoginPage />;
   }
 
-  // If authenticated but no connected ESP32, enforce redirection to /connect-device
-  // (Settings is also permitted so users can customize preferences)
-  if (!isConnected && pathname !== '/connect-device' && pathname !== '/settings') {
+  // Authenticated user without any device must connect first
+  if (!hasSavedDevice && !isConnected && pathname !== '/connect-device' && pathname !== '/settings') {
     return (
       <AppShell>
         <ConnectDevicePage />

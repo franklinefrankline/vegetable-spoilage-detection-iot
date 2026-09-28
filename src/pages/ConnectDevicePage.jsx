@@ -19,8 +19,9 @@ import {
   Wifi,
   Cpu,
   RotateCcw,
-  Sparkles,
-  XCircle
+  XCircle,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 
 export function ConnectDevicePage() {
@@ -40,19 +41,19 @@ export function ConnectDevicePage() {
   const navigate = useNavigate();
 
   // Local form state
-  const [ipAddress, setIpAddress] = useState(savedDevice?.ipAddress || '192.168.1.105');
+  const [ipAddress, setIpAddress] = useState(savedDevice?.ipAddress || '');
   const [inputError, setInputError] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionStage, setConnectionStage] = useState(''); // 'Connecting...' | 'Checking ESP32...' | 'Reading sensors...' | 'Connected'
   const [connectionError, setConnectionError] = useState(null); // { message, ip }
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const [isManualOverride, setIsManualOverride] = useState(false);
 
   // Sync saved IP on mount
   useEffect(() => {
-    if (savedDevice?.ipAddress && !isManualOverride) {
+    if (savedDevice?.ipAddress && !ipAddress) {
       setIpAddress(savedDevice.ipAddress);
     }
-  }, [savedDevice, isManualOverride]);
+  }, [savedDevice, ipAddress]);
 
   // Real Connection Handler
   const handleConnect = async (targetIp) => {
@@ -63,66 +64,56 @@ export function ConnectDevicePage() {
 
     // Strict IP validation
     if (!cleanIp) {
-      setInputError('Please enter an ESP32 IP address.');
+      setInputError('Enter a valid ESP32 IP address.');
       return;
     }
 
     if (!validateIPAddress(cleanIp)) {
-      setInputError('Please enter a valid ESP32 IP address.');
+      setInputError('Enter a valid ESP32 IP address.');
       return;
     }
 
     setIsConnecting(true);
+    setConnectionStage('Connecting...');
 
     try {
+      // Stage 1: Checking ESP32 /status
+      setConnectionStage('Checking ESP32...');
+      await new Promise((r) => setTimeout(r, 200));
+
+      // Stage 2: Reading sensors /api/data & saving device
+      setConnectionStage('Reading sensors...');
       await connectDevice(cleanIp);
+
+      // Stage 3: Connected
+      setConnectionStage('Connected');
       addToast('ESP32 connected successfully.', 'success');
-      setConnectionError(null);
+
+      // Automatically navigate to /dashboard
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 500);
     } catch (err) {
-      console.warn('ESP32 connection error:', err);
+      console.warn('Real ESP32 connection error:', err);
+      let errorMsg = err.message || 'ESP32 is unreachable.';
+      if (err.code === 'TIMEOUT') {
+        errorMsg = 'Connection timed out. ESP32 did not respond.';
+      } else if (err.code === 'INVALID_STATUS') {
+        errorMsg = 'ESP32 returned an invalid response.';
+      } else if (err.code === 'INVALID_SENSOR_DATA') {
+        errorMsg = 'ESP32 connected, but sensor data could not be read.';
+      } else if (err.code === 'NETWORK_ERROR') {
+        errorMsg = 'ESP32 is unreachable. Check that your device and ESP32 are on the same Wi-Fi.';
+      }
+
       setConnectionError({
-        message: 'Check your ESP32 and IP.',
+        message: errorMsg,
         ip: cleanIp
       });
-      addToast('Connection failed. Check device.', 'error');
+      addToast(errorMsg, 'error');
     } finally {
       setIsConnecting(false);
-    }
-  };
-
-  // Reconnect saved device
-  const handleReconnect = async () => {
-    if (!savedDevice?.ipAddress) return;
-    setIsConnecting(true);
-    setConnectionError(null);
-    try {
-      await reconnectDevice();
-      addToast('ESP32 connected successfully.', 'success');
-    } catch (err) {
-      setConnectionError({
-        message: 'Check your ESP32 and IP.',
-        ip: savedDevice.ipAddress
-      });
-      addToast('ESP32 unreachable.', 'error');
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  // Prototype Demo Simulator (for testing when hardware is offline)
-  const handleDemoSimulation = async () => {
-    setIsConnecting(true);
-    setInputError('');
-    setConnectionError(null);
-
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      await connectDevice('192.168.1.105');
-      addToast('ESP32 connected successfully.', 'success');
-    } catch (e) {
-      addToast('Simulation connected.', 'info');
-    } finally {
-      setIsConnecting(false);
+      setConnectionStage('');
     }
   };
 
@@ -130,35 +121,25 @@ export function ConnectDevicePage() {
     disconnectDevice();
     setConnectionError(null);
     setInputError('');
-    setIsManualOverride(true);
   };
 
   return (
     <div className="connect-device-refined-container">
-      {/* =====================================================================
-          1. MAIN CONNECTION HERO (Visual-First, Limited Text)
-          Heading: "Connect Your Device"
-          Subtitle: "Start smart storage monitoring."
-          Visual: [ ESP32 DEVICE ILLUSTRATION ] -> Wi-Fi -> [ VegSense ]
-          ===================================================================== */}
+      {/* 1. Main Connection Hero */}
       <div className="refined-hero-section">
         <h1 className="refined-main-title">Connect Your Device</h1>
-        <p className="refined-main-subtitle">Start smart storage monitoring.</p>
+        <p className="refined-main-subtitle">Enter your ESP32 IP address.</p>
 
-        {/* Hero Visual Connection: ESP32 -> Wi-Fi -> VegSense */}
+        {/* Hero Visual Connection Diagram */}
         <VisualHeroConnection isConnected={isConnected} />
       </div>
 
-      {/* =====================================================================
-          3. VISUAL CONNECTION FLOW (ESP32 | Wi-Fi | Connect | Monitor)
-          ===================================================================== */}
+      {/* 3. Visual Connection Flow */}
       <VisualConnectionFlow />
 
-      {/* =====================================================================
-          MAIN SPLIT INTERFACE: Visual Board & Guides (Left) / Action Form (Right)
-          ===================================================================== */}
+      {/* Main Split Grid */}
       <div className="refined-main-grid">
-        {/* LEFT COLUMN: Visual Product Graphic & Compact Steps */}
+        {/* Left Column: Technical Board & Guides */}
         <div className="refined-left-col">
           {/* Visual ESP32 Board Illustration */}
           <div className="vegsense-card visual-board-card">
@@ -169,7 +150,7 @@ export function ConnectDevicePage() {
               </div>
               <span className={`status-pill ${isConnected ? 'active' : ''}`}>
                 <span className={`status-indicator-dot ${isConnected ? 'dot-green' : 'dot-amber'}`} />
-                <span>{isConnected ? 'ESP32-001 Connected' : 'Ready to Connect'}</span>
+                <span>{isConnected ? `${device.id || 'ESP32-001'} Connected` : 'Ready to Connect'}</span>
               </span>
             </div>
 
@@ -177,12 +158,12 @@ export function ConnectDevicePage() {
             <Esp32BoardVisual isConnected={isConnected} isConnecting={isConnecting} />
           </div>
 
-          {/* 4. HOW TO CONNECT (3-Step Visual Guide with minimal text + Need help?) */}
+          {/* 4. How to Connect */}
           <VisualThreeStepGuide onOpenHelp={() => setIsHelpOpen(true)} />
 
-          {/* 5. SERIAL MONITOR (Compact Card with 1-click Copy) */}
+          {/* 5. Compact Serial Monitor */}
           <SerialMonitorCompact
-            ip="192.168.1.105"
+            ip={ipAddress || '192.168.1.105'}
             onCopy={(copiedIp) => {
               setIpAddress(copiedIp);
               setInputError('');
@@ -191,9 +172,9 @@ export function ConnectDevicePage() {
           />
         </div>
 
-        {/* RIGHT COLUMN: Connection Form / Device Preview / Connected State / Error State */}
+        {/* Right Column: Connection Form & States */}
         <div className="refined-right-col">
-          {/* STATE 1: CONNECTED STATE */}
+          {/* STATE 1: ALREADY CONNECTED */}
           {isConnected ? (
             <div className="vegsense-card refined-connected-card">
               <ConnectedStateView
@@ -204,7 +185,7 @@ export function ConnectDevicePage() {
               />
             </div>
           ) : (
-            /* STATE 2: NOT CONNECTED / INPUT FORM / ERROR STATE */
+            /* STATE 2: NOT CONNECTED (IP FORM OR ERROR) */
             <div className="vegsense-card refined-form-card">
               {/* Heading & Status */}
               <div className="form-card-top">
@@ -212,18 +193,40 @@ export function ConnectDevicePage() {
                 <span className="form-status-tag">● Not Connected</span>
               </div>
 
-              {/* 8. ERROR STATE (Short, Visual) */}
+              {/* Error State */}
               {connectionError ? (
-                <ConnectionFailedView
-                  ip={connectionError.ip}
-                  onRetry={handleConnect}
-                  onChangeIp={() => {
-                    setConnectionError(null);
-                    setInputError('');
-                  }}
-                />
+                <div className="compact-error-card">
+                  <div className="error-icon-circle">
+                    <AlertTriangle size={24} color="#ef4444" />
+                  </div>
+
+                  <h3 className="compact-error-title">Connection Failed</h3>
+                  <p className="compact-error-sub">{connectionError.message}</p>
+
+                  <div className="compact-error-buttons">
+                    <button
+                      type="button"
+                      className="btn-primary error-retry-btn"
+                      onClick={() => handleConnect(connectionError.ip)}
+                    >
+                      <RotateCcw size={15} />
+                      <span>Try Again</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn-secondary error-change-btn"
+                      onClick={() => {
+                        setConnectionError(null);
+                        setInputError('');
+                      }}
+                    >
+                      <span>Change IP</span>
+                    </button>
+                  </div>
+                </div>
               ) : (
-                /* 2. CONNECTION FORM (Limited Text, Visual First) */
+                /* Connection Form */
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -261,7 +264,7 @@ export function ConnectDevicePage() {
                     )}
 
                     <span className="refined-helper-text">
-                      Use the IP shown on your ESP32.
+                      Make sure your device and ESP32 are on the same Wi-Fi.
                     </span>
                   </div>
 
@@ -274,7 +277,7 @@ export function ConnectDevicePage() {
                     {isConnecting ? (
                       <>
                         <span className="spinner" />
-                        <span>Connecting...</span>
+                        <span>{connectionStage || 'Connecting...'}</span>
                       </>
                     ) : (
                       <>
@@ -284,7 +287,7 @@ export function ConnectDevicePage() {
                     )}
                   </button>
 
-                  {/* 6. DEVICE PREVIEW (Clean Card with IP & Ready status) */}
+                  {/* 6. Device Preview Card */}
                   <div className="preview-section-divider">
                     <DevicePreviewCard
                       deviceName="ESP32-001"
@@ -293,19 +296,6 @@ export function ConnectDevicePage() {
                       isConnecting={isConnecting}
                     />
                   </div>
-
-                  {/* Quick Prototype Simulator Trigger */}
-                  <div className="refined-demo-trigger">
-                    <button
-                      type="button"
-                      className="demo-pill-btn"
-                      onClick={handleDemoSimulation}
-                      disabled={isConnecting}
-                    >
-                      <Sparkles size={14} color="var(--primary)" />
-                      <span>Simulate ESP32 (Offline Mode)</span>
-                    </button>
-                  </div>
                 </form>
               )}
             </div>
@@ -313,7 +303,7 @@ export function ConnectDevicePage() {
         </div>
       </div>
 
-      {/* Optional "Need help?" Detailed Setup Modal */}
+      {/* Setup Help Modal */}
       <SetupHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </div>
   );

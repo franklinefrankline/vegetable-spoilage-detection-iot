@@ -47,7 +47,7 @@ export function AppShell({ children }) {
     toggleQuickAppearance
   } = useAppearance();
 
-  const { isConnected, device, unreadAlertsCount } = useDevice();
+  const { isConnected, device, unreadAlertsCount, reconnectDevice } = useDevice();
   const dropdownRef = useRef(null);
   const devicePopoverRef = useRef(null);
   const [isDeviceStatusOpen, setIsDeviceStatusOpen] = useState(false);
@@ -213,17 +213,32 @@ export function AppShell({ children }) {
                           {isConnected ? 'Connected' : 'Offline'}
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        className="btn-primary"
-                        style={{ width: '100%', height: '36px', fontSize: '0.8rem', marginTop: '0.75rem' }}
-                        onClick={() => {
-                          setIsDeviceStatusOpen(false);
-                          navigate('/connect-device');
-                        }}
-                      >
-                        Device Settings
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                        {!isConnected && (
+                          <button
+                            type="button"
+                            className="btn-primary"
+                            style={{ flex: 1, height: '36px', fontSize: '0.8rem' }}
+                            onClick={() => {
+                              setIsDeviceStatusOpen(false);
+                              reconnectDevice();
+                            }}
+                          >
+                            Reconnect
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className={isConnected ? "btn-primary" : "btn-secondary"}
+                          style={{ flex: 1, height: '36px', fontSize: '0.8rem' }}
+                          onClick={() => {
+                            setIsDeviceStatusOpen(false);
+                            navigate('/connect-device');
+                          }}
+                        >
+                          Change Device
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
