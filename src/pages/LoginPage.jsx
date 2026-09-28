@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useAppearance } from '../context/AppearanceContext';
 import { useNavigate, Link } from '../router/Router';
 import { BrandLogo } from '../components/BrandLogo';
 import {
@@ -15,12 +16,15 @@ import {
   Wifi,
   Gauge,
   Wind,
-  Cpu
+  Cpu,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 export function LoginPage() {
   const { login } = useAuth();
   const { addToast } = useToast();
+  const { settings, toggleMode } = useAppearance();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
@@ -220,6 +224,29 @@ export function LoginPage() {
           RIGHT SIDE: Modern Login Card
           ========================================================================= */}
       <div className="login-form-section">
+        {/* Floating Quick Theme Toggle */}
+        <div className="auth-top-toolbar">
+          <button
+            type="button"
+            className="auth-theme-toggle-btn"
+            onClick={toggleMode}
+            title={settings.theme === 'night-monitor' ? 'Switch to Forest (Organic)' : 'Switch to Night Monitor (Dark Pro)'}
+            aria-label="Toggle Theme"
+          >
+            {settings.theme === 'night-monitor' ? (
+              <>
+                <Sun size={14} color="#f59e0b" />
+                <span>Forest (Organic)</span>
+              </>
+            ) : (
+              <>
+                <Moon size={14} color="#10b981" />
+                <span>Night Monitor</span>
+              </>
+            )}
+          </button>
+        </div>
+
         <div className="login-card-container">
           {/* Mobile Header */}
           <div className="mobile-login-header">
