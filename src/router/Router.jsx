@@ -40,10 +40,17 @@ export function RouterProvider({ children }) {
     if (loading) return;
 
     const protectedRoutes = [
-      '/connect-device',
       '/dashboard',
+      '/connect-device',
+      '/vegetable-storage',
+      '/storage',
       '/sensors',
+      '/live-sensors',
+      '/spoilage',
+      '/spoilage-detection',
       '/alerts',
+      '/analytics',
+      '/history',
       '/reports',
       '/settings'
     ];
@@ -53,7 +60,7 @@ export function RouterProvider({ children }) {
     if (!isAuthenticated && isProtected) {
       navigate('/login');
     } else if (isAuthenticated && (currentPath === '/login' || currentPath === '/register' || currentPath === '/')) {
-      navigate('/connect-device');
+      navigate('/dashboard');
     } else if (!isAuthenticated && currentPath === '/') {
       navigate('/login');
     }

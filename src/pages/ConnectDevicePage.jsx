@@ -1,277 +1,228 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useDevice } from '../context/DeviceContext';
 import { useToast } from '../context/ToastContext';
-import { useNavigate, useLocation, Link } from '../router/Router';
-import { BrandLogo } from '../components/BrandLogo';
 import {
-  Cpu,
-  Wifi,
-  Gauge,
-  Wind,
-  Tv,
-  LogOut,
   Radio,
+  Wifi,
+  Cpu,
   CheckCircle2,
   AlertTriangle,
-  Info,
-  Server
+  Server,
+  ArrowRight,
+  ShieldCheck,
+  Activity,
+  Power,
+  Search,
+  ExternalLink
 } from 'lucide-react';
 
 export function ConnectDevicePage() {
-  const { currentUser, logout } = useAuth();
+  const { isConnected, device, connectDevice, disconnectDevice } = useDevice();
   const { addToast } = useToast();
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
 
-  const [espIp, setEspIp] = useState('192.168.1.105');
+  const [inputIp, setInputIp] = useState(device.ip || '192.168.1.105');
   const [isConnecting, setIsConnecting] = useState(false);
-  const [connectMessage, setConnectMessage] = useState('');
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      addToast('Logged out successfully.', 'info');
-      navigate('/login');
-    } catch (err) {
-      console.error('Logout error:', err);
-      navigate('/login');
-    }
-  };
-
-  const handleConnectAttempt = (e) => {
+  const handleConnect = async (e) => {
     e.preventDefault();
-    if (!espIp.trim()) {
+    if (!inputIp.trim()) {
       addToast('Please enter an ESP32 IP address.', 'error');
       return;
     }
 
     setIsConnecting(true);
-    setConnectMessage('');
-
-    setTimeout(() => {
+    try {
+      await connectDevice(inputIp.trim());
+      addToast(`Connected to ESP32 at ${inputIp.trim()} successfully.`, 'success');
+    } catch (err) {
+      addToast('Failed to establish connection to ESP32 device.', 'error');
+    } finally {
       setIsConnecting(false);
-      setConnectMessage(
-        `Hardware Target Staged: [${espIp.trim()}]. Part 1 authentication & routing complete. In Part 2, the system initiates live socket/HTTP ping verification and loads real-time DHT22 and MQ-135 telemetry!`
-      );
-      addToast('ESP32 Target Registered for Part 2 verification.', 'success');
-    }, 1000);
+    }
   };
 
-  const isOtherProtectedRoute = pathname !== '/connect-device';
+  const handleDisconnect = () => {
+    disconnectDevice();
+    addToast('ESP32 device disconnected.', 'info');
+  };
 
   return (
-    <div className="app-shell">
-      {/* Navigation Header */}
-      <header className="app-navbar">
-        <div className="nav-brand">
-          <BrandLogo size={36} showText={true} />
-        </div>
+    <div style={{ maxWidth: '980px', margin: '0 auto' }}>
+      {/* Page Title */}
+      <div style={{ marginBottom: '2rem' }}>
+        <h1 style={{ fontSize: '1.85rem', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-main)', marginBottom: '0.4rem' }}>
+          Connect Your Storage Device
+        </h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+          Establish real-time Wi-Fi & telemetry communication with your physical ESP32 vegetable storage monitor.
+        </p>
+      </div>
 
-        {/* Protected Navigation Links */}
-        <nav className="nav-links" aria-label="Main Navigation">
-          <Link
-            href="/connect-device"
-            className={`nav-link-btn ${pathname === '/connect-device' ? 'active' : ''}`}
-          >
-            Connect Device
-          </Link>
-          <Link
-            href="/dashboard"
-            className={`nav-link-btn ${pathname === '/dashboard' ? 'active' : ''}`}
-          >
-            Dashboard
-          </Link>
-          <Link
-            href="/sensors"
-            className={`nav-link-btn ${pathname === '/sensors' ? 'active' : ''}`}
-          >
-            Sensors
-          </Link>
-          <Link
-            href="/alerts"
-            className={`nav-link-btn ${pathname === '/alerts' ? 'active' : ''}`}
-          >
-            Alerts
-          </Link>
-          <Link
-            href="/reports"
-            className={`nav-link-btn ${pathname === '/reports' ? 'active' : ''}`}
-          >
-            Reports
-          </Link>
-          <Link
-            href="/settings"
-            className={`nav-link-btn ${pathname === '/settings' ? 'active' : ''}`}
-          >
-            Settings
-          </Link>
-        </nav>
-
-        {/* User Info & Logout Button */}
-        <div className="nav-user-actions">
-          <div className="user-badge" title={currentUser?.email || ''}>
-            <div className="user-avatar-circle">
-              {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
-            </div>
-            <span className="user-name-text">{currentUser?.name || 'User'}</span>
-          </div>
-
-          <button
-            id="btn-logout"
-            type="button"
-            className="btn-logout"
-            onClick={handleLogout}
-            title="Sign out of system"
-          >
-            <LogOut size={16} />
-            <span>Logout</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Main Container */}
-      <main className="main-content-container">
-        {isOtherProtectedRoute ? (
-          /* Placeholder view for /dashboard, /sensors, /alerts, /reports, /settings */
-          <div className="connect-card">
-            <div className="step-pill">
-              <Info size={13} />
-              Protected Module: {pathname.replace('/', '').toUpperCase()}
-            </div>
-            <h2 className="connect-title">Hardware Connection Required</h2>
-            <p className="connect-subtitle">
-              You are authenticated as <strong>{currentUser?.name}</strong> ({currentUser?.email}).
-              Access to live telemetry and dashboards requires establishing a connection with the ESP32 storage unit.
-            </p>
-
-            <div className="alert-banner alert-info" style={{ marginTop: '1.5rem' }}>
-              <Server size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '1.5rem', alignItems: 'start' }}>
+        {/* Main Connection Card */}
+        <div className="vegsense-card">
+          <div className="card-header-row">
+            <div className="card-title-group">
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Cpu size={20} />
+              </div>
               <div>
-                <strong>Part 1 Complete:</strong> Route protection is fully active! To unlock this live telemetry view in Part 2, connect your ESP32 microcontroller first.
+                <h2 className="card-title">ESP32 DEVICE</h2>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Microcontroller Telemetry Gateway</div>
               </div>
             </div>
 
-            <div style={{ marginTop: '2rem' }}>
-              <button
-                type="button"
-                className="btn-primary"
-                style={{ width: 'auto', padding: '0 1.5rem' }}
-                onClick={() => navigate('/connect-device')}
-              >
-                Go to Connect Device Screen &rarr;
-              </button>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.35rem 0.8rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: 700, backgroundColor: isConnected ? 'var(--primary-light)' : '#fee2e2', color: isConnected ? 'var(--primary)' : '#b91c1c' }}>
+              <span className={`pulse-led-indicator ${isConnected ? '' : 'led-red'}`} style={{ backgroundColor: isConnected ? 'var(--status-green)' : '#ef4444' }} />
+              <span>{isConnected ? 'Device Connected' : 'Not Connected'}</span>
             </div>
           </div>
-        ) : (
-          /* Primary /connect-device Page */
-          <div className="connect-card">
-            <div className="step-pill">
-              <Radio size={13} />
-              Step 1 of 2: Hardware Provisioning
-            </div>
 
-            <h1 className="connect-title">Connect Your ESP32 Storage Monitor</h1>
-            <p className="connect-subtitle">
-              Welcome, <strong>{currentUser?.name}</strong>! To begin monitoring produce storage conditions and spoilage markers, enter the local IP address assigned to your physical ESP32 prototype.
-            </p>
-
-            {/* Hardware Telemetry Preview Grid */}
-            <div className="hardware-specs-grid">
-              <div className="hardware-spec-box">
-                <div className="spec-icon-box">
-                  <Cpu size={20} />
+          {isConnected ? (
+            <div style={{ background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', padding: '1.5rem', border: '1px solid var(--border-light)', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>DEVICE ID</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '2px' }}>{device.id}</div>
                 </div>
                 <div>
-                  <div className="spec-info-title">ESP32 Core</div>
-                  <div className="spec-info-desc">Wi-Fi & HTTP Telemetry Gateway</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>IP ADDRESS</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', fontFamily: 'monospace', marginTop: '2px' }}>{device.ip}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>SIGNAL STRENGTH</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                    <Wifi size={15} />
+                    <span>{device.signal} (-54 dBm)</span>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>FIRMWARE / UPTIME</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '2px' }}>{device.firmware} • {device.uptime}</div>
                 </div>
               </div>
 
-              <div className="hardware-spec-box">
-                <div className="spec-icon-box">
-                  <Gauge size={20} />
-                </div>
-                <div>
-                  <div className="spec-info-title">DHT22 Sensor</div>
-                  <div className="spec-info-desc">Temperature & Relative Humidity</div>
-                </div>
-              </div>
-
-              <div className="hardware-spec-box">
-                <div className="spec-icon-box">
-                  <Wind size={20} />
-                </div>
-                <div>
-                  <div className="spec-info-title">MQ-135 Sensor</div>
-                  <div className="spec-info-desc">Air Quality & Spoilage Gas Detection</div>
-                </div>
-              </div>
-
-              <div className="hardware-spec-box">
-                <div className="spec-icon-box">
-                  <Tv size={20} />
-                </div>
-                <div>
-                  <div className="spec-info-title">OLED & LEDs</div>
-                  <div className="spec-info-desc">Tri-Color Fresh/Warning/Spoilage Alert</div>
-                </div>
-              </div>
-            </div>
-
-            {/* IP Connection Box */}
-            <div className="ip-connect-form">
-              <label htmlFor="esp-ip-input" className="form-label" style={{ marginBottom: '0.25rem' }}>
-                <span>ESP32 Local Network IP Address</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Found on prototype OLED screen</span>
-              </label>
-
-              <form onSubmit={handleConnectAttempt} className="ip-input-row">
-                <input
-                  id="esp-ip-input"
-                  type="text"
-                  className="ip-input"
-                  value={espIp}
-                  onChange={(e) => setEspIp(e.target.value)}
-                  placeholder="e.g. 192.168.1.105"
-                  disabled={isConnecting}
-                />
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <button
-                  id="btn-connect-device"
-                  type="submit"
-                  className="btn-connect-device"
-                  disabled={isConnecting}
+                  type="button"
+                  onClick={handleDisconnect}
+                  className="btn-secondary"
+                  style={{ color: 'var(--accent-red)' }}
                 >
-                  {isConnecting ? (
-                    <>
-                      <span className="spinner" aria-hidden="true"></span>
-                      <span>Verifying...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Wifi size={18} />
-                      <span>CONNECT DEVICE</span>
-                    </>
-                  )}
+                  Disconnect Device
                 </button>
-              </form>
-
-              {connectMessage && (
-                <div className="alert-banner alert-success" style={{ marginTop: '1.25rem' }}>
-                  <CheckCircle2 size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
-                  <div>{connectMessage}</div>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleConnect} style={{ marginBottom: '1.5rem' }}>
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <label htmlFor="esp-ip" className="form-label">
+                  <span>ESP32 IP Address</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Displayed on prototype 0.96" OLED screen</span>
+                </label>
+                <div className="login-input-wrapper">
+                  <span className="login-input-icon">
+                    <Radio size={18} />
+                  </span>
+                  <input
+                    id="esp-ip"
+                    type="text"
+                    className="login-form-input"
+                    placeholder="192.168.1.105"
+                    value={inputIp}
+                    onChange={(e) => setInputIp(e.target.value)}
+                    disabled={isConnecting}
+                    style={{ fontFamily: 'monospace', fontSize: '1rem', letterSpacing: '0.04em' }}
+                  />
                 </div>
-              )}
+              </div>
+
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={isConnecting}
+                style={{ height: '46px' }}
+              >
+                {isConnecting ? (
+                  <>
+                    <span className="spinner" />
+                    <span>Connecting to ESP32...</span>
+                  </>
+                ) : (
+                  <>
+                    <Wifi size={17} />
+                    <span>Connect Device</span>
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-light)' }}>
+            <Activity size={15} color="var(--primary)" />
+            <span>Telemetry protocols active: DHT22 (GPIO 4), MQ-135 (GPIO 34 ADC), OLED I2C (21/22), Status LEDs (18/19/23).</span>
+          </div>
+        </div>
+
+        {/* 5 Connection Steps Card */}
+        <div className="vegsense-card" style={{ background: 'var(--bg-card)' }}>
+          <h2 className="card-title" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>Connection Steps</span>
+          </h2>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+              <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', fontWeight: 800, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                1
+              </div>
+              <div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-main)' }}>Power on ESP32</div>
+                <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Connect the prototype via 5V USB-C or power supply.</div>
+              </div>
             </div>
 
-            <div style={{ marginTop: '2rem', fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Info size={16} />
-              <span>
-                Physical prototype uses pin assignments: DHT22 (GPIO 4), MQ-135 (GPIO 34 ADC), OLED (I2C 21/22), and Status LEDs (Green: GPIO 18, Yellow: GPIO 19, Red: GPIO 23).
-              </span>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+              <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', fontWeight: 800, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                2
+              </div>
+              <div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-main)' }}>Connect ESP32 to Wi-Fi</div>
+                <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Ensure the device connects to your local 2.4 GHz network.</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+              <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', fontWeight: 800, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                3
+              </div>
+              <div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-main)' }}>Find the ESP32 IP address</div>
+                <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Read the IP shown on the onboard OLED or router table.</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+              <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', fontWeight: 800, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                4
+              </div>
+              <div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-main)' }}>Enter the IP address</div>
+                <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Type the exact IP address in the connection card.</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+              <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', fontWeight: 800, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                5
+              </div>
+              <div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-main)' }}>Connect</div>
+                <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Click connect to activate real-time telemetry streaming.</div>
+              </div>
             </div>
           </div>
-        )}
-      </main>
+        </div>
+      </div>
     </div>
   );
 }

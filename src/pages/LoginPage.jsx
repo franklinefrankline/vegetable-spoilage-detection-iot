@@ -15,10 +15,7 @@ import {
   Wifi,
   Gauge,
   Wind,
-  CheckCircle2,
-  Cpu,
-  Layers,
-  Sparkles
+  Cpu
 } from 'lucide-react';
 
 export function LoginPage() {
@@ -39,14 +36,12 @@ export function LoginPage() {
   const validateForm = () => {
     const newErrors = {};
 
-    // Email validation
     if (!email.trim()) {
       newErrors.email = 'Please enter your email address.';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       newErrors.email = 'Please enter a valid email address.';
     }
 
-    // Password validation
     if (!password) {
       newErrors.password = 'Please enter your password.';
     } else if (password.length < 8) {
@@ -75,7 +70,7 @@ export function LoginPage() {
       });
 
       addToast('Login successful.', 'success');
-      navigate('/connect-device');
+      navigate('/dashboard');
     } catch (err) {
       const msg = err.message || 'Invalid email or password.';
       setGeneralError(msg);
@@ -88,13 +83,13 @@ export function LoginPage() {
   return (
     <div className="login-split-page">
       {/* =========================================================================
-          LEFT SIDE: Large Smart Vegetable Storage & IoT Visual Environment
+          LEFT SIDE: Smart vegetable storage visual & telemetry
           ========================================================================= */}
       <div className="login-visual-section">
         {/* Background Image Layer */}
         <div className="login-visual-bg" aria-hidden="true" />
         
-        {/* Deep Forest Gradient & Atmosphere Overlay */}
+        {/* Atmosphere Overlay */}
         <div className="login-visual-overlay" aria-hidden="true" />
 
         {/* Subtle Tech Micro-Grid Overlay */}
@@ -109,23 +104,22 @@ export function LoginPage() {
           <span className="data-particle p5" />
         </div>
 
-        {/* Top Visual Header & Pill */}
+        {/* Top Header Pill */}
         <div className="visual-header">
           <div className="visual-brand-pill">
-            <BrandLogo size={28} showText={false} lightText={true} />
-            <span className="visual-brand-pill-text">IoT Storage Protocol • Online</span>
+            <BrandLogo size={28} showText={true} lightText={true} />
           </div>
 
           <div className="visual-title-block">
             <h1 className="visual-hero-title">
-              Intelligent Vegetable Storage
+              Protect Every Harvest.
             </h1>
             <p className="visual-hero-subtitle">
-              Smart monitoring. Early detection. Less waste.
+              Monitor storage conditions and detect spoilage before it becomes waste.
             </p>
           </div>
 
-          {/* Small Feature Indicators */}
+          {/* Feature indicators */}
           <div className="feature-indicators-row">
             <div className="feature-indicator-badge">
               <span className="feature-indicator-icon">
@@ -150,63 +144,63 @@ export function LoginPage() {
           </div>
         </div>
 
-        {/* Center / Body: Floating Sensor Telemetry Indicators */}
+        {/* Center: Floating Sensor Information Cards */}
         <div className="visual-body">
           <div className="telemetry-floating-layer">
-            {/* Telemetry Indicator 1: DHT22 Temperature & Humidity */}
+            {/* Card 1: Temperature & Humidity */}
             <div className="telemetry-float-card telemetry-card-animate-1">
               <div className="telemetry-card-left">
                 <div className="telemetry-card-icon-box">
                   <Gauge size={20} />
                 </div>
                 <div>
-                  <div className="telemetry-card-title">DHT22 Climate Sensor</div>
-                  <div className="telemetry-card-value">4.2°C • 88% RH</div>
+                  <div className="telemetry-card-title">Climate Monitoring (DHT22)</div>
+                  <div className="telemetry-card-value">28.5°C • 72% RH</div>
                 </div>
               </div>
               <div className="telemetry-card-status-pill">
                 <span className="pulse-dot" />
-                <span>Optimal State</span>
+                <span>Optimal</span>
               </div>
             </div>
 
-            {/* Telemetry Indicator 2: MQ-135 Gas & Air Quality Sensor */}
+            {/* Card 2: Gas / VOC Spoilage Detection */}
             <div className="telemetry-float-card telemetry-card-animate-2">
               <div className="telemetry-card-left">
                 <div className="telemetry-card-icon-box" style={{ background: 'rgba(56, 189, 248, 0.18)', borderColor: 'rgba(56, 189, 248, 0.35)', color: '#38bdf8' }}>
                   <Wind size={20} />
                 </div>
                 <div>
-                  <div className="telemetry-card-title">MQ-135 Volatiles & Gas</div>
-                  <div className="telemetry-card-value">14 ppm • Air Purity 99.4%</div>
+                  <div className="telemetry-card-title">Gas / VOC Level (MQ-135)</div>
+                  <div className="telemetry-card-value">420 ppm • Normal Range</div>
                 </div>
               </div>
               <div className="telemetry-card-status-pill" style={{ color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.35)', background: 'rgba(56, 189, 248, 0.15)' }}>
                 <span className="pulse-dot" style={{ backgroundColor: '#38bdf8', boxShadow: '0 0 8px #38bdf8' }} />
-                <span>Fresh Produce</span>
+                <span>Fresh</span>
               </div>
             </div>
 
-            {/* Telemetry Indicator 3: ESP32 Hardware Status */}
+            {/* Card 3: Connected ESP32 Technology */}
             <div className="telemetry-float-card" style={{ padding: '0.75rem 1.125rem' }}>
               <div className="telemetry-card-left">
                 <div className="telemetry-card-icon-box" style={{ width: '32px', height: '32px' }}>
                   <Cpu size={16} />
                 </div>
                 <div style={{ fontSize: '0.825rem' }}>
-                  <span style={{ color: '#94a3b8' }}>Chamber Node #04: </span>
-                  <strong style={{ color: '#f0fdf4' }}>ESP32 Gateway Connected (192.168.1.105)</strong>
+                  <span style={{ color: '#94a3b8' }}>ESP32 Connected: </span>
+                  <strong style={{ color: '#f0fdf4' }}>192.168.1.105 (Signal: Strong)</strong>
                 </div>
               </div>
-              <span style={{ fontSize: '0.75rem', color: '#86efac', fontWeight: 600 }}>24ms Latency</span>
+              <span style={{ fontSize: '0.75rem', color: '#86efac', fontWeight: 600 }}>Active</span>
             </div>
           </div>
         </div>
 
-        {/* Bottom Visual Footer */}
+        {/* Bottom Footer */}
         <div className="visual-footer">
           <div className="visual-footer-bar">
-            <span>Prototype Sensor Matrix: DHT22 • MQ-135 • OLED</span>
+            <span>VegSense Smart Storage Telemetry</span>
             <div className="visual-led-status-group">
               <span className="led-status-item">
                 <span className="led-indicator led-green" /> Fresh
@@ -215,7 +209,7 @@ export function LoginPage() {
                 <span className="led-indicator led-yellow" /> Warning
               </span>
               <span className="led-status-item">
-                <span className="led-indicator led-red" /> Spoilage Alert
+                <span className="led-indicator led-red" /> Spoilage Risk
               </span>
             </div>
           </div>
@@ -223,20 +217,16 @@ export function LoginPage() {
       </div>
 
       {/* =========================================================================
-          RIGHT SIDE: Modern SaaS Login Card Section
+          RIGHT SIDE: Modern Login Card
           ========================================================================= */}
       <div className="login-form-section">
         <div className="login-card-container">
-          {/* Mobile Header (displayed on small screens when visual panel is hidden) */}
+          {/* Mobile Header */}
           <div className="mobile-login-header">
-            <BrandLogo size={36} showText={false} />
-            <div>
-              <div className="mobile-login-header-title">Intelligent Vegetable Storage</div>
-              <div className="mobile-login-header-subtitle">Smart monitoring. Early detection. Less waste.</div>
-            </div>
+            <BrandLogo size={36} showText={true} />
           </div>
 
-          {/* Login Card Top Branding */}
+          {/* Top Brand & Titles */}
           <div className="login-card-top">
             <div className="login-icon-badge">
               <BrandLogo size={32} showText={false} />
@@ -247,7 +237,7 @@ export function LoginPage() {
             </p>
           </div>
 
-          {/* Authentication General Error Banner */}
+          {/* Error Banner */}
           {generalError && (
             <div className="alert-banner alert-danger" role="alert">
               <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
@@ -257,7 +247,7 @@ export function LoginPage() {
 
           {/* Login Form */}
           <form onSubmit={handleSubmit} noValidate>
-            {/* Email Address Field */}
+            {/* Email Address */}
             <div className="form-group" style={{ marginBottom: '1.25rem' }}>
               <label htmlFor="login-email" className="form-label">
                 Email Address
@@ -288,7 +278,7 @@ export function LoginPage() {
               )}
             </div>
 
-            {/* Password Field with Show/Hide Toggle */}
+            {/* Password */}
             <div className="form-group" style={{ marginBottom: '1rem' }}>
               <label htmlFor="login-password" className="form-label">
                 Password
@@ -328,7 +318,7 @@ export function LoginPage() {
               )}
             </div>
 
-            {/* Options Row: Remember Me & Forgot Password Link */}
+            {/* Options: Remember me & Forgot Password? */}
             <div className="login-card-options">
               <label className="checkbox-label" htmlFor="remember-me">
                 <input
@@ -347,7 +337,7 @@ export function LoginPage() {
               </Link>
             </div>
 
-            {/* Main Action Button: Sign In */}
+            {/* Main button: Sign In */}
             <button
               id="btn-sign-in"
               type="submit"
@@ -368,12 +358,12 @@ export function LoginPage() {
             </button>
           </form>
 
-          {/* OR Divider */}
+          {/* Divider: OR */}
           <div className="login-divider">
             <span>OR</span>
           </div>
 
-          {/* Account Creation Section */}
+          {/* Create Account link */}
           <div className="login-create-account-prompt">
             Don't have an account?
           </div>

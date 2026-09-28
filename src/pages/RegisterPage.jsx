@@ -2,8 +2,21 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate, Link } from '../router/Router';
-import { AuthSidePanel } from '../components/AuthSidePanel';
-import { User, Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { BrandLogo } from '../components/BrandLogo';
+import {
+  User,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  CheckCircle2,
+  ArrowRight,
+  ShieldCheck,
+  Activity,
+  Wifi,
+  Sparkles
+} from 'lucide-react';
 
 export function RegisterPage() {
   const { register } = useAuth();
@@ -23,27 +36,23 @@ export function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generalError, setGeneralError] = useState('');
 
-  // Password rule checks for real-time visual feedback
+  // Password rules validation
   const hasMinLength = password.length >= 8;
   const hasUpper = /[A-Z]/.test(password);
   const hasLower = /[a-z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
-  const isPasswordComplex = hasMinLength && hasUpper && hasLower && hasNumber;
 
   const validateForm = () => {
     const newErrors = {};
 
-    // Full Name
     if (!name.trim() || name.trim().length < 2) {
       newErrors.name = 'Full name is required.';
     }
 
-    // Email
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       newErrors.email = 'Please enter a valid email address.';
     }
 
-    // Password
     if (!password) {
       newErrors.password = 'Password must contain at least 8 characters.';
     } else if (password.length < 8) {
@@ -52,14 +61,12 @@ export function RegisterPage() {
       newErrors.password = 'Password must contain one uppercase letter, one lowercase letter, and one number.';
     }
 
-    // Confirm Password
     if (!confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match.';
     } else if (confirmPassword !== password) {
       newErrors.confirmPassword = 'Passwords do not match.';
     }
 
-    // Terms
     if (!agreeTerms) {
       newErrors.agreeTerms = 'You must accept the Terms & Conditions.';
     }
@@ -86,7 +93,7 @@ export function RegisterPage() {
       });
 
       addToast('Account created successfully.', 'success');
-      navigate('/connect-device');
+      navigate('/dashboard');
     } catch (err) {
       const msg = err.message || 'Registration failed. Please try again.';
       setGeneralError(msg);
@@ -97,16 +104,83 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="auth-page-wrapper">
-      <div className="auth-container">
-        {/* Left Side: Brand & Visuals */}
-        <AuthSidePanel />
+    <div className="login-split-page">
+      {/* Left Visual Section */}
+      <div className="login-visual-section">
+        <div className="login-visual-bg" aria-hidden="true" />
+        <div className="login-visual-overlay" aria-hidden="true" />
+        <div className="login-visual-grid-overlay" aria-hidden="true" />
 
-        {/* Right Side: Registration Card */}
-        <div className="auth-right-panel">
-          <div className="auth-header">
-            <h2 className="auth-title">Create Your Account</h2>
-            <p className="auth-subtitle">
+        <div className="visual-header">
+          <div className="visual-brand-pill">
+            <BrandLogo size={28} showText={true} lightText={true} />
+          </div>
+
+          <div className="visual-title-block">
+            <h1 className="visual-hero-title">
+              Join VegSense Intelligence.
+            </h1>
+            <p className="visual-hero-subtitle">
+              Intelligent vegetable storage monitoring and early spoilage detection for modern agriculture.
+            </p>
+          </div>
+
+          <div className="feature-indicators-row">
+            <div className="feature-indicator-badge">
+              <span className="feature-indicator-icon">
+                <Activity size={13} />
+              </span>
+              <span>Real-Time Monitoring</span>
+            </div>
+            <div className="feature-indicator-badge">
+              <span className="feature-indicator-icon">
+                <ShieldCheck size={13} />
+              </span>
+              <span>Smart Spoilage Detection</span>
+            </div>
+            <div className="feature-indicator-badge">
+              <span className="feature-indicator-icon">
+                <Wifi size={13} />
+              </span>
+              <span>IoT Connected Storage</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="visual-body">
+          <div className="telemetry-float-card" style={{ maxWidth: '420px', padding: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(34, 197, 94, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#86efac' }}>
+                <Sparkles size={20} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#f0fdf4' }}>Commercial IoT Precision</div>
+                <div style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>DHT22 + MQ-135 Early Spoilage Estimation</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="visual-footer">
+          <div className="visual-footer-bar">
+            <span>VegSense Architecture • Ready for ESP32 Telemetry</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Registration Card Section */}
+      <div className="login-form-section">
+        <div className="login-card-container">
+          <div className="mobile-login-header">
+            <BrandLogo size={36} showText={true} />
+          </div>
+
+          <div className="login-card-top">
+            <div className="login-icon-badge">
+              <BrandLogo size={32} showText={false} />
+            </div>
+            <h2 className="login-card-title">Create Your Account</h2>
+            <p className="login-card-subtitle">
               Register to monitor and manage your intelligent vegetable storage system.
             </p>
           </div>
@@ -118,20 +192,20 @@ export function RegisterPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="auth-form" noValidate>
+          <form onSubmit={handleSubmit} noValidate>
             {/* Full Name */}
-            <div className="form-group">
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
               <label htmlFor="reg-name" className="form-label">
                 Full Name
               </label>
-              <div className="input-wrapper">
-                <span className="input-icon-left">
+              <div className="login-input-wrapper">
+                <span className="login-input-icon">
                   <User size={18} />
                 </span>
                 <input
                   id="reg-name"
                   type="text"
-                  className={`form-input ${errors.name ? 'input-error' : ''}`}
+                  className={`login-form-input ${errors.name ? 'input-error' : ''}`}
                   placeholder="Enter your full name"
                   value={name}
                   onChange={(e) => {
@@ -151,18 +225,18 @@ export function RegisterPage() {
             </div>
 
             {/* Email Address */}
-            <div className="form-group">
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
               <label htmlFor="reg-email" className="form-label">
                 Email Address
               </label>
-              <div className="input-wrapper">
-                <span className="input-icon-left">
+              <div className="login-input-wrapper">
+                <span className="login-input-icon">
                   <Mail size={18} />
                 </span>
                 <input
                   id="reg-email"
                   type="email"
-                  className={`form-input ${errors.email ? 'input-error' : ''}`}
+                  className={`login-form-input ${errors.email ? 'input-error' : ''}`}
                   placeholder="Enter your email address"
                   value={email}
                   onChange={(e) => {
@@ -182,18 +256,18 @@ export function RegisterPage() {
             </div>
 
             {/* Password */}
-            <div className="form-group">
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
               <label htmlFor="reg-password" className="form-label">
                 Password
               </label>
-              <div className="input-wrapper">
-                <span className="input-icon-left">
+              <div className="login-input-wrapper">
+                <span className="login-input-icon">
                   <Lock size={18} />
                 </span>
                 <input
                   id="reg-password"
                   type={showPassword ? 'text' : 'password'}
-                  className={`form-input ${errors.password ? 'input-error' : ''}`}
+                  className={`login-form-input ${errors.password ? 'input-error' : ''}`}
                   placeholder="Create a password"
                   value={password}
                   onChange={(e) => {
@@ -221,41 +295,41 @@ export function RegisterPage() {
               )}
             </div>
 
-            {/* Real-time Password Complexity Visual Indicator */}
+            {/* Password Criteria checklist */}
             {password.length > 0 && (
-              <div className="password-criteria-box">
+              <div className="password-criteria-box" style={{ marginBottom: '1rem' }}>
                 <div className={`criteria-item ${hasMinLength ? 'valid' : ''}`}>
                   <CheckCircle2 size={13} color={hasMinLength ? 'var(--primary)' : 'var(--text-light)'} />
                   <span>Minimum 8 characters</span>
                 </div>
                 <div className={`criteria-item ${hasUpper ? 'valid' : ''}`}>
                   <CheckCircle2 size={13} color={hasUpper ? 'var(--primary)' : 'var(--text-light)'} />
-                  <span>At least 1 uppercase letter (A-Z)</span>
+                  <span>At least 1 uppercase letter</span>
                 </div>
                 <div className={`criteria-item ${hasLower ? 'valid' : ''}`}>
                   <CheckCircle2 size={13} color={hasLower ? 'var(--primary)' : 'var(--text-light)'} />
-                  <span>At least 1 lowercase letter (a-z)</span>
+                  <span>At least 1 lowercase letter</span>
                 </div>
                 <div className={`criteria-item ${hasNumber ? 'valid' : ''}`}>
                   <CheckCircle2 size={13} color={hasNumber ? 'var(--primary)' : 'var(--text-light)'} />
-                  <span>At least 1 number (0-9)</span>
+                  <span>At least 1 number</span>
                 </div>
               </div>
             )}
 
             {/* Confirm Password */}
-            <div className="form-group">
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
               <label htmlFor="reg-confirm-password" className="form-label">
                 Confirm Password
               </label>
-              <div className="input-wrapper">
-                <span className="input-icon-left">
+              <div className="login-input-wrapper">
+                <span className="login-input-icon">
                   <Lock size={18} />
                 </span>
                 <input
                   id="reg-confirm-password"
                   type={showConfirmPassword ? 'text' : 'password'}
-                  className={`form-input ${errors.confirmPassword ? 'input-error' : ''}`}
+                  className={`login-form-input ${errors.confirmPassword ? 'input-error' : ''}`}
                   placeholder="Confirm your password"
                   value={confirmPassword}
                   onChange={(e) => {
@@ -283,8 +357,8 @@ export function RegisterPage() {
               )}
             </div>
 
-            {/* Terms and Conditions Checkbox */}
-            <div className="form-group">
+            {/* Terms checkbox */}
+            <div className="form-group" style={{ marginBottom: '1.25rem' }}>
               <label className="checkbox-label" htmlFor="reg-terms">
                 <input
                   id="reg-terms"
@@ -309,16 +383,16 @@ export function RegisterPage() {
               )}
             </div>
 
-            {/* Create Account Submit Button */}
+            {/* Submit */}
             <button
               id="btn-create-account"
               type="submit"
-              className="btn-primary"
+              className="btn-login-submit"
               disabled={isSubmitting}
             >
               {isSubmitting ? (
                 <>
-                  <span className="spinner" aria-hidden="true"></span>
+                  <span className="spinner" aria-hidden="true" />
                   <span>Creating Account...</span>
                 </>
               ) : (
@@ -330,11 +404,22 @@ export function RegisterPage() {
             </button>
           </form>
 
-          {/* Navigation to Login */}
-          <div className="auth-footer">
-            Already have an account?
-            <Link href="/login">Sign In</Link>
+          {/* Bottom sign in link */}
+          <div className="login-divider">
+            <span>OR</span>
           </div>
+
+          <div className="login-create-account-prompt">
+            Already have an account?
+          </div>
+          <Link
+            id="link-sign-in"
+            href="/login"
+            className="btn-create-account-link"
+          >
+            <span>Sign In</span>
+            <ArrowRight size={15} />
+          </Link>
         </div>
       </div>
     </div>
