@@ -93,7 +93,7 @@ export function RegisterPage() {
       });
 
       addToast('Account created successfully.', 'success');
-      navigate('/dashboard');
+      navigate('/connect-device');
     } catch (err) {
       const msg = err.message || 'Registration failed. Please try again.';
       setGeneralError(msg);

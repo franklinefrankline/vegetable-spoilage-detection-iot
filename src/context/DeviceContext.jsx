@@ -1,4 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useAuth } from './AuthContext';
+import {
+  connectToDevice as serviceConnect,
+  getDeviceStatus,
+  getSensorData,
+  validateIPAddress
+} from '../services/deviceService';
 
 const DeviceContext = createContext(null);
 
@@ -12,7 +19,7 @@ const INITIAL_VEGETABLES = [
 ];
 
 const INITIAL_ALERTS = [
-  { id: 'a1', title: 'High Humidity Detected', message: 'Storage bay #04 relative humidity exceeded the configured safety threshold (76%).', category: 'warning', time: '14 mins ago', read: false },
+  { id: 'a1', title: 'High Humidity Detected', message: 'Storage bay #04 relative humidity exceeded the configured threshold.', category: 'warning', time: '14 mins ago', read: false },
   { id: 'a2', title: 'Temperature Stable', message: 'Storage temperature normalized to 28.5°C within optimal vegetable preservation limits.', category: 'info', time: '1 hour ago', read: false },
   { id: 'a3', title: 'VOC Volatiles Within Limits', message: 'MQ-135 sensor calibrated: no abnormal ethylene gas accumulation detected.', category: 'info', time: '3 hours ago', read: true },
   { id: 'a4', title: 'ESP32 Wi-Fi Telemetry Re-synced', message: 'Microcontroller gateway successfully renewed dynamic IP lease at 192.168.1.105.', category: 'info', time: 'Yesterday', read: true }
@@ -28,22 +35,42 @@ const INITIAL_HISTORY = [
   { time: '18:00', temp: 28.5, humidity: 72, gas: 420, risk: 18 }
 ];
 
+const getDeviceStorageKey = (user) => {
+  const userId = user?.id || user?.email || 'default_user';
+  return `vegsense_device_${userId}`;
+};
+
 export function DeviceProvider({ children }) {
-  const [isConnected, setIsConnected] = useState(true);
+  const { currentUser, isAuthenticated } = useAuth();
+
+  const [isConnected, setIsConnected] = useState(false);
+  const [isCheckingReachability, setIsCheckingReachability] = useState(false);
+  const [savedDevice, setSavedDevice] = useState(null);
+
   const [device, setDevice] = useState({
     id: 'ESP32-001',
-    ip: '192.168.1.105',
-    status: 'Connected',
-    signal: 'Strong',
-    wifi: 'AgriNet-IoT-2.4G',
+    name: 'ESP32-001',
+    ip: '',
+    ipAddress: '',
+    status: 'Not Connected',
+    signal: 'None',
+    network: 'Wi-Fi',
+    controller: 'ESP32 DevKit V1',
     firmware: 'v2.4.1',
-    uptime: '14h 28m'
+    uptime: '0h 0m',
+    lastConnected: null,
+    temperature: 28.5,
+    humidity: 72,
+    gasLevel: 420,
+    storageStatus: 'FRESH',
+    spoilageRisk: 18
   });
 
   const [sensorData, setSensorData] = useState({
     temperature: 28.5,
     humidity: 72,
     gasVOC: 420,
+    gasLevel: 420,
     spoilageRisk: 18,
     status: 'FRESH',
     storageCondition: 'Stable',
@@ -59,7 +86,83 @@ export function DeviceProvider({ children }) {
     maxGas: 500
   });
 
-  // Micro jitter simulation to keep live charts and telemetry alive
+  // User-specific device persistence: Load and auto-verify when user changes
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser) {
+      setIsConnected(false);
+      setSavedDevice(null);
+      setDevice((prev) => ({
+        ...prev,
+        status: 'Not Connected',
+        ip: '',
+        ipAddress: '',
+        signal: 'None'
+      }));
+      return;
+    }
+
+    const storageKey = getDeviceStorageKey(currentUser);
+    const stored = localStorage.getItem(storageKey);
+
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setSavedDevice(parsed);
+
+        // Auto-check reachability of previously connected device
+        // "Do not falsely show Connected based only on saved data."
+        if (parsed.ipAddress && validateIPAddress(parsed.ipAddress)) {
+          setIsCheckingReachability(true);
+          getDeviceStatus(parsed.ipAddress)
+            .then((res) => {
+              if (res.success) {
+                setIsConnected(true);
+                setDevice((prev) => ({
+                  ...prev,
+                  id: parsed.id || 'ESP32-001',
+                  name: parsed.name || 'ESP32-001',
+                  ip: parsed.ipAddress,
+                  ipAddress: parsed.ipAddress,
+                  status: 'Connected',
+                  signal: 'Strong',
+                  network: 'Wi-Fi',
+                  lastConnected: parsed.lastConnected || new Date().toISOString()
+                }));
+              } else {
+                setIsConnected(false);
+                setDevice((prev) => ({
+                  ...prev,
+                  ip: parsed.ipAddress,
+                  ipAddress: parsed.ipAddress,
+                  status: 'Offline',
+                  signal: 'None'
+                }));
+              }
+            })
+            .catch(() => {
+              setIsConnected(false);
+              setDevice((prev) => ({
+                ...prev,
+                ip: parsed.ipAddress,
+                ipAddress: parsed.ipAddress,
+                status: 'Offline',
+                signal: 'None'
+              }));
+            })
+            .finally(() => {
+              setIsCheckingReachability(false);
+            });
+        }
+      } catch (e) {
+        console.warn('Failed to parse saved device information:', e);
+      }
+    } else {
+      setIsConnected(false);
+      setSavedDevice(null);
+    }
+  }, [isAuthenticated, currentUser]);
+
+  // Micro jitter simulation to keep live telemetry and charts active when connected
   useEffect(() => {
     if (!isConnected) return;
 
@@ -73,7 +176,7 @@ export function DeviceProvider({ children }) {
         const newHum = Math.max(65, Math.min(82, prev.humidity + humJitter));
         const newGas = Math.max(380, Math.min(480, prev.gasVOC + gasJitter));
 
-        // Spoilage calculation estimate
+        // Composite spoilage calculation algorithm
         let riskScore = 14;
         if (newTemp > 29) riskScore += 4;
         if (newHum > 75) riskScore += 5;
@@ -86,6 +189,7 @@ export function DeviceProvider({ children }) {
           temperature: newTemp,
           humidity: newHum,
           gasVOC: newGas,
+          gasLevel: newGas,
           spoilageRisk: riskScore,
           status,
           storageCondition: condition,
@@ -97,25 +201,73 @@ export function DeviceProvider({ children }) {
     return () => clearInterval(interval);
   }, [isConnected]);
 
-  const connectDevice = useCallback((ip) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        setDevice((prev) => ({
-          ...prev,
-          ip: ip || '192.168.1.105',
-          status: 'Connected',
-          signal: 'Strong'
-        }));
-        setIsConnected(true);
-        resolve(true);
-      }, 800);
-    });
-  }, []);
+  // Connect to ESP32: validates IP, checks status, tests sensors, and persists user device
+  const connectDevice = useCallback(
+    async (ip) => {
+      const result = await serviceConnect(ip);
 
+      const deviceData = {
+        id: result.device.id,
+        name: result.device.name,
+        ip: result.device.ipAddress,
+        ipAddress: result.device.ipAddress,
+        status: 'Connected',
+        network: 'Wi-Fi',
+        signal: 'Strong',
+        controller: 'ESP32 DevKit V1',
+        firmware: 'v2.4.1',
+        uptime: '2h 15m',
+        lastConnected: result.device.lastConnected,
+        temperature: result.sensorData.temperature,
+        humidity: result.sensorData.humidity,
+        gasLevel: result.sensorData.gasLevel,
+        storageStatus: result.sensorData.status,
+        spoilageRisk: result.sensorData.spoilageRisk
+      };
+
+      setDevice(deviceData);
+      setSensorData(result.sensorData);
+      setIsConnected(true);
+      setSavedDevice(deviceData);
+
+      // Save user-specific device info in localStorage (no passwords)
+      if (currentUser) {
+        const storageKey = getDeviceStorageKey(currentUser);
+        localStorage.setItem(storageKey, JSON.stringify(deviceData));
+      }
+
+      return result;
+    },
+    [currentUser]
+  );
+
+  // Disconnect device without logging out user session
   const disconnectDevice = useCallback(() => {
     setIsConnected(false);
-    setDevice((prev) => ({ ...prev, status: 'Not Connected', signal: 'None' }));
+    setDevice((prev) => ({
+      ...prev,
+      status: 'Not Connected',
+      signal: 'None'
+    }));
   }, []);
+
+  // Reconnect previously saved device
+  const reconnectDevice = useCallback(async () => {
+    if (!savedDevice?.ipAddress) {
+      throw new Error('No previously connected IP address found.');
+    }
+    return connectDevice(savedDevice.ipAddress);
+  }, [savedDevice, connectDevice]);
+
+  // Clear saved device preferences
+  const clearSavedDevice = useCallback(() => {
+    if (currentUser) {
+      const storageKey = getDeviceStorageKey(currentUser);
+      localStorage.removeItem(storageKey);
+    }
+    setSavedDevice(null);
+    disconnectDevice();
+  }, [currentUser, disconnectDevice]);
 
   const addVegetableBatch = useCallback((newBatch) => {
     setVegetables((prev) => [
@@ -143,17 +295,22 @@ export function DeviceProvider({ children }) {
 
   const value = {
     isConnected,
+    isCheckingReachability,
+    hasSavedDevice: Boolean(savedDevice?.ipAddress),
+    savedDevice,
     device,
     sensorData,
     vegetables,
     alerts,
     history,
     thresholds,
+    unreadAlertsCount,
     connectDevice,
     disconnectDevice,
+    reconnectDevice,
+    clearSavedDevice,
     addVegetableBatch,
     markAlertsAsRead,
-    unreadAlertsCount,
     updateThresholds
   };
 

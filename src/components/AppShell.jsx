@@ -49,19 +49,24 @@ export function AppShell({ children }) {
 
   const { isConnected, device, unreadAlertsCount } = useDevice();
   const dropdownRef = useRef(null);
+  const devicePopoverRef = useRef(null);
+  const [isDeviceStatusOpen, setIsDeviceStatusOpen] = useState(false);
 
-  // Close quick appearance on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     const handleOutsideClick = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsQuickAppearanceOpen(false);
       }
+      if (devicePopoverRef.current && !devicePopoverRef.current.contains(e.target)) {
+        setIsDeviceStatusOpen(false);
+      }
     };
-    if (isQuickAppearanceOpen) {
+    if (isQuickAppearanceOpen || isDeviceStatusOpen) {
       document.addEventListener('mousedown', handleOutsideClick);
     }
     return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [isQuickAppearanceOpen, setIsQuickAppearanceOpen]);
+  }, [isQuickAppearanceOpen, setIsQuickAppearanceOpen, isDeviceStatusOpen]);
 
   const handleLogout = async () => {
     try {
@@ -178,10 +183,50 @@ export function AppShell({ children }) {
                   <Activity size={13} className="telemetry-live-icon" />
                   <span>Storage Live</span>
                 </span>
-                <span className="header-device-pill" onClick={() => navigate('/connect-device')}>
-                  <span className="pulse-led-indicator" />
-                  <span>{device.id || 'ESP32-001'}</span>
-                </span>
+                <div style={{ position: 'relative' }} ref={devicePopoverRef}>
+                  <button
+                    type="button"
+                    className="header-device-pill"
+                    onClick={() => setIsDeviceStatusOpen((prev) => !prev)}
+                    title="View Device Connection Status"
+                  >
+                    <span className={`pulse-led-indicator ${isConnected ? 'pulse-green' : 'pulse-amber'}`} />
+                    <span>{isConnected ? `${device.id || 'ESP32-001'} Connected` : 'ESP32 Offline'}</span>
+                  </button>
+
+                  {isDeviceStatusOpen && (
+                    <div className="device-status-header-popover" role="dialog" aria-label="Device Status">
+                      <div className="status-popover-title">Device Status</div>
+                      <div className="status-popover-row">
+                        <span className="popover-k">Device:</span>
+                        <span className="popover-v">{device.id || 'ESP32-001'}</span>
+                      </div>
+                      <div className="status-popover-row">
+                        <span className="popover-k">IP:</span>
+                        <span className="popover-v" style={{ fontFamily: 'monospace' }}>
+                          {device.ip || device.ipAddress || '192.168.1.105'}
+                        </span>
+                      </div>
+                      <div className="status-popover-row">
+                        <span className="popover-k">Connection:</span>
+                        <span className="popover-v" style={{ color: isConnected ? 'var(--primary)' : 'var(--accent-red)', fontWeight: 800 }}>
+                          {isConnected ? 'Connected' : 'Offline'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        style={{ width: '100%', height: '36px', fontSize: '0.8rem', marginTop: '0.75rem' }}
+                        onClick={() => {
+                          setIsDeviceStatusOpen(false);
+                          navigate('/connect-device');
+                        }}
+                      >
+                        Device Settings
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

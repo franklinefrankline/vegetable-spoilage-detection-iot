@@ -70,7 +70,7 @@ export function LoginPage() {
       });
 
       addToast('Login successful.', 'success');
-      navigate('/dashboard');
+      navigate('/connect-device');
     } catch (err) {
       const msg = err.message || 'Invalid email or password.';
       setGeneralError(msg);

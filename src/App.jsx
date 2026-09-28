@@ -2,7 +2,7 @@ import React from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { AppearanceProvider } from './context/AppearanceContext';
-import { DeviceProvider } from './context/DeviceContext';
+import { DeviceProvider, useDevice } from './context/DeviceContext';
 import { RouterProvider, useLocation } from './router/Router';
 
 // Public Pages
@@ -26,6 +26,7 @@ import { BrandLogo } from './components/BrandLogo';
 
 function AppContent() {
   const { loading, isAuthenticated } = useAuth();
+  const { isConnected } = useDevice();
   const { pathname } = useLocation();
 
   if (loading) {
@@ -67,6 +68,16 @@ function AppContent() {
   // If not authenticated, default to LoginPage
   if (!isAuthenticated) {
     return <LoginPage />;
+  }
+
+  // If authenticated but no connected ESP32, enforce redirection to /connect-device
+  // (Settings is also permitted so users can customize preferences)
+  if (!isConnected && pathname !== '/connect-device' && pathname !== '/settings') {
+    return (
+      <AppShell>
+        <ConnectDevicePage />
+      </AppShell>
+    );
   }
 
   // Protected Pages wrapped in unified AppShell
