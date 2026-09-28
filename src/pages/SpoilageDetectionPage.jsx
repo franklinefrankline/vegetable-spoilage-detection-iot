@@ -84,7 +84,7 @@ export function SpoilageDetectionPage() {
         </div>
 
         {/* Zone Markers */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-light)' }}>
+        <div className="spoilage-zones-grid" style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-light)' }}>
           <div style={{ padding: '0.85rem', borderRadius: 'var(--radius-md)', background: isFresh ? 'var(--primary-light)' : 'var(--bg-subtle)', border: isFresh ? '1px solid var(--primary-border)' : '1px solid transparent' }}>
             <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)' }}>ZONE 1: FRESH</div>
             <div style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-main)', marginTop: '2px' }}>0% - 25% Risk</div>
@@ -106,7 +106,7 @@ export function SpoilageDetectionPage() {
       </div>
 
       {/* Detection Factors & Smart Recommendation Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 'var(--space-unit)', marginBottom: '1.75rem' }}>
+      <div className="spoilage-split-grid" style={{ marginBottom: '1.75rem' }}>
         {/* Detection Factors */}
         <div className="vegsense-card">
           <h2 className="card-title" style={{ marginBottom: '1.25rem' }}>Detection Factors</h2>

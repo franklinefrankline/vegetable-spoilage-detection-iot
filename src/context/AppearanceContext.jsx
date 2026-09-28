@@ -4,86 +4,30 @@ const AppearanceContext = createContext(null);
 
 const STORAGE_KEY = 'vegsense_appearance_settings';
 
-const DEFAULT_SETTINGS = {
-  theme: 'fresh-green',
-  accent: 'green',
-  layout: 'comfortable',
-  sidebarMode: 'expanded',
-  animation: 'subtle',
-  cardStyle: 'rounded',
-  fontSize: 'medium'
-};
-
 export const THEME_OPTIONS = [
   {
-    id: 'fresh-green',
-    name: 'Fresh Green',
-    description: 'Natural agriculture green with soft mint cards and crisp light background.',
-    primary: '#16a34a',
-    secondary: '#14532d',
-    surface: '#ffffff',
-    bg: '#f8fafc',
-    badge: 'Default'
-  },
-  {
     id: 'forest',
-    name: 'Forest',
-    description: 'Deep forest green with warm cream accents and organic farming feel.',
-    primary: '#15803d',
-    secondary: '#052e16',
-    surface: '#ffffff',
-    bg: '#fcfdfa',
-    badge: 'Popular'
-  },
-  {
-    id: 'ocean',
-    name: 'Ocean',
-    description: 'Cool teal and cyan accents with high-tech IoT device atmosphere.',
-    primary: '#0d9488',
-    secondary: '#115e59',
-    surface: '#ffffff',
-    bg: '#f0fdfa',
-    badge: 'Tech'
-  },
-  {
-    id: 'earth',
-    name: 'Earth',
-    description: 'Warm olive, amber, and terracotta tones reflecting fertile soil.',
-    primary: '#65a30d',
+    name: 'FOREST',
+    subtitle: 'Organic',
+    description: 'Premium light agriculture-tech interface with warm cream tones, deep forest & olive greens, soft mint accents, and clean modern typography.',
+    primary: '#1b4d2e',
     secondary: '#365314',
     surface: '#ffffff',
-    bg: '#fbfbf7',
-    badge: 'Natural'
+    bg: '#faf7f0',
+    badge: 'Organic',
+    mode: 'light'
   },
   {
-    id: 'lavender',
-    name: 'Lavender',
-    description: 'Refined modern purple and lavender palette with clean SaaS aesthetics.',
-    primary: '#7c3aed',
-    secondary: '#4c1d95',
-    surface: '#ffffff',
-    bg: '#faf5ff',
-    badge: 'Modern'
-  },
-  {
-    id: 'minimal',
-    name: 'Minimal',
-    description: 'Monochromatic slate and subtle green focus with distraction-free layout.',
-    primary: '#334155',
-    secondary: '#0f172a',
-    surface: '#ffffff',
-    bg: '#f8fafc',
-    badge: 'Clean'
-  },
-  {
-    id: 'dark',
-    name: 'Dark',
-    description: 'Deep charcoal background with high-contrast emerald and cyan telemetry glow.',
-    primary: '#22c55e',
-    secondary: '#15803d',
-    surface: '#1e293b',
-    bg: '#0f172a',
-    badge: 'Night'
+    id: 'night-monitor',
+    name: 'NIGHT MONITOR',
+    subtitle: 'Dark Pro',
+    description: 'Professional dark IoT monitoring interface with deep charcoal navy, emerald & cyan telemetry highlights, and layered dark monitoring cards.',
+    primary: '#10b981',
+    secondary: '#06b6d4',
+    surface: '#111a26',
+    bg: '#0b1118',
+    badge: 'Dark Pro',
+    mode: 'dark'
   }
 ];
 
@@ -95,12 +39,30 @@ export const ACCENT_OPTIONS = [
   { id: 'orange', name: 'Orange', color: '#ea580c' }
 ];
 
+const DEFAULT_SETTINGS = {
+  theme: 'forest',
+  accent: 'green',
+  layout: 'comfortable',
+  sidebarMode: 'expanded',
+  animation: 'subtle',
+  cardStyle: 'rounded',
+  fontSize: 'medium'
+};
+
 export function AppearanceProvider({ children }) {
   const [settings, setSettings] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+        const parsed = JSON.parse(stored);
+        // Normalize legacy or other theme IDs to either forest or night-monitor
+        let normalizedTheme = parsed.theme;
+        if (normalizedTheme === 'dark') {
+          normalizedTheme = 'night-monitor';
+        } else if (normalizedTheme !== 'night-monitor') {
+          normalizedTheme = 'forest';
+        }
+        return { ...DEFAULT_SETTINGS, ...parsed, theme: normalizedTheme };
       }
     } catch (e) {
       console.warn('Could not read appearance settings:', e);
@@ -134,7 +96,12 @@ export function AppearanceProvider({ children }) {
     setSettings((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  const setTheme = useCallback((theme) => updateSetting('theme', theme), [updateSetting]);
+  const setTheme = useCallback((theme) => {
+    // Ensure only valid themes are applied
+    const valid = theme === 'night-monitor' ? 'night-monitor' : 'forest';
+    updateSetting('theme', valid);
+  }, [updateSetting]);
+
   const setAccent = useCallback((accent) => updateSetting('accent', accent), [updateSetting]);
   const setLayout = useCallback((layout) => updateSetting('layout', layout), [updateSetting]);
   const setSidebarMode = useCallback((mode) => updateSetting('sidebarMode', mode), [updateSetting]);
@@ -154,9 +121,14 @@ export function AppearanceProvider({ children }) {
     setIsQuickAppearanceOpen((prev) => !prev);
   }, []);
 
+  const toggleMode = useCallback(() => {
+    setTheme(settings.theme === 'night-monitor' ? 'forest' : 'night-monitor');
+  }, [settings.theme, setTheme]);
+
   const value = {
     settings,
     setTheme,
+    toggleMode,
     setAccent,
     setLayout,
     setSidebarMode,

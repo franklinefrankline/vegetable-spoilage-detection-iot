@@ -16,7 +16,8 @@ import {
   Cpu,
   CheckCircle2,
   TrendingUp,
-  Sparkles
+  Sparkles,
+  HeartPulse
 } from 'lucide-react';
 
 export function DashboardPage() {
@@ -35,115 +36,134 @@ export function DashboardPage() {
   };
 
   return (
-    <div>
+    <div className="dashboard-page-container">
       {/* Top Banner & Greeting */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.75rem' }}>
+      <div className="dashboard-top-bar">
         <div>
-          <h1 style={{ fontSize: '1.85rem', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-main)', marginBottom: '0.25rem' }}>
+          <h1 className="dashboard-greeting-title">
             {greeting}, {currentUser?.name?.split(' ')[0] || 'Storage Manager'}
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+          <p className="dashboard-greeting-subtitle">
             Your storage is being monitored in real time. All atmospheric indices are currently within preservation tolerances.
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="dashboard-device-badge-wrap">
           <div
-            className="vegsense-card"
-            style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+            className="vegsense-card header-device-click-pill"
             onClick={() => navigate('/connect-device')}
             title="View Device Details"
           >
             <Cpu size={16} color="var(--primary)" />
             <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{device.id}</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--primary)' }}>
-              <span className="pulse-led-indicator" style={{ width: '6px', height: '6px' }} />
+              <span className="pulse-led-indicator pulse-green" style={{ width: '6px', height: '6px' }} />
               <span>Connected</span>
             </span>
           </div>
         </div>
       </div>
 
+      {/* MOBILE STORAGE HEALTH BANNER (Visible on mobile viewports) */}
+      <div className="mobile-storage-health-card">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <HeartPulse size={18} color="var(--primary)" />
+            <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-main)' }}>Storage Health</span>
+          </div>
+          <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary)' }}>92%</span>
+        </div>
+        <div className="preview-progress-track">
+          <div className="preview-progress-fill" style={{ width: '92%' }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+          <span>ESP32-001 Live Telemetry</span>
+          <span style={{ color: 'var(--primary)', fontWeight: 700 }}>FRESH</span>
+        </div>
+      </div>
+
       {/* Main Storage Status & Semicircular Risk Gauge */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: 'var(--space-unit)', marginBottom: 'var(--space-unit)' }}>
+      <div className="dashboard-hero-grid">
         {/* Main Status & Spoilage Risk Card */}
         <div className="vegsense-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div className="card-header-row">
-            <div>
-              <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                MAIN STORAGE STATUS
-              </div>
-              <h2 className="card-title" style={{ marginTop: '0.2rem' }}>Storage Condition & Spoilage Estimation</h2>
-            </div>
-            <span className="risk-meter-status-badge status-badge-fresh">
-              <CheckCircle2 size={13} />
-              <span>{sensorData.status}</span>
-            </span>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: '1.5rem', alignItems: 'center', margin: '0.5rem 0' }}>
-            {/* Circular Risk Meter */}
-            <div className="risk-meter-wrapper" style={{ margin: 0 }}>
-              <svg width="150" height="150" viewBox="0 0 120 120">
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="50"
-                  fill="none"
-                  stroke="var(--border-light)"
-                  strokeWidth="10"
-                />
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="50"
-                  fill="none"
-                  stroke="var(--primary)"
-                  strokeWidth="10"
-                  strokeDasharray="314"
-                  strokeDashoffset={314 - (314 * sensorData.spoilageRisk) / 100}
-                  strokeLinecap="round"
-                  transform="rotate(-90 60 60)"
-                  style={{ transition: 'stroke-dashoffset 0.8s ease' }}
-                />
-              </svg>
-              <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <span className="risk-meter-value" style={{ fontSize: '2rem' }}>{sensorData.spoilageRisk}%</span>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>SPOILAGE RISK</span>
-              </div>
-            </div>
-
-            {/* Status breakdown details */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div>
+            <div className="card-header-row">
               <div>
-                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '-0.02em' }}>
-                  Optimal Environment
+                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  MAIN STORAGE STATUS
                 </div>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                  DHT22 climate telemetry and MQ-135 volatile gas metrics confirm that storage atmosphere remains in the <strong>fresh preservation zone</strong>.
-                </p>
+                <h2 className="card-title" style={{ marginTop: '0.2rem' }}>Storage Condition & Spoilage Estimation</h2>
+              </div>
+              <span className="risk-meter-status-badge status-badge-fresh">
+                <CheckCircle2 size={13} />
+                <span>{sensorData.status}</span>
+              </span>
+            </div>
+
+            <div className="dashboard-gauge-layout">
+              {/* Circular Risk Meter */}
+              <div className="risk-meter-wrapper" style={{ margin: 0 }}>
+                <svg width="150" height="150" viewBox="0 0 120 120">
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="var(--border-light)"
+                    strokeWidth="10"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="var(--primary)"
+                    strokeWidth="10"
+                    strokeDasharray="314"
+                    strokeDashoffset={314 - (314 * sensorData.spoilageRisk) / 100}
+                    strokeLinecap="round"
+                    transform="rotate(-90 60 60)"
+                    style={{ transition: 'stroke-dashoffset 0.8s ease' }}
+                  />
+                </svg>
+                <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span className="risk-meter-value" style={{ fontSize: '2rem' }}>{sensorData.spoilageRisk}%</span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>SPOILAGE RISK</span>
+                </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}>
-                  Freshness Index: 98.2%
-                </span>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}>
-                  Ethylene: Low
-                </span>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}>
-                  Decay Probability: Negligible
-                </span>
+              {/* Status breakdown details */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '-0.02em' }}>
+                    Optimal Environment
+                  </div>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    DHT22 climate telemetry and MQ-135 volatile gas metrics confirm that storage atmosphere remains in the <strong>fresh preservation zone</strong>.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}>
+                    Freshness Index: 98.2%
+                  </span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}>
+                    Ethylene: Low
+                  </span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}>
+                    Decay Probability: Negligible
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-light)', paddingTop: '0.85rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-light)', paddingTop: '0.85rem', marginTop: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
             <span>Telemetry Stream: Active</span>
             <button
               type="button"
               onClick={() => navigate('/spoilage')}
-              style={{ color: 'var(--primary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}
+              style={{ color: 'var(--primary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px', background: 'none', border: 'none', cursor: 'pointer' }}
             >
               Detailed Risk Breakdown &rarr;
             </button>
@@ -158,7 +178,7 @@ export function DashboardPage() {
               <button
                 type="button"
                 onClick={() => navigate('/alerts')}
-                style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}
+                style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 View All
               </button>
@@ -185,11 +205,11 @@ export function DashboardPage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-light)', paddingTop: '0.85rem', fontSize: '0.775rem', color: 'var(--text-muted)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-light)', paddingTop: '0.85rem', marginTop: '1rem', fontSize: '0.775rem', color: 'var(--text-muted)' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <Clock size={13} /> Last Updated: Just now ({formatTime(sensorData.lastUpdated)})
             </span>
-            <span className="pulse-led-indicator" style={{ width: '6px', height: '6px' }} />
+            <span className="pulse-led-indicator pulse-green" style={{ width: '6px', height: '6px' }} />
           </div>
         </div>
       </div>
@@ -262,11 +282,11 @@ export function DashboardPage() {
             </div>
           </div>
           <div style={{ fontSize: '1.85rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', marginBottom: '0.35rem' }}>
-            {sensorData.storageCondition}
+            Stable
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.775rem' }}>
             <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
-              Early Warning: None
+              Risk: {sensorData.spoilageRisk}% (Fresh)
             </span>
             <span style={{ color: 'var(--text-muted)' }}>Auto Analyzed</span>
           </div>
@@ -275,33 +295,30 @@ export function DashboardPage() {
 
       {/* LIVE STORAGE MONITOR: Real-Time Charts */}
       <div className="vegsense-card">
-        <div className="card-header-row">
+        <div className="card-header-row live-monitor-header">
           <div>
             <h2 className="card-title">LIVE STORAGE MONITOR</h2>
             <div className="card-subtitle">Real-time continuous telemetry stream from ESP32 gateway</div>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--bg-subtle)', padding: '0.25rem', borderRadius: 'var(--radius-md)' }}>
+          <div className="chart-toggle-tabs">
             <button
               type="button"
-              className={`btn-secondary ${activeChart === 'temp' ? 'active' : ''}`}
-              style={{ height: '32px', fontSize: '0.775rem', padding: '0 0.85rem', border: 'none', background: activeChart === 'temp' ? 'var(--bg-card)' : 'transparent', fontWeight: activeChart === 'temp' ? 700 : 500 }}
+              className={`chart-tab-btn ${activeChart === 'temp' ? 'active' : ''}`}
               onClick={() => setActiveChart('temp')}
             >
               Temperature (°C)
             </button>
             <button
               type="button"
-              className={`btn-secondary ${activeChart === 'humidity' ? 'active' : ''}`}
-              style={{ height: '32px', fontSize: '0.775rem', padding: '0 0.85rem', border: 'none', background: activeChart === 'humidity' ? 'var(--bg-card)' : 'transparent', fontWeight: activeChart === 'humidity' ? 700 : 500 }}
+              className={`chart-tab-btn ${activeChart === 'humidity' ? 'active' : ''}`}
               onClick={() => setActiveChart('humidity')}
             >
               Humidity (%)
             </button>
             <button
               type="button"
-              className={`btn-secondary ${activeChart === 'gas' ? 'active' : ''}`}
-              style={{ height: '32px', fontSize: '0.775rem', padding: '0 0.85rem', border: 'none', background: activeChart === 'gas' ? 'var(--bg-card)' : 'transparent', fontWeight: activeChart === 'gas' ? 700 : 500 }}
+              className={`chart-tab-btn ${activeChart === 'gas' ? 'active' : ''}`}
               onClick={() => setActiveChart('gas')}
             >
               Gas / VOC (ppm)
@@ -310,7 +327,7 @@ export function DashboardPage() {
         </div>
 
         {/* Responsive Clean SVG Line Chart */}
-        <div style={{ width: '100%', height: '240px', position: 'relative', marginTop: '1rem' }}>
+        <div className="chart-svg-container">
           <svg width="100%" height="100%" viewBox="0 0 700 220" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
             <defs>
               <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
@@ -378,24 +395,15 @@ export function DashboardPage() {
             )}
           </svg>
 
-          {/* Time axis markers */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            <span>00:00</span>
-            <span>04:00</span>
-            <span>08:00</span>
-            <span>12:00</span>
-            <span>16:00</span>
-            <span>20:00</span>
-            <span style={{ fontWeight: 700, color: 'var(--primary)' }}>Now ({formatTime(sensorData.lastUpdated)})</span>
+          {/* Time axis stamps */}
+          <div className="chart-time-labels">
+            <span>10m ago</span>
+            <span>8m ago</span>
+            <span>6m ago</span>
+            <span>4m ago</span>
+            <span>2m ago</span>
+            <span style={{ color: 'var(--primary)', fontWeight: 700 }}>Now</span>
           </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1.25rem', paddingTop: '0.85rem', borderTop: '1px solid var(--border-light)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <span className="pulse-led-indicator" style={{ width: '6px', height: '6px' }} />
-            <span>Live data updating every 4 seconds from ESP32</span>
-          </span>
-          <span style={{ fontWeight: 600 }}>Active Storage Chamber #04</span>
         </div>
       </div>
     </div>

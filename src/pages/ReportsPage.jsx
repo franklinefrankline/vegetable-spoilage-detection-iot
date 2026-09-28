@@ -54,11 +54,11 @@ export function ReportsPage() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div className="reports-action-group" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button
             type="button"
             className="btn-secondary"
-            style={{ height: '40px' }}
+            style={{ height: '42px' }}
             onClick={handlePrintPDF}
           >
             <Printer size={16} />
@@ -68,7 +68,7 @@ export function ReportsPage() {
           <button
             type="button"
             className="btn-primary"
-            style={{ height: '40px', width: 'auto', padding: '0 1.25rem' }}
+            style={{ height: '42px' }}
             onClick={handleDownloadCSV}
           >
             <Download size={16} />

@@ -13,11 +13,16 @@ import {
   RotateCcw,
   CheckCircle2,
   Sparkles,
-  Layers,
-  Type,
-  Square,
+  Sun,
+  Moon,
+  Check,
   Activity,
-  ArrowRight
+  Layers,
+  CheckCircle,
+  Thermometer,
+  Droplets,
+  Wind,
+  ShieldAlert
 } from 'lucide-react';
 
 export function SettingsPage() {
@@ -28,6 +33,7 @@ export function SettingsPage() {
   const {
     settings,
     setTheme,
+    toggleMode,
     setAccent,
     setLayout,
     setSidebarMode,
@@ -57,7 +63,7 @@ export function SettingsPage() {
 
   const handleResetAppearance = () => {
     resetToDefault();
-    addToast('Appearance reset to default (Fresh Green).', 'info');
+    addToast('Appearance reset to default (Forest — Organic).', 'info');
   };
 
   const tabs = [
@@ -69,278 +75,397 @@ export function SettingsPage() {
     { id: 'security', label: 'Security', icon: Shield }
   ];
 
-  return (
-    <div style={{ maxWidth: '1080px', margin: '0 auto' }}>
-      {/* Page Header */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.85rem', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-main)', marginBottom: '0.25rem' }}>
-          System Settings & Customization
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-          Configure visual themes, storage safety thresholds, alerting preferences, and hardware telemetry.
-        </p>
+  // Helper render for Live Preview Panel (used in desktop right column and mobile bottom)
+  const renderLivePreviewCard = () => (
+    <div className="settings-live-preview-card">
+      <div className="preview-header-row">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Sparkles size={16} color="var(--primary)" />
+          <span style={{ fontWeight: 800, fontSize: '0.85rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-main)' }}>
+            LIVE PREVIEW
+          </span>
+        </div>
+        <span className="live-preview-status-pill">
+          <span className="pulse-led-indicator pulse-green" style={{ width: '6px', height: '6px' }} />
+          <span>Connected</span>
+        </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '1.75rem', alignItems: 'start' }}>
-        {/* Settings Navigation Sidebar */}
-        <div className="vegsense-card" style={{ padding: '0.75rem' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.65rem',
-                    padding: '0.65rem 0.85rem',
-                    borderRadius: 'var(--radius-md)',
-                    border: 'none',
-                    background: isActive ? 'var(--primary-light)' : 'transparent',
-                    color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
-                    fontWeight: isActive ? 700 : 500,
-                    fontSize: '0.85rem',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <Icon size={17} />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
+      <p style={{ fontSize: '0.785rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: 1.4 }}>
+        Real-time simulation of your VegSense interface with active theme, accent, and card styles:
+      </p>
+
+      {/* Miniature preview board */}
+      <div className="mini-preview-board">
+        {/* Storage Health */}
+        <div className="preview-health-banner">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main)' }}>Storage Health</span>
+            <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--primary)' }}>92%</span>
+          </div>
+          <div className="preview-progress-track">
+            <div className="preview-progress-fill" style={{ width: '92%' }} />
           </div>
         </div>
 
-        {/* Settings Tab Content */}
-        <div>
+        {/* 2x2 Telemetry Grid */}
+        <div className="preview-telemetry-grid">
+          <div className="preview-telemetry-item">
+            <span className="preview-telemetry-label">Temperature</span>
+            <span className="preview-telemetry-val">28.5°C</span>
+          </div>
+
+          <div className="preview-telemetry-item">
+            <span className="preview-telemetry-label">Humidity</span>
+            <span className="preview-telemetry-val">72%</span>
+          </div>
+
+          <div className="preview-telemetry-item">
+            <span className="preview-telemetry-label">Gas / VOC</span>
+            <span className="preview-telemetry-val" style={{ color: 'var(--primary)' }}>Normal</span>
+          </div>
+
+          <div className="preview-telemetry-item">
+            <span className="preview-telemetry-label">Spoilage Risk</span>
+            <span className="preview-telemetry-val">18%</span>
+          </div>
+        </div>
+
+        {/* Status Badge */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.85rem' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Status:</span>
+          <span className="risk-meter-status-badge status-badge-fresh" style={{ margin: 0, padding: '0.2rem 0.65rem' }}>
+            <CheckCircle2 size={12} />
+            <span>FRESH</span>
+          </span>
+        </div>
+
+        {/* Sample Action Buttons */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
+          <button type="button" className="btn-primary" style={{ height: '36px', fontSize: '0.8rem', width: '100%', justifyContent: 'center' }}>
+            Primary Action
+          </button>
+          <button type="button" className="btn-secondary" style={{ height: '36px', fontSize: '0.8rem', width: '100%', justifyContent: 'center' }}>
+            Secondary Action
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="settings-page-container">
+      {/* Page Header */}
+      <div className="settings-title-section">
+        <div className="settings-section-badge">
+          <span>SYSTEM CONTROL CENTER</span>
+        </div>
+        <h1 className="settings-main-title">
+          Personalize your VegSense workspace.
+        </h1>
+        <p className="settings-main-desc">
+          Switch between organic agriculture aesthetics and pro IoT dark monitoring, customize telemetry accents, and adjust storage tolerances.
+        </p>
+      </div>
+
+      {/* Main Responsive Grid Layout */}
+      <div className={`settings-layout-wrapper ${activeTab === 'appearance' ? 'has-live-preview' : 'standard-layout'}`}>
+        
+        {/* COLUMN 1 (Desktop) / TOP TABS (Mobile): Slim Navigation Rail */}
+        <div className="settings-nav-rail">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                className={`settings-nav-tab-btn ${isActive ? 'active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <Icon size={18} className="tab-icon" />
+                <span className="tab-label">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* COLUMN 2 (Desktop) / MAIN CONTENT (Mobile): Selected Settings Panel */}
+        <div className="settings-content-area">
+          
           {/* =========================================================================
-              TAB: APPEARANCE (Full Engine with Live Preview)
+              TAB: APPEARANCE STUDIO
               ========================================================================= */}
           {activeTab === 'appearance' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
-              <div className="vegsense-card">
-                <div className="card-header-row">
+            <div className="appearance-studio-wrapper">
+              <div className="vegsense-card appearance-studio-card">
+                {/* Header Row */}
+                <div className="card-header-row appearance-card-header">
                   <div>
-                    <h2 className="card-title">Customize how VegSense looks.</h2>
-                    <div className="card-subtitle">Personalize the entire application visual experience in real time.</div>
+                    <h2 className="card-title" style={{ fontSize: '1.25rem' }}>Appearance Studio</h2>
+                    <div className="card-subtitle">Choose your primary theme and customize layout density.</div>
                   </div>
                   <button
                     type="button"
-                    className="btn-secondary"
-                    style={{ height: '34px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    className="btn-secondary reset-appearance-btn"
                     onClick={handleResetAppearance}
+                    title="Reset to Forest"
                   >
                     <RotateCcw size={14} />
                     <span>Reset to Default</span>
                   </button>
                 </div>
 
-                {/* 1. Theme Selector: 7 Theme Cards */}
-                <div style={{ marginBottom: '2rem' }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '0.85rem' }}>
-                    1. Choose Your Style (7 Themes)
+                {/* 1. Theme Selector: ONLY TWO VISUAL THEMES */}
+                <div className="appearance-section-block">
+                  <div className="section-label-heading">
+                    1. Choose Visual Theme
                   </div>
+                  <p className="section-label-subtext">
+                    Select between the Organic Agriculture light aesthetic and the Dark Pro IoT monitoring interface.
+                  </p>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.85rem' }}>
-                    {THEME_OPTIONS.map((theme) => {
-                      const isSelected = settings.theme === theme.id;
-                      return (
-                        <div
-                          key={theme.id}
-                          className="vegsense-card"
-                          style={{
-                            padding: '1rem',
-                            cursor: 'pointer',
-                            border: isSelected ? '2px solid var(--primary)' : '1px solid var(--border-light)',
-                            background: isSelected ? 'var(--primary-light)' : 'var(--bg-card)',
-                            boxShadow: isSelected ? '0 0 0 3px var(--primary-glow)' : 'var(--shadow-sm)',
-                            transition: 'all 0.15s ease'
-                          }}
-                          onClick={() => setTheme(theme.id)}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: theme.primary, border: '2px solid #ffffff', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
-                            <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '0.15rem 0.5rem', borderRadius: '9999px', background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}>
-                              {theme.badge}
-                            </span>
-                          </div>
-                          <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)', marginBottom: '0.2rem' }}>
-                            {theme.name}
-                          </div>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.35 }}>
-                            {theme.description}
-                          </p>
+                  <div className="dual-theme-selector-grid">
+                    {/* Theme 1: FOREST — Organic */}
+                    <div
+                      className={`theme-showcase-card forest-showcase ${settings.theme === 'forest' ? 'selected' : ''}`}
+                      onClick={() => setTheme('forest')}
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Select Forest Organic Theme"
+                    >
+                      {/* Miniature Dashboard Preview */}
+                      <div className="mini-theme-preview forest-preview-bg">
+                        <div className="mini-dash-header">
+                          <span className="mini-dash-brand">VegSense</span>
+                          <span className="mini-dash-status-dot green" />
                         </div>
-                      );
-                    })}
+                        <div className="mini-dash-card-box">
+                          <div className="mini-dash-metric-title">Storage Status</div>
+                          <div className="mini-dash-metric-val">FRESH • 18%</div>
+                          <div className="mini-dash-bar">
+                            <div className="mini-dash-bar-fill forest" />
+                          </div>
+                        </div>
+                        <div className="mini-dash-botanical-accent">🌿 Organic Light</div>
+                      </div>
+
+                      <div className="theme-card-info">
+                        <div className="theme-card-title-row">
+                          <div>
+                            <span className="theme-card-main-name">FOREST</span>
+                            <span className="theme-card-sub-name">Organic</span>
+                          </div>
+                          {settings.theme === 'forest' && (
+                            <div className="theme-selected-check">
+                              <Check size={14} />
+                            </div>
+                          )}
+                        </div>
+                        <p className="theme-card-desc">
+                          Warm cream background, deep forest & olive greens, soft mint, and clean botanical lines.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Theme 2: NIGHT MONITOR — Dark Pro */}
+                    <div
+                      className={`theme-showcase-card night-showcase ${settings.theme === 'night-monitor' ? 'selected' : ''}`}
+                      onClick={() => setTheme('night-monitor')}
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Select Night Monitor Dark Pro Theme"
+                    >
+                      {/* Miniature Dashboard Preview */}
+                      <div className="mini-theme-preview night-preview-bg">
+                        <div className="mini-dash-header dark">
+                          <span className="mini-dash-brand cyan">VegSense Pro</span>
+                          <span className="mini-dash-status-dot cyan-pulse" />
+                        </div>
+                        <div className="mini-dash-card-box dark">
+                          <div className="mini-dash-metric-title dark">IoT Monitor</div>
+                          <div className="mini-dash-metric-val cyan">FRESH • 18%</div>
+                          <div className="mini-dash-bar dark">
+                            <div className="mini-dash-bar-fill cyan" />
+                          </div>
+                        </div>
+                        <div className="mini-dash-telemetry-accent">⚡ Telemetry Dark</div>
+                      </div>
+
+                      <div className="theme-card-info">
+                        <div className="theme-card-title-row">
+                          <div>
+                            <span className="theme-card-main-name">NIGHT MONITOR</span>
+                            <span className="theme-card-sub-name">Dark Pro</span>
+                          </div>
+                          {settings.theme === 'night-monitor' && (
+                            <div className="theme-selected-check">
+                              <Check size={14} />
+                            </div>
+                          )}
+                        </div>
+                        <p className="theme-card-desc">
+                          Deep charcoal navy, emerald & cyan telemetry glow, and layered dark monitoring cards.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* 2. Accent Color: 5 Colors */}
-                <div style={{ marginBottom: '2rem', borderTop: '1px solid var(--border-light)', paddingTop: '1.5rem' }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '0.85rem' }}>
-                    2. Accent Color
+                {/* 2. Quick Mode Toggle */}
+                <div className="appearance-section-block">
+                  <div className="section-label-heading">
+                    2. Quick Appearance Mode
                   </div>
+                  <div className="quick-mode-touch-grid">
+                    <button
+                      type="button"
+                      className={`quick-mode-btn ${settings.theme === 'forest' ? 'active' : ''}`}
+                      onClick={() => setTheme('forest')}
+                    >
+                      <Sun size={18} />
+                      <span>☀ Forest Light</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`quick-mode-btn ${settings.theme === 'night-monitor' ? 'active' : ''}`}
+                      onClick={() => setTheme('night-monitor')}
+                    >
+                      <Moon size={18} />
+                      <span>☾ Night Pro Dark</span>
+                    </button>
+                  </div>
+                </div>
 
-                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                {/* 3. Accent Colors */}
+                <div className="appearance-section-block">
+                  <div className="section-label-heading">
+                    3. Telemetry Accent Color
+                  </div>
+                  <p className="section-label-subtext">
+                    Applies to active highlights, buttons, charts, and telemetry status rings.
+                  </p>
+                  <div className="accent-color-touch-row">
                     {ACCENT_OPTIONS.map((accent) => {
                       const isSelected = settings.accent === accent.id;
                       return (
                         <button
                           key={accent.id}
                           type="button"
+                          className={`accent-circle-touch-btn ${isSelected ? 'selected' : ''}`}
+                          style={{ backgroundColor: accent.color }}
                           onClick={() => setAccent(accent.id)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            padding: '0.5rem 0.85rem',
-                            borderRadius: 'var(--radius-md)',
-                            border: isSelected ? `2px solid ${accent.color}` : '1px solid var(--border-light)',
-                            background: isSelected ? 'var(--bg-subtle)' : 'var(--bg-card)',
-                            cursor: 'pointer'
-                          }}
+                          title={accent.name}
+                          aria-label={`Select ${accent.name} accent`}
                         >
-                          <span style={{ width: '16px', height: '16px', borderRadius: '50%', background: accent.color }} />
-                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>{accent.name}</span>
+                          {isSelected && <Check size={16} color="#ffffff" strokeWidth={3} />}
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* 3. Layout, Sidebar, Animation, Card Style, Font Size Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', borderTop: '1px solid var(--border-light)', paddingTop: '1.5rem' }}>
-                  {/* Layout Style */}
-                  <div>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.5rem' }}>
-                      Layout Density
-                    </label>
-                    <select
-                      value={settings.layout}
-                      onChange={(e) => setLayout(e.target.value)}
-                      className="login-form-input no-left-icon"
-                      style={{ height: '40px', fontSize: '0.85rem' }}
-                    >
-                      <option value="compact">Compact (Dense)</option>
-                      <option value="comfortable">Comfortable (Default)</option>
-                      <option value="spacious">Spacious (Relaxed)</option>
-                    </select>
+                {/* 4. Workspace Style (Touch-friendly stacked controls) */}
+                <div className="appearance-section-block workspace-style-section">
+                  <div className="section-label-heading">
+                    4. Workspace Style & Geometry
                   </div>
 
-                  {/* Sidebar Options */}
-                  <div>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.5rem' }}>
-                      Sidebar Mode
-                    </label>
-                    <select
-                      value={settings.sidebarMode}
-                      onChange={(e) => setSidebarMode(e.target.value)}
-                      className="login-form-input no-left-icon"
-                      style={{ height: '40px', fontSize: '0.85rem' }}
-                    >
-                      <option value="expanded">Expanded (Full width)</option>
-                      <option value="compact">Compact (Icons only)</option>
-                      <option value="hidden">Hidden (Drawer only)</option>
-                    </select>
-                  </div>
+                  <div className="workspace-controls-stack">
+                    {/* Layout */}
+                    <div className="workspace-control-item">
+                      <label className="workspace-control-label">Layout Density</label>
+                      <div className="segmented-touch-group">
+                        {['compact', 'comfortable', 'spacious'].map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            className={`segmented-btn ${settings.layout === opt ? 'active' : ''}`}
+                            onClick={() => setLayout(opt)}
+                          >
+                            {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-                  {/* Animation Options */}
-                  <div>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.5rem' }}>
-                      Animations
-                    </label>
-                    <select
-                      value={settings.animation}
-                      onChange={(e) => setAnimation(e.target.value)}
-                      className="login-form-input no-left-icon"
-                      style={{ height: '40px', fontSize: '0.85rem' }}
-                    >
-                      <option value="full">Full (Dynamic)</option>
-                      <option value="subtle">Subtle (Default)</option>
-                      <option value="off">Off (Static)</option>
-                    </select>
-                  </div>
+                    {/* Navigation */}
+                    <div className="workspace-control-item">
+                      <label className="workspace-control-label">Navigation Sidebar</label>
+                      <div className="segmented-touch-group">
+                        {[
+                          { id: 'expanded', label: 'Expanded' },
+                          { id: 'compact', label: 'Compact' },
+                          { id: 'hidden', label: 'Auto / Hidden' }
+                        ].map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            className={`segmented-btn ${settings.sidebarMode === opt.id ? 'active' : ''}`}
+                            onClick={() => setSidebarMode(opt.id)}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-                  {/* Card Style */}
-                  <div>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.5rem' }}>
-                      Card Style
-                    </label>
-                    <select
-                      value={settings.cardStyle}
-                      onChange={(e) => setCardStyle(e.target.value)}
-                      className="login-form-input no-left-icon"
-                      style={{ height: '40px', fontSize: '0.85rem' }}
-                    >
-                      <option value="rounded">Rounded (16px)</option>
-                      <option value="soft">Soft (24px)</option>
-                      <option value="sharp">Sharp (6px)</option>
-                    </select>
-                  </div>
+                    {/* Animation */}
+                    <div className="workspace-control-item">
+                      <label className="workspace-control-label">Animation Level</label>
+                      <div className="segmented-touch-group">
+                        {['full', 'subtle', 'off'].map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            className={`segmented-btn ${settings.animation === opt ? 'active' : ''}`}
+                            onClick={() => setAnimation(opt)}
+                          >
+                            {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-                  {/* Font Size */}
-                  <div>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.5rem' }}>
-                      Font Size
-                    </label>
-                    <select
-                      value={settings.fontSize}
-                      onChange={(e) => setFontSize(e.target.value)}
-                      className="login-form-input no-left-icon"
-                      style={{ height: '40px', fontSize: '0.85rem' }}
-                    >
-                      <option value="small">Small (13.5px)</option>
-                      <option value="medium">Medium (15px Default)</option>
-                      <option value="large">Large (16.5px)</option>
-                    </select>
+                    {/* Card Style */}
+                    <div className="workspace-control-item">
+                      <label className="workspace-control-label">Card Style</label>
+                      <div className="segmented-touch-group">
+                        {['rounded', 'soft', 'sharp'].map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            className={`segmented-btn ${settings.cardStyle === opt ? 'active' : ''}`}
+                            onClick={() => setCardStyle(opt)}
+                          >
+                            {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Font Size */}
+                    <div className="workspace-control-item">
+                      <label className="workspace-control-label">Font Scale</label>
+                      <div className="segmented-touch-group">
+                        {['small', 'medium', 'large'].map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            className={`segmented-btn ${settings.fontSize === opt ? 'active' : ''}`}
+                            onClick={() => setFontSize(opt)}
+                          >
+                            {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* LIVE PREVIEW CARD */}
-              <div className="vegsense-card" style={{ border: '2px dashed var(--primary)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--primary)' }}>
-                  <Sparkles size={20} />
-                  <h3 className="card-title">LIVE PREVIEW</h3>
-                </div>
-
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-                  See your active theme, accent, and card curvature updates reflected instantly below:
-                </p>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'center' }}>
-                  <div style={{ padding: '1rem', background: 'var(--bg-subtle)', borderRadius: 'var(--card-radius)', border: '1px solid var(--border-light)' }}>
-                    <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)', marginBottom: '0.25rem' }}>
-                      VegSense Storage Bay #04
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      Active Theme: <strong>{settings.theme}</strong> • Accent: <strong>{settings.accent}</strong>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.85rem' }}>
-                      <span className="risk-meter-status-badge status-badge-fresh" style={{ marginTop: 0 }}>
-                        Fresh (18%)
-                      </span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '0.2rem 0.6rem', borderRadius: '9999px', background: 'var(--primary-light)', color: 'var(--primary)' }}>
-                        28.5°C
-                      </span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <button type="button" className="btn-primary" style={{ height: '42px' }}>
-                      Primary Action Button
-                    </button>
-                    <button type="button" className="btn-secondary" style={{ height: '42px' }}>
-                      Secondary Neutral Button
-                    </button>
-                  </div>
+                {/* MOBILE LIVE PREVIEW (Placed directly below controls on mobile) */}
+                <div className="mobile-only-live-preview">
+                  {renderLivePreviewCard()}
                 </div>
               </div>
             </div>
@@ -351,65 +476,69 @@ export function SettingsPage() {
               ========================================================================= */}
           {activeTab === 'thresholds' && (
             <div className="vegsense-card">
-              <h2 className="card-title" style={{ marginBottom: '0.5rem' }}>Storage Environmental Thresholds</h2>
-              <p className="card-subtitle" style={{ marginBottom: '1.75rem' }}>
-                Set safety alarm triggers for temperature, relative humidity, and MQ-135 volatile organic gas levels.
-              </p>
+              <div className="card-header-row">
+                <div>
+                  <h2 className="card-title">Storage Safety Thresholds</h2>
+                  <div className="card-subtitle">Set critical limits for DHT22 and MQ-135 sensors to trigger alerts.</div>
+                </div>
+              </div>
 
-              <form onSubmit={handleSaveThresholds}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '2rem' }}>
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', fontWeight: 700, fontSize: '0.9rem' }}>
-                      <span>Temperature Warning Threshold (°C)</span>
-                      <span style={{ color: 'var(--primary)', fontWeight: 800 }}>{maxTemp}°C</span>
+              <form onSubmit={handleSaveThresholds} style={{ marginTop: '1.25rem' }}>
+                <div className="thresholds-form-grid">
+                  <div className="threshold-input-card">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <Thermometer size={16} color="var(--primary)" />
+                      <label className="threshold-card-label">Max Temperature (°C)</label>
                     </div>
                     <input
-                      type="range"
-                      min="20"
-                      max="38"
+                      type="number"
+                      step="0.1"
                       value={maxTemp}
-                      onChange={(e) => setMaxTemp(Number(e.target.value))}
-                      style={{ width: '100%', accentColor: 'var(--primary)' }}
+                      onChange={(e) => setMaxTemp(parseFloat(e.target.value))}
+                      className="login-form-input no-left-icon"
+                      required
                     />
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Alert will trigger if chamber exceeds this value.</div>
+                    <div className="threshold-card-hint">Triggers warning if ambient temperature exceeds limit.</div>
                   </div>
 
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', fontWeight: 700, fontSize: '0.9rem' }}>
-                      <span>Relative Humidity Safety Ceiling (%)</span>
-                      <span style={{ color: 'var(--primary)', fontWeight: 800 }}>{maxHumidity}%</span>
+                  <div className="threshold-input-card">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <Droplets size={16} color="var(--primary)" />
+                      <label className="threshold-card-label">Max Humidity (% RH)</label>
                     </div>
                     <input
-                      type="range"
-                      min="60"
-                      max="90"
+                      type="number"
+                      step="1"
                       value={maxHumidity}
-                      onChange={(e) => setMaxHumidity(Number(e.target.value))}
-                      style={{ width: '100%', accentColor: 'var(--primary)' }}
+                      onChange={(e) => setMaxHumidity(parseInt(e.target.value, 10))}
+                      className="login-form-input no-left-icon"
+                      required
                     />
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Excess humidity promotes fungal spores and bacterial spoilage.</div>
+                    <div className="threshold-card-hint">High moisture increases fungal mold germination.</div>
                   </div>
 
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', fontWeight: 700, fontSize: '0.9rem' }}>
-                      <span>Gas / VOC Trigger Limit (ppm)</span>
-                      <span style={{ color: 'var(--primary)', fontWeight: 800 }}>{maxGas} ppm</span>
+                  <div className="threshold-input-card">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <Wind size={16} color="var(--primary)" />
+                      <label className="threshold-card-label">Max VOC / Gas (ppm)</label>
                     </div>
                     <input
-                      type="range"
-                      min="400"
-                      max="800"
+                      type="number"
+                      step="5"
                       value={maxGas}
-                      onChange={(e) => setMaxGas(Number(e.target.value))}
-                      style={{ width: '100%', accentColor: 'var(--primary)' }}
+                      onChange={(e) => setMaxGas(parseInt(e.target.value, 10))}
+                      className="login-form-input no-left-icon"
+                      required
                     />
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>MQ-135 detects ethylene and ammonia emitted during early vegetable breakdown.</div>
+                    <div className="threshold-card-hint">Detects ethylene and decomposition gas buildup.</div>
                   </div>
                 </div>
 
-                <button type="submit" className="btn-primary" style={{ width: 'auto', padding: '0 1.5rem' }}>
-                  Save Thresholds
-                </button>
+                <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="submit" className="btn-primary" style={{ padding: '0.75rem 1.5rem', width: 'auto' }}>
+                    Save Threshold Limits
+                  </button>
+                </div>
               </form>
             </div>
           )}
@@ -419,60 +548,53 @@ export function SettingsPage() {
               ========================================================================= */}
           {activeTab === 'notifications' && (
             <div className="vegsense-card">
-              <h2 className="card-title" style={{ marginBottom: '0.5rem' }}>Notification Preferences</h2>
-              <p className="card-subtitle" style={{ marginBottom: '1.5rem' }}>
-                Manage push notifications, auditory warnings, and event routing.
-              </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.75rem' }}>
-                <label className="checkbox-label" style={{ padding: '0.75rem', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                  <div>
-                    <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>Enable All Storage Alerts</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Master switch for desktop and telemetry notification banners.</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    className="checkbox-input"
-                    checked={alertsEnabled}
-                    onChange={(e) => setAlertsEnabled(e.target.checked)}
-                  />
-                </label>
-
-                <label className="checkbox-label" style={{ padding: '0.75rem', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                  <div>
-                    <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>Warning Severity Alerts</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Send notification when temperature or humidity drifts near limits.</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    className="checkbox-input"
-                    checked={warningAlerts}
-                    onChange={(e) => setWarningAlerts(e.target.checked)}
-                  />
-                </label>
-
-                <label className="checkbox-label" style={{ padding: '0.75rem', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                  <div>
-                    <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>Critical Spoilage Alarms</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>High priority notification if VOC gases spike above 500 ppm.</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    className="checkbox-input"
-                    checked={criticalAlerts}
-                    onChange={(e) => setCriticalAlerts(e.target.checked)}
-                  />
-                </label>
+              <div className="card-header-row">
+                <div>
+                  <h2 className="card-title">Notification Channels & Alerts</h2>
+                  <div className="card-subtitle">Control real-time browser alerts and storage risk escalation.</div>
+                </div>
               </div>
 
-              <button
-                type="button"
-                className="btn-primary"
-                style={{ width: 'auto', padding: '0 1.5rem' }}
-                onClick={() => addToast('Notification preferences saved.', 'success')}
-              >
-                Save Notification Settings
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1.25rem' }}>
+                <div className="toggle-setting-row">
+                  <div>
+                    <div className="toggle-setting-title">Enable Real-Time Alerts</div>
+                    <div className="toggle-setting-desc">Receive push notifications when sensor values drift from optimal preservation ranges.</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={alertsEnabled}
+                    onChange={(e) => setAlertsEnabled(e.target.checked)}
+                    className="custom-toggle-input"
+                  />
+                </div>
+
+                <div className="toggle-setting-row">
+                  <div>
+                    <div className="toggle-setting-title">Warning Alerts (Amber)</div>
+                    <div className="toggle-setting-desc">Alert when humidity or temperature crosses secondary preservation buffer.</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={warningAlerts}
+                    onChange={(e) => setWarningAlerts(e.target.checked)}
+                    className="custom-toggle-input"
+                  />
+                </div>
+
+                <div className="toggle-setting-row">
+                  <div>
+                    <div className="toggle-setting-title">Critical Spoilage Alerts (Red)</div>
+                    <div className="toggle-setting-desc">Urgent notification when ethylene or VOC indicates active bacterial decomposition.</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={criticalAlerts}
+                    onChange={(e) => setCriticalAlerts(e.target.checked)}
+                    className="custom-toggle-input"
+                  />
+                </div>
+              </div>
             </div>
           )}
 
@@ -481,27 +603,40 @@ export function SettingsPage() {
               ========================================================================= */}
           {activeTab === 'device' && (
             <div className="vegsense-card">
-              <h2 className="card-title" style={{ marginBottom: '0.5rem' }}>Hardware Gateway Configuration</h2>
-              <p className="card-subtitle" style={{ marginBottom: '1.5rem' }}>
-                Physical prototype node specs and network assignment.
-              </p>
+              <div className="card-header-row">
+                <div>
+                  <h2 className="card-title">Device & Hardware Telemetry</h2>
+                  <div className="card-subtitle">ESP32 physical microcontroller gateway specifications and pins.</div>
+                </div>
+                <span className="risk-meter-status-badge status-badge-fresh" style={{ margin: 0 }}>
+                  Active Gateway
+                </span>
+              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-                <div style={{ padding: '1rem', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>DEVICE IDENTIFIER</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 800 }}>{device.id}</div>
+              <div className="device-spec-grid" style={{ marginTop: '1.25rem' }}>
+                <div className="device-spec-item">
+                  <span className="spec-label">Device Identifier</span>
+                  <span className="spec-value">{device.id}</span>
                 </div>
-                <div style={{ padding: '1rem', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>ASSIGNED IP</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 800, fontFamily: 'monospace' }}>{device.ip}</div>
+                <div className="device-spec-item">
+                  <span className="spec-label">Network IP Address</span>
+                  <span className="spec-value">{device.ip}</span>
                 </div>
-                <div style={{ padding: '1rem', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>PIN ASSIGNMENTS</div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>DHT22: GPIO 4 • MQ-135: GPIO 34</div>
+                <div className="device-spec-item">
+                  <span className="spec-label">Firmware Version</span>
+                  <span className="spec-value">{device.firmware}</span>
                 </div>
-                <div style={{ padding: '1rem', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>PERIPHERALS</div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>OLED: I2C (21/22) • LEDs: 18/19/23</div>
+                <div className="device-spec-item">
+                  <span className="spec-label">Wi-Fi Signal (RSSI)</span>
+                  <span className="spec-value" style={{ color: 'var(--primary)' }}>-62 dBm (Strong)</span>
+                </div>
+                <div className="device-spec-item">
+                  <span className="spec-label">DHT22 Digital Pin</span>
+                  <span className="spec-value">GPIO 4</span>
+                </div>
+                <div className="device-spec-item">
+                  <span className="spec-label">MQ-135 Analog Pin</span>
+                  <span className="spec-value">GPIO 34 (ADC1)</span>
                 </div>
               </div>
             </div>
@@ -512,34 +647,34 @@ export function SettingsPage() {
               ========================================================================= */}
           {activeTab === 'account' && (
             <div className="vegsense-card">
-              <h2 className="card-title" style={{ marginBottom: '0.5rem' }}>Account Information</h2>
-              <p className="card-subtitle" style={{ marginBottom: '1.5rem' }}>
-                Your VegSense operator profile.
-              </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '420px', marginBottom: '1.5rem' }}>
+              <div className="card-header-row">
                 <div>
-                  <label className="form-label">Full Name</label>
-                  <input
-                    type="text"
-                    className="login-form-input no-left-icon"
-                    defaultValue={currentUser?.name || ''}
-                    readOnly
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Email Address</label>
-                  <input
-                    type="email"
-                    className="login-form-input no-left-icon"
-                    defaultValue={currentUser?.email || ''}
-                    readOnly
-                  />
+                  <h2 className="card-title">User Account Profile</h2>
+                  <div className="card-subtitle">Manage storage manager identity and organization profile.</div>
                 </div>
               </div>
 
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Account authentication token is securely managed and active.
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginTop: '1.25rem' }}>
+                <div>
+                  <label className="threshold-card-label">Full Name</label>
+                  <input
+                    type="text"
+                    value={currentUser?.name || 'Storage Manager'}
+                    readOnly
+                    className="login-form-input no-left-icon"
+                    style={{ background: 'var(--bg-subtle)' }}
+                  />
+                </div>
+                <div>
+                  <label className="threshold-card-label">Email Address</label>
+                  <input
+                    type="email"
+                    value={currentUser?.email || 'admin@vegsense.io'}
+                    readOnly
+                    className="login-form-input no-left-icon"
+                    style={{ background: 'var(--bg-subtle)' }}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -549,20 +684,46 @@ export function SettingsPage() {
               ========================================================================= */}
           {activeTab === 'security' && (
             <div className="vegsense-card">
-              <h2 className="card-title" style={{ marginBottom: '0.5rem' }}>Security & Credentials</h2>
-              <p className="card-subtitle" style={{ marginBottom: '1.5rem' }}>
-                Password updates and session protection.
-              </p>
+              <div className="card-header-row">
+                <div>
+                  <h2 className="card-title">Security & Session</h2>
+                  <div className="card-subtitle">Authentication session tokens and database encryption.</div>
+                </div>
+              </div>
 
-              <div style={{ padding: '1rem', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem' }}>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.25rem' }}>Session Token</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  Protected by 256-bit encrypted JWT Bearer authentication. Password hashes are verified via bcrypt.
+              <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="toggle-setting-row">
+                  <div>
+                    <div className="toggle-setting-title">HTTP-Only JWT Token</div>
+                    <div className="toggle-setting-desc">Active secure cookie session for browser authentication.</div>
+                  </div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)', padding: '0.2rem 0.6rem', borderRadius: '9999px', background: 'var(--primary-light)' }}>
+                    Active
+                  </span>
+                </div>
+
+                <div className="toggle-setting-row">
+                  <div>
+                    <div className="toggle-setting-title">Hardware API Key Protection</div>
+                    <div className="toggle-setting-desc">ESP32 gateway requests require encrypted bearer header.</div>
+                  </div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)', padding: '0.2rem 0.6rem', borderRadius: '9999px', background: 'var(--primary-light)' }}>
+                    Enforced
+                  </span>
                 </div>
               </div>
             </div>
           )}
+
         </div>
+
+        {/* COLUMN 3: Desktop Fixed / Sticky Live Preview Panel (Shown on desktop) */}
+        {activeTab === 'appearance' && (
+          <div className="settings-desktop-live-preview-rail">
+            {renderLivePreviewCard()}
+          </div>
+        )}
+
       </div>
     </div>
   );
