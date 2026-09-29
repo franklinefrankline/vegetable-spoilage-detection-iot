@@ -101,7 +101,7 @@ CREATE TABLE password_resets (
 ```bash
 npm run dev
 ```
-- Frontend UI: `http://localhost:3000`
+- Frontend UI: `http://localhost:5173`
 - Backend API: `http://localhost:5000` (auto-proxied via Vite `/api`)
 
 ### 2. Standalone Production Mode:
@@ -111,8 +111,68 @@ npm start
 ```
 Express will serve both the backend API and frontend SPA on `http://localhost:5000`.
 
-### 3. Running Authentication Automated Test Suite:
-```bash
-node test_api.mjs
+---
+
+## Part 2 & Part 3: ESP32 Hardware & Real Connection Architecture
+
+### 1. Network Architecture
+- **Local ESP32 Mode (Recommended for testing):**
+  Frontend running at `http://localhost:5173` communicates directly over local Wi-Fi with `http://<ESP32_IP>/status` and `http://<ESP32_IP>/api/data`. Both computer and ESP32 must be on the same local Wi-Fi network.
+- **Production / Cloud Mode (e.g. Vercel):**
+  Web browsers enforce strict Mixed Content / Private Network Access boundaries preventing HTTPS websites (`https://veg-system.vercel.app`) from directly querying private local IP addresses (`http://192.168.x.x`). Production cloud deployments route telemetry through an IoT Broker (MQTT / Cloud REST) into the database.
+
+### 2. Hardware Pinout & Wiring
+- **ESP32 DevKit V1**
+- **DHT22 Data:** GPIO 4 (3.3V VCC, 10kΩ pull-up resistor)
+- **MQ-135 Analog A0:** GPIO 34 (ADC1_CH6) via **Voltage Divider** (R1 = 1kΩ, R2 = 2kΩ) to ensure analog voltage never exceeds 3.3V!
+- **Status LEDs:** Green (GPIO 18 - Fresh), Yellow (GPIO 19 - Warning), Red (GPIO 23 - Critical Spoilage Risk)
+- **OLED (Optional):** SDA on GPIO 21, SCL on GPIO 22
+
+### 3. ESP32 HTTP Server Endpoints
+Every response includes `Access-Control-Allow-Origin: *` and `Access-Control-Allow-Private-Network: true`.
+
+#### `GET /status`
+```json
+{
+  "device": "ESP32-001",
+  "status": "connected",
+  "ip": "192.168.1.105",
+  "network": "Wi-Fi",
+  "firmware": "v2.5.0"
+}
 ```
-Runs 13 end-to-end unit tests covering password complexity, duplicate emails, bcrypt verification, session persistence, and reset token invalidation.
+
+#### `GET /api/data`
+```json
+{
+  "device": "ESP32-001",
+  "temperature": 28.5,
+  "humidity": 72.0,
+  "gas_level": 420,
+  "status": "FRESH",
+  "spoilage_risk": 18
+}
+```
+If DHT22 reading returns NaN, returns `{ "error": "DHT22_READ_FAILED" }` without crashing or sending fake values.
+
+---
+
+## Final Verification & Testing Procedure (Section 20)
+
+1. **Upload ESP32 code:** Open `esp32/vegsense_esp32.ino` in Arduino IDE, set Wi-Fi SSID/password, and flash to ESP32 DevKit V1.
+2. **Open Arduino Serial Monitor (115200 baud):** Verify output:
+   ```
+   Connecting to WiFi...
+   ....
+   WiFi connected!
+   ESP32 IP Address: 192.168.1.105
+   HTTP server started
+   ```
+3. **Verify from browser on same Wi-Fi:** Open `http://192.168.1.105/status` -> returns `{"device":"ESP32-001","status":"connected"}`.
+4. **Verify sensor data:** Open `http://192.168.1.105/api/data` -> returns actual sensor JSON.
+5. **Run frontend locally:** `npm run dev` and open `http://localhost:5173/connect-device`.
+6. **Enter IP:** Enter `192.168.1.105` and click **Connect Device**.
+7. **Verify stage progression:** Shows `Checking ESP32...`, `Checking Wi-Fi...`, `Checking HTTP server...`, `Reading sensor data...`, and connects.
+8. **Navigate to Dashboard:** Automatically redirects to `/dashboard`.
+9. **Live Telemetry:** Dashboard displays actual DHT22 and MQ-135 readings with 5-second polling updates without page reload.
+10. **Offline Detection:** Disconnect ESP32 power or Wi-Fi -> Dashboard switches to **Device Offline** displaying last known reading with Reconnect button. Reconnecting restores live telemetry.

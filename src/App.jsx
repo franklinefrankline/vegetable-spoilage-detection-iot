@@ -22,7 +22,7 @@ import { AlertsPage } from './pages/AlertsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { BrandLogo } from './components/BrandLogo';
+import { VegSenseLogo } from './components/branding/VegSenseLogo';
 
 function AppContent() {
   const { loading, isAuthenticated } = useAuth();
@@ -39,13 +39,21 @@ function AppContent() {
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: 'var(--bg-page)',
-          gap: '1.25rem'
+          gap: '1.5rem',
+          padding: '2rem'
         }}
       >
-        <BrandLogo size={52} showTagline={true} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-secondary)' }}>
-          <span className="spinner spinner-dark" />
-          <span style={{ fontSize: '0.95rem', fontWeight: 600 }}>Loading VegSense Intelligence...</span>
+        <div className="vegsense-loading-logo">
+          <VegSenseLogo variant="full" maxWidth="240px" priority={true} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', textAlign: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-main)' }}>
+            <span className="spinner spinner-dark" />
+            <span style={{ fontSize: '1.05rem', fontWeight: 700 }}>Loading VegSense...</span>
+          </div>
+          <span style={{ fontSize: '0.825rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>
+            Smart Storage Intelligence
+          </span>
         </div>
       </div>
     );
@@ -70,8 +78,8 @@ function AppContent() {
     return <LoginPage />;
   }
 
-  // Authenticated user without any device must connect first
-  if (!hasSavedDevice && !isConnected && pathname !== '/connect-device' && pathname !== '/settings') {
+  // Authenticated user without any device must connect first (except device-independent routes like /connect-device, /storage, /settings)
+  if (!hasSavedDevice && !isConnected && pathname !== '/connect-device' && pathname !== '/settings' && pathname !== '/storage' && pathname !== '/vegetable-storage') {
     return (
       <AppShell>
         <ConnectDevicePage />

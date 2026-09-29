@@ -25,6 +25,10 @@ export function TemperatureCard({
       <div className="sensor-card-main-val">
         {isOffline ? (
           <span className="val-offline-text">Offline</span>
+        ) : temperature === null || temperature === undefined || isNaN(Number(temperature)) ? (
+          <span className="val-unavailable-text" style={{ fontSize: '1rem', color: '#ea580c', fontWeight: 600 }}>
+            Sensor unavailable
+          </span>
         ) : (
           formatTemperature(temperature)
         )}

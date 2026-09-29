@@ -55,14 +55,14 @@ export function DeviceStatusCard({
 
         {/* Status Pill */}
         <span
-          className={`status-pill ${isConnected && !isOffline ? 'status-pill-green' : 'status-pill-red'}`}
+          className={`status-pill ${device?.isDemo || (isConnected && !isOffline) ? 'status-pill-green' : 'status-pill-red'}`}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.25rem 0.65rem', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 700 }}
         >
           <span
-            className={`pulse-dot-indicator ${isConnected && !isOffline ? 'dot-active' : 'dot-offline'}`}
+            className={`pulse-dot-indicator ${device?.isDemo || (isConnected && !isOffline) ? 'dot-active' : 'dot-offline'}`}
             style={{ width: '6px', height: '6px' }}
           />
-          <span>{isConnected && !isOffline ? 'Connected' : 'Device Offline'}</span>
+          <span>{device?.isDemo || device?.status === 'Demo Connected' ? 'Demo Connected' : isConnected && !isOffline ? 'Connected' : 'Device Offline'}</span>
         </span>
       </div>
 
@@ -76,8 +76,8 @@ export function DeviceStatusCard({
         <div className="device-prop-item">
           <span className="prop-label">Network Link</span>
           <span className="prop-value" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-            <Wifi size={13} color={isConnected && !isOffline ? 'var(--status-green)' : 'var(--text-muted)'} />
-            <span>{isConnected && !isOffline ? 'Connected' : 'Disconnected'}</span>
+            <Wifi size={13} color={device?.isDemo || (isConnected && !isOffline) ? 'var(--status-green)' : 'var(--text-muted)'} />
+            <span>{device?.isDemo || device?.status === 'Demo Connected' ? 'Demo Connected' : isConnected && !isOffline ? 'Connected' : 'Disconnected'}</span>
           </span>
         </div>
 
@@ -85,7 +85,7 @@ export function DeviceStatusCard({
           <span className="prop-label">Communication</span>
           <span className="prop-value" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
             <Clock size={13} />
-            <span>{isConnected && !isOffline ? formatTimeAgo(lastUpdated) : 'Unavailable'}</span>
+            <span>{device?.isDemo ? 'Demo Live (5s Polling)' : isConnected && !isOffline ? formatTimeAgo(lastUpdated) : 'Unavailable'}</span>
           </span>
         </div>
 

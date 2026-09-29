@@ -428,9 +428,11 @@ export function ConnectedStateView({
       <div className="connected-top-banner">
         <CheckCircle2 size={24} color="#ffffff" />
         <div>
-          <h2 className="connected-banner-title">✓ Connected</h2>
+          <h2 className="connected-banner-title">
+            ✓ {device.isDemo || device.status === 'Demo Connected' ? 'Demo Connected' : 'Connected'}
+          </h2>
           <div className="connected-device-subtitle">
-            {device.name || 'ESP32-001'} · <span className="mono-ip">{device.ip || device.ipAddress || '192.168.1.105'}</span>
+            {device.name || (device.isDemo ? 'ESP32-DEMO-001' : 'ESP32-001')} · <span className="mono-ip">{device.ip || device.ipAddress || '192.168.1.105'}</span>
           </div>
         </div>
       </div>
@@ -454,7 +456,7 @@ export function ConnectedStateView({
         {/* Card 3: Gas / VOC */}
         <div className="compact-sensor-card">
           <span className="compact-sensor-icon">◉</span>
-          <span className="compact-sensor-val">{gasStatus}</span>
+          <span className="compact-sensor-val">{gasLevel !== undefined && gasLevel !== null ? `${gasLevel} ppm` : '420 ppm'}</span>
           <span className="compact-sensor-label">Gas / VOC</span>
         </div>
       </div>

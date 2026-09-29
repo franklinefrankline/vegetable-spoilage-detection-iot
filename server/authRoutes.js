@@ -2,7 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
-import db from './db.js';
+import db, { savePersistentUser, updatePersistentPassword, syncPersistentUsers } from './db.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'veg-storage-smart-iot-secret-key-2026';
@@ -66,19 +66,36 @@ router.post('/register', async (req, res) => {
     const checkStmt = db.prepare('SELECT id FROM users WHERE email = ?');
     const existing = checkStmt.get(trimmedEmail);
     if (existing) {
-      return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
+      const duplicateMsg = 'An account with this email already exists. Please log in.';
+      return res.status(409).json({
+        success: false,
+        code: 'USER_ALREADY_EXISTS',
+        message: duplicateMsg,
+        error: duplicateMsg
+      });
     }
 
     // Hash password securely
     const saltRounds = 10;
     const password_hash = await bcrypt.hash(password, saltRounds);
     const userId = crypto.randomUUID();
+    const now = new Date().toISOString();
 
     const insertStmt = db.prepare(`
-      INSERT INTO users (id, name, email, password_hash)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO users (id, name, email, password_hash, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
-    insertStmt.run(userId, name.trim(), trimmedEmail, password_hash);
+    insertStmt.run(userId, name.trim(), trimmedEmail, password_hash, now, now);
+
+    // Persist permanently into JSON file so data is never removed on code updates
+    savePersistentUser({
+      id: userId,
+      name: name.trim(),
+      email: trimmedEmail,
+      password_hash,
+      created_at: now,
+      updated_at: now
+    });
 
     const userPayload = {
       id: userId,
@@ -115,7 +132,13 @@ router.post('/login', async (req, res) => {
 
     const trimmedEmail = email.trim().toLowerCase();
     const queryStmt = db.prepare('SELECT id, name, email, password_hash FROM users WHERE email = ?');
-    const user = queryStmt.get(trimmedEmail);
+    let user = queryStmt.get(trimmedEmail);
+
+    if (!user) {
+      // Re-sync persistent users in case database was freshly initialized or deployed
+      syncPersistentUsers();
+      user = queryStmt.get(trimmedEmail);
+    }
 
     if (!user) {
       // Do not expose whether the email exists
@@ -236,6 +259,7 @@ router.post('/reset-password', async (req, res) => {
       WHERE email = ?
     `);
     updateStmt.run(newHash, record.email);
+    updatePersistentPassword(record.email, newHash);
 
     // Mark reset token as used
     db.prepare('UPDATE password_resets SET used = 1 WHERE id = ?').run(record.id);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrandLogo } from '../BrandLogo';
+import { VegSenseLogo } from '../branding/VegSenseLogo';
 import { useAppearance } from '../../context/AppearanceContext';
 import { useNavigate } from '../../router/Router';
 import {
@@ -29,9 +29,14 @@ export function DashboardHeader({
 
   return (
     <header className="dashboard-header-container">
-      {/* Left: Brand Identity */}
-      <div className="dashboard-header-brand" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
-        <BrandLogo size={32} showText={true} />
+      {/* Left: Brand Identity (Section 2 & 6: ~85px logo + tagline) */}
+      <div
+        className="dashboard-header-brand"
+        onClick={() => navigate('/dashboard')}
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.65rem' }}
+        title="VegSense - Smart Storage Intelligence"
+      >
+        <VegSenseLogo variant="compact" width="85px" maxWidth="90px" priority={true} />
         <span className="header-brand-divider" />
         <span className="header-tagline-text">Smart Storage Intelligence</span>
       </div>
@@ -44,21 +49,23 @@ export function DashboardHeader({
           title="Click to view device telemetry or change IP"
         >
           <span className="live-stream-pulse">
-            <span className={`pulse-dot-indicator ${isConnected && !isOffline ? 'dot-active' : 'dot-offline'}`} />
-            <span className="live-stream-label">Storage Live</span>
+            <span className={`pulse-dot-indicator ${device?.isDemo || (isConnected && !isOffline) ? 'dot-active' : 'dot-offline'}`} />
+            <span className="live-stream-label">{device?.isDemo ? 'Demo Live' : 'Storage Live'}</span>
           </span>
 
           <span className="pill-separator">•</span>
 
           <span className="device-id-tag">
             <Cpu size={14} />
-            <span>{deviceName}</span>
+            <span>{device?.isDemo ? 'ESP32-DEMO-001' : deviceName}</span>
           </span>
 
           <span className="pill-separator">•</span>
 
           <span className="device-conn-state">
-            {isConnected && !isOffline ? (
+            {device?.isDemo || device?.status === 'Demo Connected' ? (
+              <span style={{ color: 'var(--status-green, #10b981)', fontWeight: 700 }}>Demo Connected</span>
+            ) : isConnected && !isOffline ? (
               <span style={{ color: 'var(--status-green, #16a34a)', fontWeight: 700 }}>Connected</span>
             ) : (
               <span style={{ color: 'var(--accent-red, #dc2626)', fontWeight: 700 }}>Device Offline</span>

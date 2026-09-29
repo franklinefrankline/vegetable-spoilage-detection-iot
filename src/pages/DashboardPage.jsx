@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useDevice } from '../context/DeviceContext';
 import { useNavigate } from '../router/Router';
-import { getActiveStorage } from '../services/storageService';
+import { getActiveStorage, fetchActiveStorage } from '../services/storageService';
 
 // Modular Dashboard Components
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
@@ -57,10 +57,16 @@ export function DashboardPage() {
       return;
     }
 
-    // 3. Load active vegetable storage selection
+    // 3. Load active vegetable storage selection from database
     const userId = currentUser?.id || currentUser?.email || 'default';
-    const storageItem = getActiveStorage(userId);
-    setActiveStorage(storageItem);
+    fetchActiveStorage(userId)
+      .then((item) => {
+        if (item) setActiveStorage(item);
+      })
+      .catch(() => {
+        const fallback = getActiveStorage(userId);
+        if (fallback) setActiveStorage(fallback);
+      });
   }, [isAuthenticated, hasSavedDevice, savedDevice, currentUser, navigate]);
 
   const displayIp = device?.ipAddress || device?.ip || savedDevice?.ipAddress || '192.168.1.105';

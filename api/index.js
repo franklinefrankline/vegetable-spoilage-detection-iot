@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import authRoutes from '../server/authRoutes.js';
 import deviceRoutes from '../server/deviceRoutes.js';
+import storageRoutes from '../server/storageRoutes.js';
 
 const app = express();
 
@@ -15,6 +16,8 @@ app.use(express.json());
 // Support both /api/auth and /auth paths depending on Vercel rewrite configuration
 app.use('/api/auth', authRoutes);
 app.use('/auth', authRoutes);
+app.use('/api/storage', storageRoutes);
+app.use('/storage', storageRoutes);
 app.use('/api', deviceRoutes);
 app.use('/', deviceRoutes);
 

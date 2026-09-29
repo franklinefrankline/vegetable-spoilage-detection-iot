@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useAppearance } from '../context/AppearanceContext';
-import { useNavigate, Link } from '../router/Router';
-import { BrandLogo } from '../components/BrandLogo';
+import { useNavigate, useLocation, Link } from '../router/Router';
+import { VegSenseLogo } from '../components/branding/VegSenseLogo';
 import {
   User,
   Mail,
@@ -22,10 +22,13 @@ import {
 } from 'lucide-react';
 
 export function RegisterPage() {
-  const { register } = useAuth();
+  const { register, currentUser, isAuthenticated, logout } = useAuth();
   const { addToast } = useToast();
   const { settings, toggleMode } = useAppearance();
   const navigate = useNavigate();
+  const { searchParams } = useLocation();
+
+  const paramEmail = searchParams.get('email');
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -39,6 +42,13 @@ export function RegisterPage() {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generalError, setGeneralError] = useState('');
+  const [accountAlreadyExists, setAccountAlreadyExists] = useState(false);
+
+  useEffect(() => {
+    if (paramEmail && !email) {
+      setEmail(paramEmail);
+    }
+  }, [paramEmail]);
 
   // Password rules validation
   const hasMinLength = password.length >= 8;
@@ -82,6 +92,7 @@ export function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setGeneralError('');
+    setAccountAlreadyExists(false);
 
     if (!validateForm() || isSubmitting) {
       return;
@@ -96,12 +107,14 @@ export function RegisterPage() {
         password
       });
 
-      addToast('Account created successfully.', 'success');
-      navigate('/connect-device');
+      addToast('Account created successfully! Please sign in with your credentials.', 'success');
+      navigate(`/login?email=${encodeURIComponent(email.trim())}&registered=true`);
     } catch (err) {
       const msg = err.message || 'Registration failed. Please try again.';
+      const isDuplicate = err.code === 'USER_ALREADY_EXISTS' || msg.toLowerCase().includes('already exists');
+      setAccountAlreadyExists(isDuplicate);
       setGeneralError(msg);
-      addToast(msg, 'error');
+      addToast(msg, isDuplicate ? 'warning' : 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -117,7 +130,7 @@ export function RegisterPage() {
 
         <div className="visual-header">
           <div className="visual-brand-pill">
-            <BrandLogo size={28} showText={true} lightText={true} />
+            <VegSenseLogo variant="compact" maxWidth="170px" />
           </div>
 
           <div className="visual-title-block">
@@ -198,21 +211,80 @@ export function RegisterPage() {
         </div>
 
         <div className="login-card-container">
-          <div className="mobile-login-header">
-            <BrandLogo size={36} showText={true} />
-          </div>
-
-          <div className="login-card-top">
-            <div className="login-icon-badge">
-              <BrandLogo size={32} showText={false} />
+          {/* Centered Official VegSense Logo (Section 4 & 14: 250-300px max width) */}
+          <div className="login-card-top" style={{ textAlign: 'center' }}>
+            <div className="auth-page-logo-container">
+              <VegSenseLogo variant="full" maxWidth="270px" priority={true} />
             </div>
+
+            <div className="one-time-notice-pill" style={{ margin: '0 auto 1rem' }}>
+              <ShieldCheck size={14} />
+              <span>One-Time Registration • After registering, only use Login</span>
+            </div>
+
             <h2 className="login-card-title">Create Your Account</h2>
             <p className="login-card-subtitle">
-              Register to monitor and manage your intelligent vegetable storage system.
+              Register once to access and manage your intelligent vegetable storage system.
             </p>
           </div>
 
-          {generalError && (
+          {/* Active Session Notice if already logged in */}
+          {isAuthenticated && (
+            <div className="already-authenticated-banner">
+              <div className="already-auth-title">
+                <CheckCircle2 size={18} />
+                <span>Currently Signed In</span>
+              </div>
+              <p className="already-auth-sub">
+                You are currently signed in as <strong>{currentUser?.name || currentUser?.email}</strong> ({currentUser?.email}).
+              </p>
+              <div className="already-auth-buttons">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => navigate('/dashboard')}
+                >
+                  Continue to Dashboard
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={async () => {
+                    await logout();
+                    addToast('Logged out to register a new account.', 'info');
+                  }}
+                >
+                  Log Out to Switch
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Dedicated Account Already Exists Banner with 1-click Login */}
+          {accountAlreadyExists && (
+            <div className="account-exists-banner">
+              <div className="account-exists-header">
+                <AlertCircle size={22} color="#d97706" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div>
+                  <h4 className="account-exists-title">An account with this email already exists. Please log in.</h4>
+                  <p className="account-exists-desc">
+                    The email <strong>{email}</strong> is already registered. Please sign in with your email and password.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-primary account-exists-login-btn"
+                onClick={() => navigate(`/login?email=${encodeURIComponent(email.trim())}`)}
+              >
+                <span>Proceed to Login with this Email</span>
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          )}
+
+          {/* Standard Error Banner */}
+          {generalError && !accountAlreadyExists && (
             <div className="alert-banner alert-danger" role="alert">
               <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
               <div>{generalError}</div>

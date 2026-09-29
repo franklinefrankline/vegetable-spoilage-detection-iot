@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useAppearance } from '../context/AppearanceContext';
-import { useNavigate, Link } from '../router/Router';
-import { BrandLogo } from '../components/BrandLogo';
+import { useNavigate, useLocation, Link } from '../router/Router';
+import { VegSenseLogo } from '../components/branding/VegSenseLogo';
 import {
   Mail,
   Lock,
   Eye,
   EyeOff,
   AlertCircle,
+  CheckCircle2,
   ArrowRight,
   Activity,
   ShieldCheck,
@@ -22,10 +23,14 @@ import {
 } from 'lucide-react';
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, currentUser, isAuthenticated, logout } = useAuth();
   const { addToast } = useToast();
   const { settings, toggleMode } = useAppearance();
   const navigate = useNavigate();
+  const { searchParams } = useLocation();
+
+  const paramEmail = searchParams.get('email');
+  const isRegisteredParam = searchParams.get('registered') === 'true';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,6 +40,16 @@ export function LoginPage() {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generalError, setGeneralError] = useState('');
+
+  // Auto pre-fill email if passed in query parameter or saved from last session
+  useEffect(() => {
+    if (paramEmail && !email) {
+      setEmail(paramEmail);
+    } else if (!email) {
+      const saved = localStorage.getItem('vegsense_last_login_email');
+      if (saved) setEmail(saved);
+    }
+  }, [paramEmail]);
 
   // Validate form fields
   const validateForm = () => {
@@ -48,8 +63,6 @@ export function LoginPage() {
 
     if (!password) {
       newErrors.password = 'Please enter your password.';
-    } else if (password.length < 8) {
-      newErrors.password = 'Password must contain at least 8 characters.';
     }
 
     setErrors(newErrors);
@@ -111,7 +124,7 @@ export function LoginPage() {
         {/* Top Header Pill */}
         <div className="visual-header">
           <div className="visual-brand-pill">
-            <BrandLogo size={28} showText={true} lightText={true} />
+            <VegSenseLogo variant="compact" maxWidth="170px" />
           </div>
 
           <div className="visual-title-block">
@@ -248,21 +261,61 @@ export function LoginPage() {
         </div>
 
         <div className="login-card-container">
-          {/* Mobile Header */}
-          <div className="mobile-login-header">
-            <BrandLogo size={36} showText={true} />
-          </div>
-
-          {/* Top Brand & Titles */}
-          <div className="login-card-top">
-            <div className="login-icon-badge">
-              <BrandLogo size={32} showText={false} />
+          {/* Centered Official VegSense Logo (Section 3 & 14: 250-300px max width) */}
+          <div className="login-card-top" style={{ textAlign: 'center' }}>
+            <div className="auth-page-logo-container">
+              <VegSenseLogo variant="full" maxWidth="270px" priority={true} />
             </div>
             <h2 className="login-card-title">Welcome Back</h2>
             <p className="login-card-subtitle">
-              Sign in to monitor your smart storage system.
+              Sign in to continue to VegSense
             </p>
           </div>
+
+          {/* Active Session Notice if already logged in */}
+          {isAuthenticated && (
+            <div className="already-authenticated-banner">
+              <div className="already-auth-title">
+                <CheckCircle2 size={18} />
+                <span>Active Session Detected</span>
+              </div>
+              <p className="already-auth-sub">
+                You are already signed in as <strong>{currentUser?.name || currentUser?.email}</strong> ({currentUser?.email}).
+              </p>
+              <div className="already-auth-buttons">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => navigate('/dashboard')}
+                >
+                  Continue to Dashboard
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={async () => {
+                    await logout();
+                    addToast('Logged out to switch accounts.', 'info');
+                  }}
+                >
+                  Log Out to Switch
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Success Banner if redirected after registration */}
+          {isRegisteredParam && (
+            <div className="alert-banner alert-success" role="alert" style={{ marginBottom: '1.25rem' }}>
+              <CheckCircle2 size={18} color="#16a34a" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <strong>Account Registered Successfully!</strong>
+                <p style={{ margin: '2px 0 0', fontSize: '0.825rem' }}>
+                  You only need to register once. Enter your password to sign in.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Error Banner */}
           {generalError && (

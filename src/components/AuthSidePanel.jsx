@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrandLogo } from './BrandLogo';
+import { VegSenseLogo } from './branding/VegSenseLogo';
 import { Cpu, Gauge, Wind, Tv, CheckCircle2 } from 'lucide-react';
 
 export function AuthSidePanel() {
@@ -7,10 +7,10 @@ export function AuthSidePanel() {
     <div className="auth-left-panel">
       <div>
         <div className="brand-header">
-          <BrandLogo size={42} showText={false} lightText={true} />
+          <VegSenseLogo variant="mark" size={44} priority={true} />
           <div>
-            <h1 className="brand-title">Intelligent Vegetable Storage</h1>
-            <p className="brand-tagline">IoT Spoilage Detection System</p>
+            <h1 className="brand-title">VegSense</h1>
+            <p className="brand-tagline">Smart Storage Intelligence</p>
           </div>
         </div>
 

@@ -23,11 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
-# Database & Vercel
-*.sqlite
-*.sqlite3
-*.db
-server/*.sqlite
+# Vercel & Cache
 .vercel
 
-.vercel
+# Ensure persistent user database files are permanently tracked across code updates
+!server/persistent_users.json
+!server/database.sqlite

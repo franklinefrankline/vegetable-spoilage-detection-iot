@@ -4,7 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { useAppearance, THEME_OPTIONS, ACCENT_OPTIONS } from '../context/AppearanceContext';
 import { useDevice } from '../context/DeviceContext';
 import { useNavigate, useLocation, Link } from '../router/Router';
-import { BrandLogo } from './BrandLogo';
+import { VegSenseLogo } from './branding/VegSenseLogo';
 import {
   LayoutDashboard,
   Radio,
@@ -107,8 +107,15 @@ export function AppShell({ children }) {
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
           <div>
             <div className="sidebar-header">
-              <Link href="/dashboard" style={{ textDecoration: 'none' }} onClick={() => setIsMobileSidebarOpen(false)}>
-                <BrandLogo size={34} showText={true} />
+              <Link
+                href="/dashboard"
+                className="sidebar-logo-link"
+                style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}
+                onClick={() => setIsMobileSidebarOpen(false)}
+                title="VegSense - Smart Storage Intelligence"
+              >
+                <VegSenseLogo variant="full" width="95px" maxWidth="105px" priority={true} className="sidebar-full-logo" />
+                <VegSenseLogo variant="mark" size={32} priority={true} className="sidebar-mark-only" />
               </Link>
               {isMobileSidebarOpen && (
                 <button
@@ -173,8 +180,8 @@ export function AppShell({ children }) {
                 <Menu size={22} />
               </button>
 
-              <Link href="/dashboard" className="header-brand-link" style={{ textDecoration: 'none' }}>
-                <BrandLogo size={28} showTagline={false} />
+              <Link href="/dashboard" className="header-brand-link" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }} title="VegSense - Smart Storage Intelligence">
+                <VegSenseLogo variant="compact" width="75px" maxWidth="82px" priority={true} />
               </Link>
 
               {/* Desktop Status Indicators */}

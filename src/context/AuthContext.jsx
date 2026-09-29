@@ -97,6 +97,14 @@ export function AuthProvider({ children }) {
     }
 
     saveAuthSession(data.token, data.user, rememberMe);
+    try {
+      localStorage.setItem('vegsense_last_login_email', email.toLowerCase().trim());
+      const known = JSON.parse(localStorage.getItem('vegsense_known_emails') || '[]');
+      if (!known.includes(email.toLowerCase().trim())) {
+        known.push(email.toLowerCase().trim());
+        localStorage.setItem('vegsense_known_emails', JSON.stringify(known));
+      }
+    } catch (e) {}
     return data;
   };
 
@@ -111,14 +119,21 @@ export function AuthProvider({ children }) {
     const data = await response.json();
 
     if (!response.ok || !data.success) {
-      throw new Error(data.message || 'Registration failed. Please check your information.');
+      const err = new Error(data.message || 'Registration failed. Please check your information.');
+      err.code = data.code || (response.status === 409 ? 'USER_ALREADY_EXISTS' : 'REGISTRATION_FAILED');
+      throw err;
     }
 
-    // Automatically authenticate the newly registered user
-    if (data.token && data.user) {
-      saveAuthSession(data.token, data.user, true);
-    }
+    try {
+      localStorage.setItem('vegsense_last_login_email', email.toLowerCase().trim());
+      const known = JSON.parse(localStorage.getItem('vegsense_known_emails') || '[]');
+      if (!known.includes(email.toLowerCase().trim())) {
+        known.push(email.toLowerCase().trim());
+        localStorage.setItem('vegsense_known_emails', JSON.stringify(known));
+      }
+    } catch (e) {}
 
+    // User registers one time, then signs in through the Login page
     return data;
   };
 

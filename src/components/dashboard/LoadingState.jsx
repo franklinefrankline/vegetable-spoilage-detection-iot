@@ -1,6 +1,6 @@
 import React from 'react';
 import { Cpu, Wifi, Activity } from 'lucide-react';
-import { BrandLogo } from '../BrandLogo';
+import { VegSenseLogo } from '../branding/VegSenseLogo';
 
 export function LoadingState({
   stage = 'Connecting to ESP32...',
@@ -9,7 +9,7 @@ export function LoadingState({
   return (
     <div className="dashboard-loading-fullscreen">
       <div className="dashboard-loading-card">
-        <BrandLogo size={46} showText={false} />
+        <VegSenseLogo variant="mark" size={48} priority={true} />
 
         <div className="loading-orbit-animation">
           <div className="orbit-core">

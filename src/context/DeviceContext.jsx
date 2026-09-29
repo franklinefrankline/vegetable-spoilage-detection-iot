@@ -39,6 +39,34 @@ const getDeviceStorageKey = (user) => {
   return `vegsense_device_${userId}`;
 };
 
+export const DEMO_DEVICE = {
+  deviceId: 'ESP32-DEMO-001',
+  id: 'ESP32-DEMO-001',
+  deviceName: 'ESP32-DEMO-001',
+  name: 'ESP32-DEMO-001',
+  ip: '192.168.1.105',
+  ipAddress: '192.168.1.105',
+  status: 'Demo Connected',
+  network: 'Wi-Fi',
+  signal: 'Strong',
+  controller: 'ESP32 DevKit V1 (Demo Gateway)',
+  firmware: 'v2.5.0-demo',
+  isDemo: true,
+  lastConnected: null
+};
+
+export const DEMO_SENSOR_DATA = {
+  temperature: 28.5,
+  humidity: 72,
+  gasLevel: 420,
+  gasVOC: 420,
+  spoilageRisk: 18,
+  status: 'FRESH',
+  storageCondition: 'Stable',
+  isDhtUnavailable: false,
+  lastUpdated: new Date()
+};
+
 export function DeviceProvider({ children }) {
   const { currentUser, isAuthenticated } = useAuth();
 
@@ -109,6 +137,33 @@ export function DeviceProvider({ children }) {
       try {
         const parsed = JSON.parse(stored);
         setSavedDevice(parsed);
+
+        // If saved device is Demo ESP32, immediately activate without network fetch
+        if (parsed.isDemo || parsed.status === 'Demo Connected' || parsed.id === 'ESP32-DEMO-001' || parsed.deviceId === 'ESP32-DEMO-001') {
+          const demoDev = {
+            ...DEMO_DEVICE,
+            ...parsed,
+            id: 'ESP32-DEMO-001',
+            name: 'ESP32-DEMO-001',
+            ip: '192.168.1.105',
+            ipAddress: '192.168.1.105',
+            status: 'Demo Connected',
+            isDemo: true,
+            lastConnected: parsed.lastConnected || new Date().toISOString()
+          };
+          const demoSens = {
+            ...DEMO_SENSOR_DATA,
+            lastUpdated: new Date()
+          };
+          setDevice(demoDev);
+          setSensorData(demoSens);
+          setLastKnownData(demoSens);
+          setIsConnected(true);
+          setConnectionLost(false);
+          setIsCheckingReachability(false);
+          setLoadingStage('Demo monitoring active');
+          return;
+        }
 
         // Auto-check reachability of previously connected device
         // Do not falsely show Connected based only on saved data
@@ -186,9 +241,52 @@ export function DeviceProvider({ children }) {
     }
   }, [isAuthenticated, currentUser]);
 
-  // Real-time Sensor Polling (every 5 seconds, Section 5) when connected to an ESP32
+  // Real-time Sensor Polling (every 5 seconds)
   useEffect(() => {
-    if (!isConnected || !device.ipAddress) {
+    if (!isConnected) {
+      stopSensorPolling();
+      return;
+    }
+
+    // Demo Mode Polling: updates clock and chart history every 5 seconds
+    if (device.isDemo) {
+      consecutiveErrorsRef.current = 0;
+      const demoInterval = setInterval(() => {
+        const now = new Date();
+        const nowStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        setSensorData({
+          ...DEMO_SENSOR_DATA,
+          lastUpdated: now
+        });
+        setLastKnownData({
+          ...DEMO_SENSOR_DATA,
+          lastUpdated: now
+        });
+        setConnectionLost(false);
+
+        // Update history chart data dynamically: maximum 30 FIFO points
+        setHistory((prev) => {
+          const newPoint = {
+            time: nowStr,
+            temp: DEMO_SENSOR_DATA.temperature,
+            temperature: DEMO_SENSOR_DATA.temperature,
+            humidity: DEMO_SENSOR_DATA.humidity,
+            gas: DEMO_SENSOR_DATA.gasLevel,
+            risk: DEMO_SENSOR_DATA.spoilageRisk,
+            spoilageRisk: DEMO_SENSOR_DATA.spoilageRisk
+          };
+          const updated = [...prev, newPoint];
+          return updated.slice(-30);
+        });
+      }, 5000);
+
+      return () => {
+        clearInterval(demoInterval);
+      };
+    }
+
+    if (!device.ipAddress) {
       stopSensorPolling();
       return;
     }
@@ -200,8 +298,12 @@ export function DeviceProvider({ children }) {
       // On real data received from ESP32:
       (newData) => {
         consecutiveErrorsRef.current = 0;
-        setPreviousData(sensorData);
-        setSensorData(newData);
+        setSensorData((prev) => {
+          if (prev && prev.temperature !== undefined) {
+            setPreviousData(prev);
+          }
+          return newData;
+        });
         setLastKnownData(newData);
         setConnectionLost(false);
         setDevice((prev) => ({
@@ -247,7 +349,7 @@ export function DeviceProvider({ children }) {
     return () => {
       stop();
     };
-  }, [isConnected, device.ipAddress]);
+  }, [isConnected, device.ipAddress, device.isDemo]);
 
   // Connect to ESP32: validates IP, checks status, tests real sensors, and persists user device
   const connectDevice = useCallback(
@@ -286,6 +388,40 @@ export function DeviceProvider({ children }) {
     [currentUser]
   );
 
+  // Connect Demo ESP32 directly with user specifications:
+  // IP: 192.168.1.105 | Device: ESP32-DEMO-001 | Status: Demo Connected
+  // Temp: 28.5°C | Humidity: 72% | Gas: 420 | Spoilage Risk: 18% | Status: FRESH
+  const connectDemoDevice = useCallback(async () => {
+    stopSensorPolling();
+    const nowIso = new Date().toISOString();
+    const demoDev = {
+      ...DEMO_DEVICE,
+      lastConnected: nowIso
+    };
+    const demoSens = {
+      ...DEMO_SENSOR_DATA,
+      lastUpdated: new Date()
+    };
+
+    setDevice(demoDev);
+    setSensorData(demoSens);
+    setLastKnownData(demoSens);
+    setIsConnected(true);
+    setConnectionLost(false);
+    setSavedDevice(demoDev);
+
+    if (currentUser) {
+      const storageKey = getDeviceStorageKey(currentUser);
+      localStorage.setItem(storageKey, JSON.stringify(demoDev));
+    }
+
+    return {
+      success: true,
+      device: demoDev,
+      sensorData: demoSens
+    };
+  }, [currentUser]);
+
   // Disconnect device without logging out user session
   const disconnectDevice = useCallback(() => {
     stopSensorPolling();
@@ -294,18 +430,22 @@ export function DeviceProvider({ children }) {
     setDevice((prev) => ({
       ...prev,
       status: 'Not Connected',
-      signal: 'None'
+      signal: 'None',
+      isDemo: false
     }));
   }, []);
 
   // Reconnect previously saved device
   const reconnectDevice = useCallback(async () => {
+    if (savedDevice?.isDemo || device?.isDemo || savedDevice?.id === 'ESP32-DEMO-001') {
+      return connectDemoDevice();
+    }
     const targetIp = savedDevice?.ipAddress || device?.ipAddress;
     if (!targetIp) {
       throw new Error('No previously connected IP address found.');
     }
     return connectDevice(targetIp);
-  }, [savedDevice, device, connectDevice]);
+  }, [savedDevice, device, connectDevice, connectDemoDevice]);
 
   // Clear saved device preferences
   const clearSavedDevice = useCallback(() => {
@@ -355,6 +495,7 @@ export function DeviceProvider({ children }) {
     thresholds,
     unreadAlertsCount,
     connectDevice,
+    connectDemoDevice,
     disconnectDevice,
     reconnectDevice,
     lastKnownData,

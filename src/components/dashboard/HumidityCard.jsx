@@ -24,6 +24,10 @@ export function HumidityCard({
       <div className="sensor-card-main-val">
         {isOffline ? (
           <span className="val-offline-text">Offline</span>
+        ) : humidity === null || humidity === undefined || isNaN(Number(humidity)) ? (
+          <span className="val-unavailable-text" style={{ fontSize: '1rem', color: '#ea580c', fontWeight: 600 }}>
+            Sensor unavailable
+          </span>
         ) : (
           formatHumidity(humidity)
         )}

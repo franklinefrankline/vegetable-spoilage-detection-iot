@@ -1,0 +1,66 @@
+[
+  {
+    "id": "defedef6-721d-4912-8f42-9f749d1e1e68",
+    "name": "Frankline L",
+    "email": "frankline30999112@gmail.com",
+    "password_hash": "$2b$10$9jBgRATYHz5pR.YPo.zipe/ZSz1WHpZq8lAaM0QzSZHYWclVQ1Xnu",
+    "created_at": "2026-09-28 09:19:14",
+    "updated_at": "2026-09-28 09:19:14"
+  },
+  {
+    "id": "usr_demo_vegsense_001",
+    "name": "Dr. Aris Thorne",
+    "email": "demo@vegsense.io",
+    "password_hash": "$2b$10$p7J1xm5RnPLX66VEJu7F8Oy1AzvRSvYFxnNY3xG3oSUBFTItXkw/O",
+    "created_at": "2026-09-28 11:43:52",
+    "updated_at": "2026-09-28 11:43:52"
+  },
+  {
+    "id": "5ac11cf1-84c4-46c2-93b0-0eb1e04d0888",
+    "name": "Frank AgriTech",
+    "email": "frank.farmer@example.com",
+    "password_hash": "$2b$10$JXnXiz..FwueIQl9PGKtZO6QKweAk4JW5tldplu4ZnRVEoqlL7xbG",
+    "created_at": "2026-09-28 08:49:30",
+    "updated_at": "2026-09-28 08:49:30"
+  },
+  {
+    "id": "971124eb-3871-4d5e-8443-920177419f41",
+    "name": "Test User",
+    "email": "test_persist@example.com",
+    "password_hash": "$2b$10$wts6KhdWEsK9UirrUbbqOe4X4li9hKIjy5/RwIB8Kg0JbDAkFvWZ2",
+    "created_at": "2026-09-29 03:52:51",
+    "updated_at": "2026-09-29 03:52:51"
+  },
+  {
+    "id": "0b19857a-73f0-4475-bfce-15a3c7c5f55f",
+    "name": "Frank AgriTech",
+    "email": "frank.farmer_1790654413947@example.com",
+    "password_hash": "$2b$10$1yj3F5JHOHuduMtPwjGGVutPZYqt1bl0Q5Uy9gvSSzq73SQINv6DO",
+    "created_at": "2026-09-29T04:00:14.432Z",
+    "updated_at": "2026-09-29T04:00:14.911Z"
+  },
+  {
+    "id": "5044f878-2af7-42c1-9ada-d040672c2bbb",
+    "name": "One Time User",
+    "email": "user_unique_1790654423696@example.com",
+    "password_hash": "$2b$10$FNTRlKEolS5wnebk4NLOs.BtOS..DcaOU/bv4NyjP8HRASrlMMuKy",
+    "created_at": "2026-09-29T04:00:23.886Z",
+    "updated_at": "2026-09-29T04:00:23.898Z"
+  },
+  {
+    "id": "28e2091f-8a28-48a5-a72a-4908023d232d",
+    "name": "Permanent Tester",
+    "email": "permanent_user_1790654580699@vegsense.io",
+    "password_hash": "$2b$10$gTdqRZfC4HktZG2X3r8sR.4UEML3RnWAi/8sQKmZsnm95WOhe/r1G",
+    "created_at": "2026-09-29T04:03:00.872Z",
+    "updated_at": "2026-09-29T04:03:00.888Z"
+  },
+  {
+    "id": "dc13debb-01c7-44b1-8e21-5d68bf4c8898",
+    "name": "Permanent Test User",
+    "email": "permanent_test_account_1790654662705@vegsense.io",
+    "password_hash": "$2b$10$lh/nTQu5AxuY1a3E5b2s4Odu/7x4Z2zk8io3HpFkZS73hL.HjJsXW",
+    "created_at": "2026-09-29T04:04:22.889Z",
+    "updated_at": "2026-09-29T04:04:22.908Z"
+  }
+]

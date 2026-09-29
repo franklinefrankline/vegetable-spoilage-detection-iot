@@ -59,10 +59,10 @@ export function RouterProvider({ children }) {
 
     if (!isAuthenticated && isProtected) {
       navigate('/login');
-    } else if (isAuthenticated && (currentPath === '/login' || currentPath === '/register' || currentPath === '/')) {
-      navigate('/dashboard');
     } else if (!isAuthenticated && currentPath === '/') {
       navigate('/login');
+    } else if (isAuthenticated && currentPath === '/') {
+      navigate('/dashboard');
     }
   }, [currentPath, isAuthenticated, loading, navigate]);
 

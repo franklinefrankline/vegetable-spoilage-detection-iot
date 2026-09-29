@@ -34,11 +34,12 @@ export function RecentAlerts({
   }
 
   const getAlertIcon = (type, severity) => {
-    if (type.includes('Offline')) return <WifiOff size={16} />;
-    if (type.includes('Temperature')) return <Thermometer size={16} />;
-    if (type.includes('Humidity')) return <Droplets size={16} />;
-    if (type.includes('Gas')) return <Wind size={16} />;
-    if (type.includes('Spoilage')) return <ShieldAlert size={16} />;
+    const t = String(type || '');
+    if (t.includes('Offline')) return <WifiOff size={16} />;
+    if (t.includes('Temperature')) return <Thermometer size={16} />;
+    if (t.includes('Humidity')) return <Droplets size={16} />;
+    if (t.includes('Gas')) return <Wind size={16} />;
+    if (t.includes('Spoilage')) return <ShieldAlert size={16} />;
     return severity === 'Critical' ? <AlertCircle size={16} /> : <AlertTriangle size={16} />;
   };
 
