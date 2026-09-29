@@ -6610,11 +6610,21 @@ input, select, textarea {
   display: none !important;
 }
 
+/* Prevent duplicate logo in global top bar on desktop since sidebar already prominently displays it */
+@media (min-width: 1025px) {
+  .vegsense-header .header-brand-link {
+    display: none;
+  }
+}
+
 /* Global / Dashboard Desktop Header: 75–90px */
 .dashboard-header-brand .vegsense-official-logo,
 .header-brand-link .vegsense-official-logo {
   width: 85px;
   max-width: 90px;
+  max-height: 48px;
+  height: auto;
+  object-fit: contain;
 }
 
 /* Tablet: 80–90px */
@@ -6623,6 +6633,9 @@ input, select, textarea {
   .header-brand-link .vegsense-official-logo {
     width: 80px;
     max-width: 85px;
+    max-height: 44px;
+    height: auto;
+    object-fit: contain;
   }
 }
 
@@ -6632,6 +6645,9 @@ input, select, textarea {
   .dashboard-header-brand .vegsense-official-logo {
     width: 72px;
     max-width: 78px;
+    max-height: 40px;
+    height: auto;
+    object-fit: contain;
   }
 }
 
