@@ -75,8 +75,19 @@ function AppContent() {
     return <LoginPage />;
   }
 
-  // Authenticated user without any device must connect first (except device-independent routes like /connect-device, /storage, /settings)
-  if (!hasSavedDevice && !isConnected && pathname !== '/connect-device' && pathname !== '/settings' && pathname !== '/storage' && pathname !== '/vegetable-storage') {
+  // Authenticated user without any device must connect first (except device-independent routes or demo/spoilage/sensors/storage)
+  if (
+    !hasSavedDevice &&
+    !isConnected &&
+    pathname !== '/connect-device' &&
+    pathname !== '/settings' &&
+    pathname !== '/storage' &&
+    pathname !== '/vegetable-storage' &&
+    pathname !== '/sensors' &&
+    pathname !== '/live-sensors' &&
+    pathname !== '/spoilage' &&
+    pathname !== '/spoilage-detection'
+  ) {
     return (
       <AppShell>
         <ConnectDevicePage />

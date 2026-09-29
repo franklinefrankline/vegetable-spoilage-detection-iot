@@ -6936,5 +6936,83 @@ input, select, textarea {
   color: var(--primary-accent);
 }
 
+/* ==========================================================================
+   PART 6: SPOILAGE DETECTION MODULE STYLING & RESPONSIVE GRID
+   ========================================================================== */
+.spoilage-page-container {
+  width: 100%;
+  max-width: 1140px;
+  margin: 0 auto;
+  padding-bottom: 2.5rem;
+}
+
+/* Desktop: Balanced side-by-side 2-column layout (Section 56) */
+@media (min-width: 901px) {
+  .spoilage-grid-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  .spoilage-col-left {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  .spoilage-col-right {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+}
+
+/* Mobile & Tablet: Single column with exact Section 57 mobile ordering */
+@media (max-width: 900px) {
+  .spoilage-grid-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    width: 100%;
+  }
+  .spoilage-col-left,
+  .spoilage-col-right {
+    display: contents; /* Allows children to participate directly in parent flex order */
+  }
+  .spoilage-item-risk {
+    order: 1 !important;
+  }
+  .spoilage-item-batch {
+    order: 2 !important;
+  }
+  .spoilage-item-env {
+    order: 3 !important;
+  }
+  .spoilage-item-breakdown {
+    order: 4 !important;
+  }
+  .spoilage-item-recs {
+    order: 5 !important;
+  }
+  .spoilage-item-trend {
+    order: 6 !important;
+  }
+  .spoilage-item-quality {
+    order: 7 !important;
+  }
+}
+
+/* Ensure no horizontal overflow on mobile screens (Section 56 & 66) */
+.vegsense-spoilage-risk-card,
+.vegsense-risk-breakdown-card,
+.vegsense-environmental-conditions-card,
+.vegsense-storage-context-card,
+.vegsense-spoilage-recommendations-card,
+.vegsense-spoilage-quality-card {
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+
 
 

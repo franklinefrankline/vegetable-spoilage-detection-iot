@@ -1,16 +1,23 @@
 import React from 'react';
 import { ShieldAlert, ShieldCheck, AlertTriangle, Clock } from 'lucide-react';
 import { formatSpoilageRisk, getRiskSeverity, formatTimeAgo } from '../../utils/sensorFormatter';
+import { useNavigate } from '../../router/Router';
 
 export function SpoilageRiskCard({
   spoilageRisk,
   lastUpdated,
   isOffline = false
 }) {
+  const navigate = useNavigate();
   const severity = getRiskSeverity(spoilageRisk);
 
   return (
-    <div className="vegsense-card sensor-metric-card">
+    <div
+      className="vegsense-card sensor-metric-card"
+      onClick={() => navigate('/spoilage')}
+      style={{ cursor: 'pointer' }}
+      title="Click to view detailed Spoilage Risk Detection analysis"
+    >
       <div className="sensor-card-top-row">
         <div className="sensor-label-group">
           <span className="sensor-card-tag">ATMOSPHERIC AI</span>
