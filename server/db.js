@@ -2,11 +2,13 @@ import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { put as vercelBlobPut } from '@vercel/blob';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const isVercel = Boolean(process.env.VERCEL);
+export const VERCEL_BLOB_USERS_URL = 'https://qt2vvaxz4l6gzvby.public.blob.vercel-storage.com/persistent_users.json';
 
 // Persistent JSON backup locations
 export const BUNDLED_USERS_PATH = path.join(__dirname, 'persistent_users.json');
@@ -141,10 +143,10 @@ for (const col of storageColumns) {
 }
 
 /**
- * Reads all users from persistent_users.json and inserts/updates them in the database.
+ * Reads all users from persistent_users.json (and Vercel Blob cloud store) and inserts/updates them in the database.
  * This guarantees user data is NEVER lost even if SQLite is freshly initialized or code updates.
  */
-export function syncPersistentUsers() {
+export async function syncPersistentUsers(fetchRemote = true) {
   try {
     const pathsToSync = [BUNDLED_USERS_PATH];
     if (PERSISTENT_USERS_PATH !== BUNDLED_USERS_PATH && fs.existsSync(PERSISTENT_USERS_PATH)) {
@@ -163,6 +165,7 @@ export function syncPersistentUsers() {
     let totalSynced = 0;
     const seenEmails = new Set();
 
+    // 1. Sync from local / bundled files
     for (const p of pathsToSync) {
       if (fs.existsSync(p)) {
         try {
@@ -190,6 +193,47 @@ export function syncPersistentUsers() {
         }
       }
     }
+
+    // 2. Sync from Vercel Blob cloud store (if remote fetch is enabled)
+    if (fetchRemote) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3500);
+        const res = await fetch(`${VERCEL_BLOB_USERS_URL}?t=${Date.now()}`, {
+          signal: controller.signal,
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        clearTimeout(timeout);
+        if (res.ok) {
+          const remoteUsers = await res.json();
+          if (Array.isArray(remoteUsers)) {
+            for (const u of remoteUsers) {
+              if (u.id && u.name && u.email && u.password_hash) {
+                const cleanEmail = u.email.toLowerCase().trim();
+                insertStmt.run(
+                  u.id,
+                  u.name,
+                  cleanEmail,
+                  u.password_hash,
+                  u.created_at || new Date().toISOString(),
+                  u.updated_at || new Date().toISOString()
+                );
+                if (!seenEmails.has(cleanEmail)) {
+                  seenEmails.add(cleanEmail);
+                  totalSynced++;
+                }
+              }
+            }
+            try {
+              fs.writeFileSync(PERSISTENT_USERS_PATH, JSON.stringify(remoteUsers, null, 2), 'utf-8');
+            } catch (wErr) {}
+          }
+        }
+      } catch (remoteErr) {
+        // Safe to ignore if offline or not yet uploaded
+      }
+    }
+
     console.log(`[DB] Successfully synced ${totalSynced} persistent user accounts.`);
   } catch (err) {
     console.warn('[DB] Notice: Could not sync persistent users:', err.message);
@@ -197,9 +241,9 @@ export function syncPersistentUsers() {
 }
 
 /**
- * Persists a user account into persistent_users.json file permanently.
+ * Persists a user account into persistent_users.json and Vercel Blob permanently.
  */
-export function savePersistentUser(user) {
+export async function savePersistentUser(user) {
   try {
     let users = [];
     if (fs.existsSync(PERSISTENT_USERS_PATH)) {
@@ -229,26 +273,58 @@ export function savePersistentUser(user) {
       users.push(record);
     }
 
-    fs.writeFileSync(PERSISTENT_USERS_PATH, JSON.stringify(users, null, 2), 'utf-8');
+    try {
+      fs.writeFileSync(PERSISTENT_USERS_PATH, JSON.stringify(users, null, 2), 'utf-8');
+    } catch (fsErr) {}
+
+    // Upload to Vercel Blob cloud store permanently
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        await vercelBlobPut('persistent_users.json', JSON.stringify(users, null, 2), {
+          access: 'public',
+          addRandomSuffix: false
+        });
+      } catch (blobErr) {
+        console.warn('[DB] Notice: Could not upload users to Vercel Blob:', blobErr.message);
+      }
+    }
   } catch (err) {
     console.warn('[DB] Notice: Could not write to persistent_users.json:', err.message);
   }
 }
 
 /**
- * Updates a user's password in persistent_users.json.
+ * Updates a user's password in persistent_users.json and Vercel Blob.
  */
-export function updatePersistentPassword(email, newPasswordHash) {
+export async function updatePersistentPassword(email, newPasswordHash) {
   try {
+    let users = [];
     if (fs.existsSync(PERSISTENT_USERS_PATH)) {
-      const content = fs.readFileSync(PERSISTENT_USERS_PATH, 'utf-8');
-      const users = JSON.parse(content || '[]');
-      const cleanEmail = email.toLowerCase().trim();
-      const user = users.find((u) => u.email.toLowerCase().trim() === cleanEmail);
-      if (user) {
-        user.password_hash = newPasswordHash;
-        user.updated_at = new Date().toISOString();
+      try {
+        const content = fs.readFileSync(PERSISTENT_USERS_PATH, 'utf-8');
+        users = JSON.parse(content || '[]');
+      } catch (e) {
+        users = [];
+      }
+    }
+    const cleanEmail = email.toLowerCase().trim();
+    const user = users.find((u) => u.email.toLowerCase().trim() === cleanEmail);
+    if (user) {
+      user.password_hash = newPasswordHash;
+      user.updated_at = new Date().toISOString();
+      try {
         fs.writeFileSync(PERSISTENT_USERS_PATH, JSON.stringify(users, null, 2), 'utf-8');
+      } catch (e) {}
+
+      if (process.env.BLOB_READ_WRITE_TOKEN) {
+        try {
+          await vercelBlobPut('persistent_users.json', JSON.stringify(users, null, 2), {
+            access: 'public',
+            addRandomSuffix: false
+          });
+        } catch (blobErr) {
+          console.warn('[DB] Notice: Could not upload updated password to Vercel Blob:', blobErr.message);
+        }
       }
     }
   } catch (err) {

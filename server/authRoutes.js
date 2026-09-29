@@ -64,7 +64,14 @@ router.post('/register', async (req, res) => {
 
     // Check if user already exists
     const checkStmt = db.prepare('SELECT id FROM users WHERE email = ?');
-    const existing = checkStmt.get(trimmedEmail);
+    let existing = checkStmt.get(trimmedEmail);
+    if (!existing) {
+      try {
+        await syncPersistentUsers(true);
+        existing = checkStmt.get(trimmedEmail);
+      } catch (e) {}
+    }
+
     if (existing) {
       const duplicateMsg = 'An account with this email already exists. Please log in.';
       return res.status(409).json({
@@ -87,8 +94,8 @@ router.post('/register', async (req, res) => {
     `);
     insertStmt.run(userId, name.trim(), trimmedEmail, password_hash, now, now);
 
-    // Persist permanently into JSON file so data is never removed on code updates
-    savePersistentUser({
+    // Persist permanently into JSON file and Vercel Blob cloud store
+    await savePersistentUser({
       id: userId,
       name: name.trim(),
       email: trimmedEmail,
@@ -135,9 +142,13 @@ router.post('/login', async (req, res) => {
     let user = queryStmt.get(trimmedEmail);
 
     if (!user) {
-      // Re-sync persistent users in case database was freshly initialized or deployed
-      syncPersistentUsers();
-      user = queryStmt.get(trimmedEmail);
+      // Re-sync persistent users from Vercel Blob cloud store in case container is cold-started
+      try {
+        await syncPersistentUsers(true);
+        user = queryStmt.get(trimmedEmail);
+      } catch (syncErr) {
+        console.warn('Sync users error on login:', syncErr.message);
+      }
     }
 
     if (!user) {
@@ -259,7 +270,7 @@ router.post('/reset-password', async (req, res) => {
       WHERE email = ?
     `);
     updateStmt.run(newHash, record.email);
-    updatePersistentPassword(record.email, newHash);
+    await updatePersistentPassword(record.email, newHash);
 
     // Mark reset token as used
     db.prepare('UPDATE password_resets SET used = 1 WHERE id = ?').run(record.id);
@@ -295,6 +306,32 @@ router.get('/me', authenticateToken, (req, res) => {
   } catch (error) {
     console.error('/me error:', error);
     return res.status(500).json({ authenticated: false, message: 'Internal server error.' });
+  }
+});
+
+// DELETE /api/auth/admin/users/:id - Only authorized Admin can delete accounts
+router.delete('/admin/users/:id', async (req, res) => {
+  try {
+    const adminKey = req.headers['x-admin-key'] || req.query.adminKey;
+    const expectedKey = process.env.ADMIN_SECRET_KEY || 'vegsense_super_admin_secret_2026';
+    if (!adminKey || adminKey !== expectedKey) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only an authorized Admin can delete user accounts.'
+      });
+    }
+
+    const { id } = req.params;
+    const user = db.prepare('SELECT id, email FROM users WHERE id = ?').get(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User account not found.' });
+    }
+
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+
+    return res.json({ success: true, message: `Account for ${user.email} permanently deleted by authorized Admin.` });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Failed to delete user.' });
   }
 });
 
