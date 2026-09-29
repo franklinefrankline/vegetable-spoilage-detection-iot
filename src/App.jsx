@@ -90,7 +90,8 @@ function AppContent() {
     pathname !== '/spoilage-detection' &&
     pathname !== '/alerts' &&
     pathname !== '/analytics' &&
-    pathname !== '/history'
+    pathname !== '/history' &&
+    pathname !== '/reports'
   ) {
     return (
       <AppShell>

@@ -206,8 +206,8 @@ export function AlertAnalytics({ alertData, timeRange }) {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '180px', overflowY: 'auto' }}>
-              {byType.map((item) => (
-                <div key={item.type} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+              {byType.map((item, index) => (
+                <div key={`${item.type || 'type'}-${index}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--primary)' }} />
                     <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{item.type}</span>

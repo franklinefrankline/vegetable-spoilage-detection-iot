@@ -244,6 +244,42 @@ try {
   // Safe to ignore if already created
 }
 
+// Migration: Ensure reports table has all Part 9 production fields & indexes
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS reports (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      report_type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      file_path TEXT,
+      storage_url TEXT,
+      device_id TEXT,
+      storage_batch_id TEXT,
+      vegetable_type TEXT,
+      source_mode TEXT DEFAULT 'ALL',
+      from_date TEXT,
+      to_date TEXT,
+      status TEXT DEFAULT 'COMPLETED',
+      file_size INTEGER DEFAULT 0,
+      sections TEXT,
+      summary_data TEXT,
+      recommendations TEXT,
+      pdf_base64 TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_reports_user_created ON reports(user_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_reports_user_status ON reports(user_id, status);
+    CREATE INDEX IF NOT EXISTS idx_reports_user_type ON reports(user_id, report_type);
+    CREATE INDEX IF NOT EXISTS idx_reports_user_batch ON reports(user_id, storage_batch_id);
+  `);
+} catch (e) {
+  // Safe to ignore if already exists
+}
+
 /**
  * Reads all users from persistent_users.json (and Vercel Blob cloud store) and inserts/updates them in the database.
  * This guarantees user data is NEVER lost even if SQLite is freshly initialized or code updates.

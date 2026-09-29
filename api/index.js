@@ -3,6 +3,11 @@ import cors from 'cors';
 import authRoutes from '../server/authRoutes.js';
 import deviceRoutes from '../server/deviceRoutes.js';
 import storageRoutes from '../server/storageRoutes.js';
+import sensorRoutes from '../server/sensorRoutes.js';
+import spoilageRoutes from '../server/spoilageRoutes.js';
+import alertRoutes from '../server/alertRoutes.js';
+import analyticsRoutes from '../server/analyticsRoutes.js';
+import reportRoutes from '../server/reportRoutes.js';
 
 const app = express();
 
@@ -13,11 +18,21 @@ app.use(cors({
 
 app.use(express.json());
 
-// Support both /api/auth and /auth paths depending on Vercel rewrite configuration
+// Support both /api/* and root paths depending on Vercel rewrite configuration
 app.use('/api/auth', authRoutes);
 app.use('/auth', authRoutes);
 app.use('/api/storage', storageRoutes);
 app.use('/storage', storageRoutes);
+app.use('/api/sensors', sensorRoutes);
+app.use('/sensors', sensorRoutes);
+app.use('/api/spoilage', spoilageRoutes);
+app.use('/spoilage', spoilageRoutes);
+app.use('/api/alerts', alertRoutes);
+app.use('/alerts', alertRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/analytics', analyticsRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/reports', reportRoutes);
 app.use('/api', deviceRoutes);
 app.use('/', deviceRoutes);
 
