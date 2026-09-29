@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import { put as vercelBlobPut } from '@vercel/blob';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -357,7 +358,8 @@ try {
 const userAdminColumns = [
   { name: 'role', type: "TEXT DEFAULT 'USER'" },
   { name: 'is_active', type: 'INTEGER DEFAULT 1' },
-  { name: 'last_login_at', type: 'DATETIME' }
+  { name: 'last_login_at', type: 'DATETIME' },
+  { name: 'username', type: 'TEXT' }
 ];
 
 for (const col of userAdminColumns) {
@@ -373,6 +375,28 @@ try {
     CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
     CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
     CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(LOWER(username)) WHERE username IS NOT NULL;
+
+    CREATE TABLE IF NOT EXISTS admin_permissions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      full_access INTEGER DEFAULT 1,
+      user_management INTEGER DEFAULT 1,
+      admin_management INTEGER DEFAULT 0,
+      device_management INTEGER DEFAULT 1,
+      storage_management INTEGER DEFAULT 1,
+      sensor_monitoring INTEGER DEFAULT 1,
+      spoilage_monitoring INTEGER DEFAULT 1,
+      alert_management INTEGER DEFAULT 1,
+      analytics INTEGER DEFAULT 1,
+      reports INTEGER DEFAULT 1,
+      system_settings INTEGER DEFAULT 0,
+      audit_logs INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_admin_perm_user ON admin_permissions(user_id);
 
     CREATE TABLE IF NOT EXISTS admin_audit_logs (
       id TEXT PRIMARY KEY,
@@ -407,10 +431,11 @@ export async function syncPersistentUsers(fetchRemote = true) {
     }
 
     const insertStmt = db.prepare(`
-      INSERT INTO users (id, name, email, password_hash, role, is_active, last_login_at, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, name, username, email, password_hash, role, is_active, last_login_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(email) DO UPDATE SET
         name = excluded.name,
+        username = COALESCE(users.username, excluded.username),
         password_hash = excluded.password_hash,
         role = COALESCE(users.role, excluded.role),
         is_active = COALESCE(users.is_active, excluded.is_active),
@@ -430,11 +455,13 @@ export async function syncPersistentUsers(fetchRemote = true) {
           for (const u of users) {
             if (u.id && u.name && u.email && u.password_hash) {
               const cleanEmail = u.email.toLowerCase().trim();
-              const userRole = u.role || (cleanEmail === 'demo@vegsense.io' || cleanEmail === 'admin@vegsense.io' ? 'ADMIN' : 'USER');
+              const userRole = u.role || (cleanEmail === 'vegsense@gmail.com' ? 'MAIN_ADMIN' : cleanEmail === 'demo@vegsense.io' || cleanEmail === 'admin@vegsense.io' ? 'ADMIN' : 'USER');
               const isActive = u.is_active !== undefined ? (u.is_active ? 1 : 0) : 1;
+              const username = u.username || (cleanEmail === 'vegsense@gmail.com' ? 'vegsense' : null);
               insertStmt.run(
                 u.id,
                 u.name,
+                username,
                 cleanEmail,
                 u.password_hash,
                 userRole,
@@ -471,11 +498,13 @@ export async function syncPersistentUsers(fetchRemote = true) {
             for (const u of remoteUsers) {
               if (u.id && u.name && u.email && u.password_hash) {
                 const cleanEmail = u.email.toLowerCase().trim();
-                const userRole = u.role || (cleanEmail === 'demo@vegsense.io' || cleanEmail === 'admin@vegsense.io' ? 'ADMIN' : 'USER');
+                const userRole = u.role || (cleanEmail === 'vegsense@gmail.com' ? 'MAIN_ADMIN' : cleanEmail === 'demo@vegsense.io' || cleanEmail === 'admin@vegsense.io' ? 'ADMIN' : 'USER');
                 const isActive = u.is_active !== undefined ? (u.is_active ? 1 : 0) : 1;
+                const username = u.username || (cleanEmail === 'vegsense@gmail.com' ? 'vegsense' : null);
                 insertStmt.run(
                   u.id,
                   u.name,
+                  username,
                   cleanEmail,
                   u.password_hash,
                   userRole,
@@ -528,6 +557,7 @@ export async function savePersistentUser(user) {
       id: user.id,
       name: user.name,
       email: cleanEmail,
+      username: user.username || (existingIndex >= 0 ? users[existingIndex].username : null),
       password_hash: user.password_hash,
       role: user.role || (existingIndex >= 0 ? users[existingIndex].role : 'USER') || 'USER',
       is_active: user.is_active !== undefined ? (user.is_active ? 1 : 0) : (existingIndex >= 0 && users[existingIndex].is_active !== undefined ? users[existingIndex].is_active : 1),
@@ -563,7 +593,7 @@ export async function savePersistentUser(user) {
 }
 
 /**
- * Updates a user's persistent metadata (role, is_active, name, last_login_at) in JSON & Blob.
+ * Updates a user's persistent metadata (role, is_active, name, username, last_login_at) in JSON & Blob.
  */
 export async function updatePersistentUserMeta(email, meta = {}) {
   try {
@@ -580,6 +610,7 @@ export async function updatePersistentUserMeta(email, meta = {}) {
     const user = users.find((u) => u.email && u.email.toLowerCase().trim() === cleanEmail);
     if (user) {
       if (meta.name !== undefined) user.name = meta.name;
+      if (meta.username !== undefined) user.username = meta.username;
       if (meta.role !== undefined) user.role = meta.role;
       if (meta.is_active !== undefined) user.is_active = meta.is_active ? 1 : 0;
       if (meta.last_login_at !== undefined) user.last_login_at = meta.last_login_at;
@@ -741,6 +772,8 @@ try {
     // Ensure demo account has ADMIN role and active status
     db.prepare("UPDATE users SET role = 'ADMIN', is_active = 1 WHERE email = 'demo@vegsense.io'").run();
   }
+  const currentDemo = db.prepare('SELECT id FROM users WHERE email = ?').get('demo@vegsense.io');
+  if (currentDemo) ensureAdminPermissions(currentDemo.id, 1);
 
   // Also ensure dedicated admin account exists
   const adminUser = db.prepare('SELECT id FROM users WHERE email = ?').get('admin@vegsense.io');
@@ -748,6 +781,7 @@ try {
     const adminPayload = {
       id: 'usr_admin_vegsense_001',
       name: 'System Administrator',
+      username: 'admin',
       email: 'admin@vegsense.io',
       password_hash: '$2b$10$QbNx7WCTa9dv5lYaSPRJ9eS3tnCETvBDkOjyX5LAENSAYMVza8.7q', // Password123
       role: 'ADMIN',
@@ -756,11 +790,12 @@ try {
       updated_at: '2026-09-28 10:00:00'
     };
     db.prepare(`
-      INSERT INTO users (id, name, email, password_hash, role, is_active, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, name, username, email, password_hash, role, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       adminPayload.id,
       adminPayload.name,
+      adminPayload.username,
       adminPayload.email,
       adminPayload.password_hash,
       adminPayload.role,
@@ -769,11 +804,126 @@ try {
       adminPayload.updated_at
     );
     savePersistentUser(adminPayload);
+    ensureAdminPermissions(adminPayload.id, 1);
   } else {
-    db.prepare("UPDATE users SET role = 'ADMIN', is_active = 1 WHERE email = 'admin@vegsense.io'").run();
+    db.prepare("UPDATE users SET role = 'ADMIN', is_active = 1, username = COALESCE(username, 'admin') WHERE email = 'admin@vegsense.io'").run();
+    ensureAdminPermissions(adminUser.id, 1);
   }
+
+  // Initialize permanent Main Admin
+  initMainAdmin();
 } catch (seedErr) {
   console.warn('Notice: Could not seed admin users:', seedErr.message);
+}
+
+/**
+ * Ensures an admin user has an entry in admin_permissions
+ */
+export function ensureAdminPermissions(userId, isFullAccess = 1) {
+  try {
+    const existing = db.prepare('SELECT id FROM admin_permissions WHERE user_id = ?').get(userId);
+    if (!existing) {
+      const permId = 'perm_' + crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO admin_permissions (
+          id, user_id, full_access, user_management, admin_management,
+          device_management, storage_management, sensor_monitoring,
+          spoilage_monitoring, alert_management, analytics, reports,
+          system_settings, audit_logs, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `).run(
+        permId,
+        userId,
+        isFullAccess ? 1 : 0,
+        1, // user_management
+        0, // admin_management (requires Main Admin or explicit grant)
+        1, // device_management
+        1, // storage_management
+        1, // sensor_monitoring
+        1, // spoilage_monitoring
+        1, // alert_management
+        1, // analytics
+        1, // reports
+        0, // system_settings
+        1  // audit_logs
+      );
+    }
+  } catch (e) {
+    console.warn('[DB] Notice: Could not ensure admin permissions:', e.message);
+  }
+}
+
+/**
+ * Initializes the permanent MAIN_ADMIN account from secure environment config.
+ * Never resets existing passwords or creates duplicate accounts.
+ */
+export async function initMainAdmin() {
+  try {
+    const mainAdminEmail = (process.env.MAIN_ADMIN_EMAIL || 'vegsense@gmail.com').toLowerCase().trim();
+    const mainAdminPassword = process.env.MAIN_ADMIN_PASSWORD || 'VegSense@Admin2026!';
+    
+    // Check if vegsense@gmail.com exists
+    const existing = db.prepare('SELECT id, name, email, role, is_active FROM users WHERE email = ?').get(mainAdminEmail);
+    if (!existing) {
+      const passwordHash = bcrypt.hashSync(mainAdminPassword, 10);
+      const id = 'usr_main_admin_vegsense';
+      const name = 'VegSense Main Administrator';
+      const username = 'vegsense';
+      const now = new Date().toISOString();
+
+      db.prepare(`
+        INSERT INTO users (id, name, username, email, password_hash, role, is_active, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, 'MAIN_ADMIN', 1, ?, ?)
+      `).run(id, name, username, mainAdminEmail, passwordHash, now, now);
+
+      db.prepare(`
+        INSERT OR REPLACE INTO admin_permissions (
+          id, user_id, full_access, user_management, admin_management,
+          device_management, storage_management, sensor_monitoring,
+          spoilage_monitoring, alert_management, analytics, reports,
+          system_settings, audit_logs, created_at, updated_at
+        ) VALUES (?, ?, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, ?, ?)
+      `).run('perm_main_admin_vegsense', id, now, now);
+
+      await savePersistentUser({
+        id,
+        name,
+        username,
+        email: mainAdminEmail,
+        password_hash: passwordHash,
+        role: 'MAIN_ADMIN',
+        is_active: 1,
+        created_at: now,
+        updated_at: now
+      });
+
+      console.log(`[DB] Successfully initialized MAIN_ADMIN account (${mainAdminEmail}).`);
+    } else {
+      // Ensure existing account has role MAIN_ADMIN, active, and username
+      db.prepare(`
+        UPDATE users 
+        SET role = 'MAIN_ADMIN', 
+            is_active = 1,
+            username = COALESCE(username, 'vegsense')
+        WHERE email = ?
+      `).run(mainAdminEmail);
+
+      // Ensure full permissions
+      db.prepare(`
+        INSERT OR REPLACE INTO admin_permissions (
+          id, user_id, full_access, user_management, admin_management,
+          device_management, storage_management, sensor_monitoring,
+          spoilage_monitoring, alert_management, analytics, reports,
+          system_settings, audit_logs, created_at, updated_at
+        ) VALUES (
+          COALESCE((SELECT id FROM admin_permissions WHERE user_id = ?), 'perm_main_admin_vegsense'),
+          ?, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        )
+      `).run(existing.id, existing.id);
+    }
+  } catch (err) {
+    console.warn('[DB] Notice: Could not initialize Main Admin:', err.message);
+  }
 }
 
 export default db;

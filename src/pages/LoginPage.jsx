@@ -56,9 +56,11 @@ export function LoginPage() {
     const newErrors = {};
 
     if (!email.trim()) {
-      newErrors.email = 'Please enter your email address.';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      newErrors.email = 'Please enter your email address or username.';
+    } else if (email.includes('@') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       newErrors.email = 'Please enter a valid email address.';
+    } else if (!email.includes('@') && email.trim().length < 3) {
+      newErrors.email = 'Username must be at least 3 characters.';
     }
 
     if (!password) {
@@ -80,14 +82,21 @@ export function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      await login({
+      const data = await login({
         email: email.trim(),
         password,
         rememberMe
       });
 
       addToast('Login successful.', 'success');
-      navigate('/connect-device');
+
+      // Section 5: Redirect based on authenticated role
+      const role = String(data?.user?.role || '').toUpperCase();
+      if (role === 'MAIN_ADMIN' || role === 'ADMIN') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       const msg = err.message || 'Invalid email or password.';
       setGeneralError(msg);
@@ -330,7 +339,7 @@ export function LoginPage() {
             {/* Email Address */}
             <div className="form-group" style={{ marginBottom: '1.25rem' }}>
               <label htmlFor="login-email" className="form-label">
-                Email Address
+                Email Address or Username
               </label>
               <div className="login-input-wrapper">
                 <span className="login-input-icon">
@@ -338,9 +347,9 @@ export function LoginPage() {
                 </span>
                 <input
                   id="login-email"
-                  type="email"
+                  type="text"
                   className={`login-form-input ${errors.email ? 'input-error' : ''}`}
-                  placeholder="Enter your email address"
+                  placeholder="Enter your email or username"
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);

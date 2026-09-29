@@ -1,21 +1,25 @@
 import express from 'express';
+import crypto from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import db, {
   savePersistentUser,
   deletePersistentUser,
   updatePersistentUserMeta,
+  updatePersistentPassword,
   recordAuditLog,
-  syncPersistentUsers
+  syncPersistentUsers,
+  ensureAdminPermissions
 } from './db.js';
-import { requireAdmin } from './authRoutes.js';
+import { requireAdmin, requireMainAdmin, requirePermission } from './authRoutes.js';
 
 const router = express.Router();
 
-// All admin routes strictly require authenticated ADMIN role
+// All admin routes strictly require authenticated ADMIN or MAIN_ADMIN role
 router.use(requireAdmin);
 
 // Helper to count active administrators
 function getActiveAdminCount() {
-  const row = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'ADMIN' AND is_active = 1").get();
+  const row = db.prepare("SELECT COUNT(*) as count FROM users WHERE role IN ('ADMIN', 'MAIN_ADMIN') AND is_active = 1").get();
   return row?.count || 0;
 }
 
@@ -24,10 +28,12 @@ function getActiveAdminCount() {
 // ============================================================================
 router.get('/dashboard', (req, res) => {
   try {
-    const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
-    const activeUsers = db.prepare('SELECT COUNT(*) as count FROM users WHERE is_active = 1').get().count;
-    const inactiveUsers = db.prepare('SELECT COUNT(*) as count FROM users WHERE is_active = 0').get().count;
-    const administrators = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'ADMIN'").get().count;
+    const totalUsers = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'USER'").get().count;
+    const activeUsers = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'USER' AND is_active = 1").get().count;
+    const inactiveUsers = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'USER' AND is_active = 0").get().count;
+    const totalAdmins = db.prepare("SELECT COUNT(*) as count FROM users WHERE role IN ('ADMIN', 'MAIN_ADMIN')").get().count;
+    const activeAdmins = db.prepare("SELECT COUNT(*) as count FROM users WHERE role IN ('ADMIN', 'MAIN_ADMIN') AND is_active = 1").get().count;
+    const administrators = totalAdmins;
 
     const totalDevices = db.prepare('SELECT COUNT(*) as count FROM devices').get().count;
     const onlineDevices = db.prepare("SELECT COUNT(*) as count FROM devices WHERE status = 'connected' AND (is_active = 1 OR is_active IS NULL)").get().count;
@@ -96,6 +102,8 @@ router.get('/dashboard', (req, res) => {
         totalUsers,
         activeUsers,
         inactiveUsers,
+        totalAdmins,
+        activeAdmins,
         administrators,
         totalDevices,
         onlineDevices,
@@ -454,6 +462,15 @@ router.patch('/users/:id/deactivate', async (req, res) => {
       return res.status(404).json({ success: false, message: 'User account not found.' });
     }
 
+    // MAIN_ADMIN protection
+    if (user.role === 'MAIN_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: 'MAIN_ADMIN_PROTECTED',
+        message: 'Main Administrator account is permanently protected and cannot be deactivated.'
+      });
+    }
+
     // Self-deactivation protection
     if (user.id === req.user.id) {
       return res.status(400).json({
@@ -464,7 +481,7 @@ router.patch('/users/:id/deactivate', async (req, res) => {
     }
 
     // Last-admin protection
-    if (user.role === 'ADMIN') {
+    if (['ADMIN', 'MAIN_ADMIN'].includes(user.role)) {
       const activeAdmins = getActiveAdminCount();
       if (activeAdmins <= 1) {
         return res.status(400).json({
@@ -514,6 +531,15 @@ router.patch('/users/:id/role', async (req, res) => {
     const user = db.prepare('SELECT id, name, email, role, is_active FROM users WHERE id = ?').get(id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User account not found.' });
+    }
+
+    // Main Admin role protection
+    if (user.role === 'MAIN_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: 'MAIN_ADMIN_PROTECTED',
+        message: 'Main Administrator role is permanently protected and cannot be modified.'
+      });
     }
 
     // Last-admin protection when demoting from ADMIN to USER
@@ -573,6 +599,15 @@ router.delete('/users/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'User account not found.' });
     }
 
+    // MAIN_ADMIN protection
+    if (user.role === 'MAIN_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: 'MAIN_ADMIN_PROTECTED',
+        message: 'Main Administrator account is permanently protected and cannot be deleted.'
+      });
+    }
+
     // SECTION 20: Self-deletion protection
     if (user.id === req.user.id) {
       return res.status(400).json({
@@ -583,7 +618,7 @@ router.delete('/users/:id', async (req, res) => {
     }
 
     // SECTION 21: Last-admin protection
-    if (user.role === 'ADMIN') {
+    if (['ADMIN', 'MAIN_ADMIN'].includes(user.role)) {
       const activeAdmins = getActiveAdminCount();
       if (activeAdmins <= 1) {
         return res.status(400).json({
@@ -654,6 +689,12 @@ router.post('/users/bulk-delete', async (req, res) => {
         continue;
       }
 
+      // Main Admin check
+      if (user.role === 'MAIN_ADMIN') {
+        failedResults.push({ id, email: user.email, reason: 'Main Administrator account is permanently protected' });
+        continue;
+      }
+
       // Self-deletion check
       if (user.id === req.user.id) {
         failedResults.push({ id, email: user.email, reason: 'Cannot delete current administrator' });
@@ -661,7 +702,7 @@ router.post('/users/bulk-delete', async (req, res) => {
       }
 
       // Last admin check
-      if (user.role === 'ADMIN') {
+      if (['ADMIN', 'MAIN_ADMIN'].includes(user.role)) {
         const activeAdmins = getActiveAdminCount();
         if (activeAdmins <= 1) {
           failedResults.push({ id, email: user.email, reason: 'Cannot delete the last active administrator' });
@@ -817,7 +858,783 @@ router.get('/system', (req, res) => {
       }
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: 'Failed to load system health overview.' });
+    console.error('[Admin API] Error compiling system health:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve system health and telemetry overview.'
+    });
+  }
+});
+
+// ============================================================================
+// 13. GET /api/admin/admins - List Administrators
+// ============================================================================
+router.get('/admins', requirePermission('admin_management'), (req, res) => {
+  try {
+    const { search = '', status = 'ALL' } = req.query;
+
+    const conditions = ["role IN ('ADMIN', 'MAIN_ADMIN')"];
+    const params = [];
+
+    if (search && search.trim()) {
+      const q = `%${search.trim().toLowerCase()}%`;
+      conditions.push('(LOWER(name) LIKE ? OR LOWER(username) LIKE ? OR LOWER(email) LIKE ?)');
+      params.push(q, q, q);
+    }
+
+    if (status && status !== 'ALL') {
+      if (status.toUpperCase() === 'ACTIVE') {
+        conditions.push('is_active = 1');
+      } else if (status.toUpperCase() === 'INACTIVE') {
+        conditions.push('is_active = 0');
+      }
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const admins = db.prepare(`
+      SELECT u.id, u.name, u.username, u.email, u.role, u.is_active, u.created_at, u.updated_at, u.last_login_at,
+             p.full_access, p.user_management, p.admin_management, p.device_management,
+             p.storage_management, p.sensor_monitoring, p.spoilage_monitoring,
+             p.alert_management, p.analytics, p.reports, p.system_settings, p.audit_logs
+      FROM users u
+      LEFT JOIN admin_permissions p ON u.id = p.user_id
+      ${whereClause}
+      ORDER BY CASE WHEN u.role = 'MAIN_ADMIN' THEN 0 ELSE 1 END, u.created_at ASC
+    `).all(...params);
+
+    const formatted = admins.map((a) => {
+      const isMain = a.role === 'MAIN_ADMIN';
+      const isFull = isMain || a.full_access === 1;
+      return {
+        id: a.id,
+        name: a.name,
+        username: a.username || (isMain ? 'vegsense' : 'admin'),
+        email: a.email,
+        role: a.role,
+        is_active: a.is_active,
+        status: isMain ? 'PROTECTED' : (a.is_active ? 'ACTIVE' : 'INACTIVE'),
+        access_type: isFull ? 'FULL ACCESS' : 'CUSTOM ACCESS',
+        permissions: isMain ? {
+          full_access: 1,
+          user_management: 1,
+          admin_management: 1,
+          device_management: 1,
+          storage_management: 1,
+          sensor_monitoring: 1,
+          spoilage_monitoring: 1,
+          alert_management: 1,
+          analytics: 1,
+          reports: 1,
+          system_settings: 1,
+          audit_logs: 1
+        } : {
+          full_access: a.full_access || 0,
+          user_management: a.user_management || 0,
+          admin_management: a.admin_management || 0,
+          device_management: a.device_management || 0,
+          storage_management: a.storage_management || 0,
+          sensor_monitoring: a.sensor_monitoring || 0,
+          spoilage_monitoring: a.spoilage_monitoring || 0,
+          alert_management: a.alert_management || 0,
+          analytics: a.analytics || 0,
+          reports: a.reports || 0,
+          system_settings: a.system_settings || 0,
+          audit_logs: a.audit_logs || 0
+        },
+        created_at: a.created_at,
+        last_login_at: a.last_login_at
+      };
+    });
+
+    return res.json({
+      success: true,
+      admins: formatted,
+      total: formatted.length
+    });
+  } catch (err) {
+    console.error('[Admin List Error]:', err);
+    return res.status(500).json({ success: false, message: 'Failed to retrieve administrators.' });
+  }
+});
+
+// ============================================================================
+// 14. GET /api/admin/admins/:id - Single Administrator Record & Permissions
+// ============================================================================
+router.get('/admins/:id', requirePermission('admin_management'), (req, res) => {
+  try {
+    const { id } = req.params;
+    const a = db.prepare(`
+      SELECT u.id, u.name, u.username, u.email, u.role, u.is_active, u.created_at, u.updated_at, u.last_login_at,
+             p.full_access, p.user_management, p.admin_management, p.device_management,
+             p.storage_management, p.sensor_monitoring, p.spoilage_monitoring,
+             p.alert_management, p.analytics, p.reports, p.system_settings, p.audit_logs
+      FROM users u
+      LEFT JOIN admin_permissions p ON u.id = p.user_id
+      WHERE u.id = ? AND u.role IN ('ADMIN', 'MAIN_ADMIN')
+    `).get(id);
+
+    if (!a) {
+      return res.status(404).json({ success: false, message: 'Administrator account not found.' });
+    }
+
+    const isMain = a.role === 'MAIN_ADMIN';
+    const isFull = isMain || a.full_access === 1;
+
+    return res.json({
+      success: true,
+      admin: {
+        id: a.id,
+        name: a.name,
+        username: a.username || (isMain ? 'vegsense' : 'admin'),
+        email: a.email,
+        role: a.role,
+        is_active: a.is_active,
+        status: isMain ? 'PROTECTED' : (a.is_active ? 'ACTIVE' : 'INACTIVE'),
+        access_type: isFull ? 'FULL ACCESS' : 'CUSTOM ACCESS',
+        permissions: isMain ? {
+          full_access: 1,
+          user_management: 1,
+          admin_management: 1,
+          device_management: 1,
+          storage_management: 1,
+          sensor_monitoring: 1,
+          spoilage_monitoring: 1,
+          alert_management: 1,
+          analytics: 1,
+          reports: 1,
+          system_settings: 1,
+          audit_logs: 1
+        } : {
+          full_access: a.full_access || 0,
+          user_management: a.user_management || 0,
+          admin_management: a.admin_management || 0,
+          device_management: a.device_management || 0,
+          storage_management: a.storage_management || 0,
+          sensor_monitoring: a.sensor_monitoring || 0,
+          spoilage_monitoring: a.spoilage_monitoring || 0,
+          alert_management: a.alert_management || 0,
+          analytics: a.analytics || 0,
+          reports: a.reports || 0,
+          system_settings: a.system_settings || 0,
+          audit_logs: a.audit_logs || 0
+        },
+        created_at: a.created_at,
+        last_login_at: a.last_login_at
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Failed to retrieve administrator.' });
+  }
+});
+
+// ============================================================================
+// 15. POST /api/admin/admins - Create Administrator
+// ============================================================================
+router.post('/admins', requireMainAdmin, async (req, res) => {
+  try {
+    const {
+      name,
+      username,
+      email,
+      password,
+      confirm_password,
+      status = 'ACTIVE',
+      full_access = false,
+      permissions = {}
+    } = req.body;
+
+    if (!name || typeof name !== 'string' || name.trim().length < 2) {
+      return res.status(400).json({ success: false, message: 'Full name is required (min 2 characters).' });
+    }
+
+    const cleanUsername = String(username || '').trim().toLowerCase();
+    if (!cleanUsername || cleanUsername.length < 3 || !/^[a-z0-9_]+$/.test(cleanUsername)) {
+      return res.status(400).json({ success: false, message: 'Username must be at least 3 characters and contain only lowercase letters, numbers, or underscores.' });
+    }
+
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+    }
+
+    // Password validation (min 8, upper, lower, number, special char)
+    if (!password || typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long.' });
+    }
+
+    const hasUpper = /[A-Z]/.test(password);
+    const hasLower = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    if (!hasUpper || !hasLower || !hasNumber || !hasSpecial) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.'
+      });
+    }
+
+    if (confirm_password && password !== confirm_password) {
+      return res.status(400).json({ success: false, message: 'Confirmation password does not match.' });
+    }
+
+    // Check unique email and unique username
+    const existingEmail = db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(cleanEmail);
+    if (existingEmail) {
+      return res.status(409).json({ success: false, message: 'An account with this email address already exists.' });
+    }
+
+    const existingUsername = db.prepare('SELECT id FROM users WHERE LOWER(username) = ?').get(cleanUsername);
+    if (existingUsername) {
+      return res.status(409).json({ success: false, message: 'This username is already taken. Please choose another.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const adminId = 'usr_admin_' + crypto.randomUUID().slice(0, 8);
+    const now = new Date().toISOString();
+    const isActive = status === 'INACTIVE' ? 0 : 1;
+
+    db.prepare(`
+      INSERT INTO users (id, name, username, email, password_hash, role, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 'ADMIN', ?, ?, ?)
+    `).run(adminId, name.trim(), cleanUsername, cleanEmail, passwordHash, isActive, now, now);
+
+    const isFull = Boolean(full_access);
+    const permId = 'perm_' + crypto.randomUUID();
+
+    db.prepare(`
+      INSERT INTO admin_permissions (
+        id, user_id, full_access, user_management, admin_management,
+        device_management, storage_management, sensor_monitoring,
+        spoilage_monitoring, alert_management, analytics, reports,
+        system_settings, audit_logs, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      permId,
+      adminId,
+      isFull ? 1 : 0,
+      isFull || permissions.user_management ? 1 : 0,
+      isFull || permissions.admin_management ? 1 : 0,
+      isFull || permissions.device_management ? 1 : 0,
+      isFull || permissions.storage_management ? 1 : 0,
+      isFull || permissions.sensor_monitoring ? 1 : 0,
+      isFull || permissions.spoilage_monitoring ? 1 : 0,
+      isFull || permissions.alert_management ? 1 : 0,
+      isFull || permissions.analytics ? 1 : 0,
+      isFull || permissions.reports ? 1 : 0,
+      isFull || permissions.system_settings ? 1 : 0,
+      isFull || permissions.audit_logs ? 1 : 0,
+      now,
+      now
+    );
+
+    // Save to persistent storage
+    await savePersistentUser({
+      id: adminId,
+      name: name.trim(),
+      username: cleanUsername,
+      email: cleanEmail,
+      password_hash: passwordHash,
+      role: 'ADMIN',
+      is_active: isActive,
+      created_at: now,
+      updated_at: now
+    });
+
+    recordAuditLog({
+      adminId: req.user.id,
+      adminEmail: req.user.email,
+      action: 'ADMIN_CREATED',
+      targetUserId: adminId,
+      targetUserEmail: cleanEmail,
+      details: `Main Admin created administrator account ${cleanUsername} (${cleanEmail})`,
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Administrator account created successfully.',
+      admin: {
+        id: adminId,
+        name: name.trim(),
+        username: cleanUsername,
+        email: cleanEmail,
+        role: 'ADMIN',
+        is_active: isActive,
+        status: isActive ? 'ACTIVE' : 'INACTIVE',
+        access_type: isFull ? 'FULL ACCESS' : 'CUSTOM ACCESS',
+        created_at: now
+      }
+    });
+  } catch (err) {
+    console.error('[Create Admin Error]:', err);
+    return res.status(500).json({ success: false, message: 'Failed to create administrator account.' });
+  }
+});
+
+// ============================================================================
+// 16. PATCH /api/admin/admins/:id - Edit Administrator
+// ============================================================================
+router.patch('/admins/:id', requireMainAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, username, email, is_active } = req.body;
+
+    const admin = db.prepare('SELECT id, name, username, email, role, is_active FROM users WHERE id = ?').get(id);
+    if (!admin || !['ADMIN', 'MAIN_ADMIN'].includes(admin.role)) {
+      return res.status(404).json({ success: false, message: 'Administrator account not found.' });
+    }
+
+    if (admin.role === 'MAIN_ADMIN' && is_active === 0) {
+      return res.status(400).json({ success: false, message: 'Main Administrator account cannot be deactivated.' });
+    }
+
+    const updates = [];
+    const params = [];
+    const metaUpdates = {};
+
+    if (name && typeof name === 'string' && name.trim().length >= 2) {
+      updates.push('name = ?');
+      params.push(name.trim());
+      metaUpdates.name = name.trim();
+    }
+
+    if (username && typeof username === 'string') {
+      const cleanUser = username.trim().toLowerCase();
+      if (cleanUser !== (admin.username || '').toLowerCase()) {
+        const checkUser = db.prepare('SELECT id FROM users WHERE LOWER(username) = ? AND id != ?').get(cleanUser, id);
+        if (checkUser) {
+          return res.status(409).json({ success: false, message: 'Username is already taken.' });
+        }
+        updates.push('username = ?');
+        params.push(cleanUser);
+        metaUpdates.username = cleanUser;
+      }
+    }
+
+    if (email && typeof email === 'string') {
+      const cleanMail = email.trim().toLowerCase();
+      if (cleanMail !== admin.email.toLowerCase()) {
+        const checkMail = db.prepare('SELECT id FROM users WHERE LOWER(email) = ? AND id != ?').get(cleanMail, id);
+        if (checkMail) {
+          return res.status(409).json({ success: false, message: 'Email address is already in use.' });
+        }
+        updates.push('email = ?');
+        params.push(cleanMail);
+      }
+    }
+
+    if (is_active !== undefined && admin.role !== 'MAIN_ADMIN') {
+      const activeVal = is_active ? 1 : 0;
+      updates.push('is_active = ?');
+      params.push(activeVal);
+      metaUpdates.is_active = activeVal;
+    }
+
+    if (updates.length === 0) {
+      return res.json({ success: true, message: 'No changes provided.', admin });
+    }
+
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+    params.push(id);
+
+    db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+    await updatePersistentUserMeta(admin.email, metaUpdates);
+
+    recordAuditLog({
+      adminId: req.user.id,
+      adminEmail: req.user.email,
+      action: 'ADMIN_UPDATED',
+      targetUserId: id,
+      targetUserEmail: admin.email,
+      details: `Administrator account updated: ${Object.keys(metaUpdates).join(', ')}`,
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
+    });
+
+    return res.json({
+      success: true,
+      message: 'Administrator account updated successfully.'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Failed to update administrator account.' });
+  }
+});
+
+// ============================================================================
+// 17. PATCH /api/admin/admins/:id/activate - Activate Admin
+// ============================================================================
+router.patch('/admins/:id/activate', requireMainAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const admin = db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(id);
+    if (!admin || !['ADMIN', 'MAIN_ADMIN'].includes(admin.role)) {
+      return res.status(404).json({ success: false, message: 'Administrator account not found.' });
+    }
+
+    db.prepare('UPDATE users SET is_active = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(id);
+    await updatePersistentUserMeta(admin.email, { is_active: 1 });
+
+    recordAuditLog({
+      adminId: req.user.id,
+      adminEmail: req.user.email,
+      action: 'ADMIN_ACTIVATED',
+      targetUserId: id,
+      targetUserEmail: admin.email,
+      details: `Administrator account ${admin.email} activated`,
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
+    });
+
+    return res.json({ success: true, message: 'Administrator account activated successfully.', status: 'ACTIVE' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Failed to activate administrator account.' });
+  }
+});
+
+// ============================================================================
+// 18. PATCH /api/admin/admins/:id/deactivate - Deactivate Admin
+// ============================================================================
+router.patch('/admins/:id/deactivate', requireMainAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const admin = db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(id);
+    if (!admin || !['ADMIN', 'MAIN_ADMIN'].includes(admin.role)) {
+      return res.status(404).json({ success: false, message: 'Administrator account not found.' });
+    }
+
+    if (admin.role === 'MAIN_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: 'MAIN_ADMIN_PROTECTED',
+        message: 'Main Administrator account is permanently protected and cannot be deactivated.'
+      });
+    }
+
+    if (admin.id === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        error: 'SELF_DEACTIVATION_PREVENTED',
+        message: 'You cannot deactivate your own administrator account.'
+      });
+    }
+
+    db.prepare('UPDATE users SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(id);
+    await updatePersistentUserMeta(admin.email, { is_active: 0 });
+
+    recordAuditLog({
+      adminId: req.user.id,
+      adminEmail: req.user.email,
+      action: 'ADMIN_DEACTIVATED',
+      targetUserId: id,
+      targetUserEmail: admin.email,
+      details: `Administrator account ${admin.email} deactivated`,
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
+    });
+
+    return res.json({ success: true, message: 'Administrator account deactivated successfully.', status: 'INACTIVE' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Failed to deactivate administrator account.' });
+  }
+});
+
+// ============================================================================
+// 19. DELETE /api/admin/admins/:id - Delete Admin Account
+// ============================================================================
+router.delete('/admins/:id', requireMainAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { confirmation } = req.body || {};
+
+    if (!confirmation || confirmation.trim().toUpperCase() !== 'DELETE') {
+      return res.status(400).json({
+        success: false,
+        error: 'CONFIRMATION_REQUIRED',
+        message: 'Explicit confirmation required. Please type "DELETE" to permanently delete administrator account.'
+      });
+    }
+
+    const admin = db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(id);
+    if (!admin || !['ADMIN', 'MAIN_ADMIN'].includes(admin.role)) {
+      return res.status(404).json({ success: false, message: 'Administrator account not found.' });
+    }
+
+    if (admin.role === 'MAIN_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: 'MAIN_ADMIN_PROTECTED',
+        message: 'Main Administrator account is permanently protected and cannot be deleted.'
+      });
+    }
+
+    if (admin.id === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        error: 'SELF_DELETION_PREVENTED',
+        message: 'You cannot delete your own administrator account.'
+      });
+    }
+
+    db.prepare('DELETE FROM admin_permissions WHERE user_id = ?').run(id);
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    await deletePersistentUser(admin.email);
+
+    recordAuditLog({
+      adminId: req.user.id,
+      adminEmail: req.user.email,
+      action: 'ADMIN_DELETED',
+      targetUserId: id,
+      targetUserEmail: admin.email,
+      details: `Permanently deleted administrator account ${admin.email}`,
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
+    });
+
+    return res.json({ success: true, message: 'Administrator account deleted successfully.' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Failed to delete administrator account.' });
+  }
+});
+
+// ============================================================================
+// 20. GET /api/admin/admins/:id/permissions
+// ============================================================================
+router.get('/admins/:id/permissions', requireMainAdmin, (req, res) => {
+  try {
+    const { id } = req.params;
+    const admin = db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(id);
+    if (!admin) {
+      return res.status(404).json({ success: false, message: 'Administrator not found.' });
+    }
+
+    if (admin.role === 'MAIN_ADMIN') {
+      return res.json({
+        success: true,
+        permissions: {
+          full_access: 1,
+          user_management: 1,
+          admin_management: 1,
+          device_management: 1,
+          storage_management: 1,
+          sensor_monitoring: 1,
+          spoilage_monitoring: 1,
+          alert_management: 1,
+          analytics: 1,
+          reports: 1,
+          system_settings: 1,
+          audit_logs: 1
+        }
+      });
+    }
+
+    const perm = db.prepare('SELECT * FROM admin_permissions WHERE user_id = ?').get(id);
+    return res.json({
+      success: true,
+      permissions: perm || {
+        full_access: 1,
+        user_management: 1,
+        admin_management: 0,
+        device_management: 1,
+        storage_management: 1,
+        sensor_monitoring: 1,
+        spoilage_monitoring: 1,
+        alert_management: 1,
+        analytics: 1,
+        reports: 1,
+        system_settings: 0,
+        audit_logs: 1
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Failed to retrieve permissions.' });
+  }
+});
+
+// ============================================================================
+// 21. PATCH /api/admin/admins/:id/permissions - Change Permissions
+// ============================================================================
+router.patch('/admins/:id/permissions', requireMainAdmin, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { full_access } = req.body;
+    const permObj = req.body.permissions && typeof req.body.permissions === 'object'
+      ? { ...req.body.permissions, ...req.body }
+      : req.body;
+
+    const admin = db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(id);
+    if (!admin || !['ADMIN', 'MAIN_ADMIN'].includes(admin.role)) {
+      return res.status(404).json({ success: false, message: 'Administrator not found.' });
+    }
+
+    if (admin.role === 'MAIN_ADMIN') {
+      return res.status(400).json({ success: false, message: 'Main Administrator already possesses full immutable system authority.' });
+    }
+
+    const isFull = Boolean(full_access);
+    const now = new Date().toISOString();
+
+    const existing = db.prepare('SELECT id FROM admin_permissions WHERE user_id = ?').get(id);
+    if (existing) {
+      db.prepare(`
+        UPDATE admin_permissions SET
+          full_access = ?,
+          user_management = ?,
+          admin_management = ?,
+          device_management = ?,
+          storage_management = ?,
+          sensor_monitoring = ?,
+          spoilage_monitoring = ?,
+          alert_management = ?,
+          analytics = ?,
+          reports = ?,
+          system_settings = ?,
+          audit_logs = ?,
+          updated_at = ?
+        WHERE user_id = ?
+      `).run(
+        isFull ? 1 : 0,
+        isFull || permObj.user_management ? 1 : 0,
+        isFull || permObj.admin_management ? 1 : 0,
+        isFull || permObj.device_management ? 1 : 0,
+        isFull || permObj.storage_management ? 1 : 0,
+        isFull || permObj.sensor_monitoring ? 1 : 0,
+        isFull || permObj.spoilage_monitoring ? 1 : 0,
+        isFull || permObj.alert_management ? 1 : 0,
+        isFull || permObj.analytics ? 1 : 0,
+        isFull || permObj.reports ? 1 : 0,
+        isFull || permObj.system_settings ? 1 : 0,
+        isFull || permObj.audit_logs ? 1 : 0,
+        now,
+        id
+      );
+    } else {
+      db.prepare(`
+        INSERT INTO admin_permissions (
+          id, user_id, full_access, user_management, admin_management,
+          device_management, storage_management, sensor_monitoring,
+          spoilage_monitoring, alert_management, analytics, reports,
+          system_settings, audit_logs, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        'perm_' + crypto.randomUUID(),
+        id,
+        isFull ? 1 : 0,
+        isFull || permObj.user_management ? 1 : 0,
+        isFull || permObj.admin_management ? 1 : 0,
+        isFull || permObj.device_management ? 1 : 0,
+        isFull || permObj.storage_management ? 1 : 0,
+        isFull || permObj.sensor_monitoring ? 1 : 0,
+        isFull || permObj.spoilage_monitoring ? 1 : 0,
+        isFull || permObj.alert_management ? 1 : 0,
+        isFull || permObj.analytics ? 1 : 0,
+        isFull || permObj.reports ? 1 : 0,
+        isFull || permObj.system_settings ? 1 : 0,
+        isFull || permObj.audit_logs ? 1 : 0,
+        now,
+        now
+      );
+    }
+
+    recordAuditLog({
+      adminId: req.user.id,
+      adminEmail: req.user.email,
+      action: 'ADMIN_PERMISSION_CHANGED',
+      targetUserId: id,
+      targetUserEmail: admin.email,
+      details: isFull ? 'Main Admin granted Full Access' : `Main Admin customized permissions for ${admin.email}`,
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
+    });
+
+    const updated = db.prepare('SELECT * FROM admin_permissions WHERE user_id = ?').get(id);
+
+    return res.json({
+      success: true,
+      message: 'Administrator permissions updated successfully.',
+      permissions: updated
+    });
+  } catch (err) {
+    console.error('[Update Permissions Error]:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update administrator permissions.' });
+  }
+});
+
+// ============================================================================
+// 22. POST /api/admin/admins/:id/reset-password - Reset Admin Password
+// ============================================================================
+router.post('/admins/:id/reset-password', requireMainAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+
+    const admin = db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(id);
+    if (!admin || !['ADMIN', 'MAIN_ADMIN'].includes(admin.role)) {
+      return res.status(404).json({ success: false, message: 'Administrator not found.' });
+    }
+
+    // Generate secure temporary password if none provided
+    const newPassword = password || `TempAdmin@${crypto.randomBytes(4).toString('hex')}!`;
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(passwordHash, id);
+    await updatePersistentPassword(admin.email, passwordHash);
+
+    recordAuditLog({
+      adminId: req.user.id,
+      adminEmail: req.user.email,
+      action: 'ADMIN_PASSWORD_RESET',
+      targetUserId: id,
+      targetUserEmail: admin.email,
+      details: `Main Admin reset password for administrator ${admin.email}`,
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
+    });
+
+    return res.json({
+      success: true,
+      message: 'Administrator password reset successfully.',
+      temporaryPassword: password ? undefined : newPassword
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Failed to reset administrator password.' });
+  }
+});
+
+// ============================================================================
+// 23. GET /api/admin/devices - System-Level Devices Directory
+// ============================================================================
+router.get('/devices', requirePermission('device_management'), (req, res) => {
+  try {
+    const { search = '', status = 'ALL' } = req.query;
+
+    const conditions = [];
+    const params = [];
+
+    if (search && search.trim()) {
+      const q = `%${search.trim().toLowerCase()}%`;
+      conditions.push('(LOWER(d.device_name) LIKE ? OR LOWER(d.id) LIKE ? OR LOWER(u.name) LIKE ? OR LOWER(u.email) LIKE ?)');
+      params.push(q, q, q, q);
+    }
+
+    if (status && status !== 'ALL') {
+      conditions.push('d.status = ?');
+      params.push(status.toLowerCase());
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const devices = db.prepare(`
+      SELECT d.id, d.user_id, d.device_name, d.ip_address, d.status, d.last_connected, d.created_at,
+             u.name as owner_name, u.email as owner_email
+      FROM devices d
+      LEFT JOIN users u ON d.user_id = u.id
+      ${whereClause}
+      ORDER BY d.created_at DESC
+    `).all(...params);
+
+    return res.json({
+      success: true,
+      devices,
+      total: devices.length
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Failed to retrieve system devices.' });
   }
 });
 

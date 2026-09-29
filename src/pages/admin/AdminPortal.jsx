@@ -5,10 +5,13 @@ import { AdminSidebar } from '../../components/admin/AdminSidebar';
 import { AdminHeader } from '../../components/admin/AdminHeader';
 import { AdminDashboard } from './AdminDashboard';
 import { AdminUsers } from './AdminUsers';
+import { AdminAdmins } from './AdminAdmins';
+import { AdminDevices } from './AdminDevices';
 import { AdminAuditLogs } from './AdminAuditLogs';
 import { AdminSystem } from './AdminSystem';
 import { AdminSettings } from './AdminSettings';
-import { ShieldAlert, ArrowLeft } from 'lucide-react';
+import { isMainAdmin, isAdmin, hasPermission } from '../../utils/adminPermissions';
+import { ShieldAlert, ArrowLeft, Lock } from 'lucide-react';
 import '../../components/admin/admin.css';
 
 export function AdminPortal() {
@@ -27,15 +30,16 @@ export function AdminPortal() {
     );
   }
 
-  // Section 57: Admin Route Protection Guard
-  const isAdminUser = currentUser?.role === 'ADMIN';
-
+  // Authentication check
   if (!isAuthenticated) {
     navigate('/login');
     return null;
   }
 
-  if (!isAdminUser) {
+  // Role verification: MAIN_ADMIN or ADMIN
+  const hasAdminRole = isAdmin(currentUser);
+
+  if (!hasAdminRole) {
     return (
       <div className="admin-forbidden-screen">
         <div className="forbidden-card">
@@ -59,27 +63,115 @@ export function AdminPortal() {
     );
   }
 
-  // Match subroute title & active page
+  // Match subroute and enforce subroute permissions
   let content = <AdminDashboard />;
-  let pageTitle = 'Admin Dashboard';
-  let pageSubtitle = 'Monitor users, accounts, devices and system activity.';
+  let pageTitle = 'VegSense Administration';
+  let pageSubtitle = 'System Management & User Administration';
 
-  if (pathname.startsWith('/admin/users')) {
-    content = <AdminUsers />;
-    pageTitle = 'User Management';
-    pageSubtitle = 'Manage registered accounts, access status and user permissions.';
+  const isMain = isMainAdmin(currentUser);
+
+  if (pathname.startsWith('/admin/admins')) {
+    if (!isMain && !hasPermission(currentUser, 'admin_management')) {
+      content = (
+        <div className="admin-forbidden-card">
+          <Lock size={36} />
+          <h3>Access Denied</h3>
+          <p>You do not have permission to manage administrator accounts.</p>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/admin')}>
+            Back to Dashboard
+          </button>
+        </div>
+      );
+    } else {
+      content = <AdminAdmins />;
+      pageTitle = 'Administrator Management';
+      pageSubtitle = 'Create, configure, and monitor system administrator accounts and operational permissions.';
+    }
+  } else if (pathname.startsWith('/admin/users')) {
+    if (!isMain && !hasPermission(currentUser, 'user_management')) {
+      content = (
+        <div className="admin-forbidden-card">
+          <Lock size={36} />
+          <h3>Access Denied</h3>
+          <p>You do not have permission to manage user accounts.</p>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/admin')}>
+            Back to Dashboard
+          </button>
+        </div>
+      );
+    } else {
+      content = <AdminUsers />;
+      pageTitle = 'User Management';
+      pageSubtitle = 'Manage registered user accounts, active status, and access rights.';
+    }
+  } else if (pathname.startsWith('/admin/devices')) {
+    if (!isMain && !hasPermission(currentUser, 'device_management')) {
+      content = (
+        <div className="admin-forbidden-card">
+          <Lock size={36} />
+          <h3>Access Denied</h3>
+          <p>You do not have permission to manage hardware devices.</p>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/admin')}>
+            Back to Dashboard
+          </button>
+        </div>
+      );
+    } else {
+      content = <AdminDevices />;
+      pageTitle = 'System Device Management';
+      pageSubtitle = 'Hardware gateway registry, network addresses, and connection status.';
+    }
   } else if (pathname.startsWith('/admin/audit-logs')) {
-    content = <AdminAuditLogs />;
-    pageTitle = 'Security Audit Logs';
-    pageSubtitle = 'Immutable activity log of administrative events and access changes.';
+    if (!isMain && !hasPermission(currentUser, 'audit_logs')) {
+      content = (
+        <div className="admin-forbidden-card">
+          <Lock size={36} />
+          <h3>Access Denied</h3>
+          <p>You do not have permission to inspect security audit logs.</p>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/admin')}>
+            Back to Dashboard
+          </button>
+        </div>
+      );
+    } else {
+      content = <AdminAuditLogs />;
+      pageTitle = 'Security Audit Logs';
+      pageSubtitle = 'Immutable activity log of administrative events and access changes.';
+    }
   } else if (pathname.startsWith('/admin/system')) {
-    content = <AdminSystem />;
-    pageTitle = 'System Infrastructure';
-    pageSubtitle = 'Real-time telemetry and operational status of all microservices.';
+    if (!isMain && !hasPermission(currentUser, 'system_settings')) {
+      content = (
+        <div className="admin-forbidden-card">
+          <Lock size={36} />
+          <h3>Access Denied</h3>
+          <p>You do not have permission to view system infrastructure metrics.</p>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/admin')}>
+            Back to Dashboard
+          </button>
+        </div>
+      );
+    } else {
+      content = <AdminSystem />;
+      pageTitle = 'System Overview';
+      pageSubtitle = 'Real-time telemetry and operational status of all microservices and infrastructure.';
+    }
   } else if (pathname.startsWith('/admin/settings')) {
-    content = <AdminSettings />;
-    pageTitle = 'Administrator Settings';
-    pageSubtitle = 'Manage profile credentials, system access, and security.';
+    if (!isMain && !hasPermission(currentUser, 'system_settings')) {
+      content = (
+        <div className="admin-forbidden-card">
+          <Lock size={36} />
+          <h3>Access Denied</h3>
+          <p>You do not have permission to modify system settings.</p>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/admin')}>
+            Back to Dashboard
+          </button>
+        </div>
+      );
+    } else {
+      content = <AdminSettings />;
+      pageTitle = 'System & Security Settings';
+      pageSubtitle = 'Manage application configuration, security parameters, and maintenance.';
+    }
   }
 
   return (

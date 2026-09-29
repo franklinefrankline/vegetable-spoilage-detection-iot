@@ -28,7 +28,8 @@ import {
   RotateCcw,
   Sparkles,
   Cpu,
-  Activity
+  Activity,
+  ShieldCheck
 } from 'lucide-react';
 
 export function AppShell({ children }) {
@@ -93,7 +94,7 @@ export function AppShell({ children }) {
     { href: '/analytics', label: 'Analytics', icon: LineChart },
     { href: '/reports', label: 'Reports', icon: FileText },
     { href: '/settings', label: 'Settings', icon: Settings },
-    ...(currentUser?.role === 'ADMIN' ? [{ href: '/admin', label: 'Admin Portal', icon: ShieldCheck }] : [])
+    ...(['ADMIN', 'MAIN_ADMIN'].includes(currentUser?.role) ? [{ href: '/admin', label: 'Admin Portal', icon: ShieldCheck }] : [])
   ];
 
   return (

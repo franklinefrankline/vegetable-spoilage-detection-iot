@@ -1,6 +1,7 @@
 /**
  * VegSense Enterprise Admin API Service
  * Secure, authenticated client for communicating with /api/admin backend endpoints.
+ * Part 11: Main Admin + Admin Management + Permissions + Devices + Audit Logs
  */
 
 const TOKEN_KEY = 'veg_storage_auth_token';
@@ -144,6 +145,109 @@ export const adminService = {
     });
   },
 
+  // ==========================================================================
+  // ADMINISTRATOR MANAGEMENT (MAIN ADMIN)
+  // ==========================================================================
+
+  /**
+   * List administrators with search and status filtering
+   */
+  async getAdmins(params = {}) {
+    const query = new URLSearchParams();
+    if (params.search) query.append('search', params.search);
+    if (params.status && params.status !== 'ALL') query.append('status', params.status);
+
+    const queryString = query.toString();
+    return request(`/api/admin/admins${queryString ? `?${queryString}` : ''}`);
+  },
+
+  /**
+   * Fetch specific administrator profile with permissions
+   */
+  async getAdmin(id) {
+    return request(`/api/admin/admins/${id}`);
+  },
+
+  /**
+   * Create a new administrator account (Main Admin only)
+   * @param {Object} data { name, username, email, password, is_active, permissions }
+   */
+  async createAdmin(data) {
+    return request('/api/admin/admins', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  /**
+   * Update administrator profile
+   */
+  async updateAdmin(id, data) {
+    return request(`/api/admin/admins/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    });
+  },
+
+  /**
+   * Activate administrator
+   */
+  async activateAdmin(id) {
+    return request(`/api/admin/admins/${id}/activate`, {
+      method: 'PATCH'
+    });
+  },
+
+  /**
+   * Deactivate administrator (blocks login)
+   */
+  async deactivateAdmin(id) {
+    return request(`/api/admin/admins/${id}/deactivate`, {
+      method: 'PATCH'
+    });
+  },
+
+  /**
+   * Delete administrator permanently
+   */
+  async deleteAdmin(id, confirmation = 'DELETE') {
+    return request(`/api/admin/admins/${id}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ confirmation })
+    });
+  },
+
+  /**
+   * Get permissions for administrator
+   */
+  async getAdminPermissions(id) {
+    return request(`/api/admin/admins/${id}/permissions`);
+  },
+
+  /**
+   * Update permissions for administrator
+   */
+  async updateAdminPermissions(id, permissions) {
+    return request(`/api/admin/admins/${id}/permissions`, {
+      method: 'PATCH',
+      body: JSON.stringify(permissions)
+    });
+  },
+
+  /**
+   * Reset administrator password
+   */
+  async resetAdminPassword(id, password = null) {
+    return request(`/api/admin/admins/${id}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ password })
+    });
+  },
+
+  // ==========================================================================
+  // SYSTEM AUDIT & HEALTH & DEVICES
+  // ==========================================================================
+
   /**
    * Fetch administrative audit logs
    * @param {Object} params { search, action, page, limit }
@@ -157,6 +261,18 @@ export const adminService = {
 
     const queryString = query.toString();
     return request(`/api/admin/audit-logs${queryString ? `?${queryString}` : ''}`);
+  },
+
+  /**
+   * Fetch system-wide hardware devices directory
+   */
+  async getDevices(params = {}) {
+    const query = new URLSearchParams();
+    if (params.search) query.append('search', params.search);
+    if (params.status && params.status !== 'ALL') query.append('status', params.status);
+
+    const queryString = query.toString();
+    return request(`/api/admin/devices${queryString ? `?${queryString}` : ''}`);
   },
 
   /**

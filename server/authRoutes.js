@@ -47,12 +47,14 @@ export const authenticateToken = (req, res, next) => {
   });
 };
 
-// Middleware: Require ADMIN Role
+export const requireAuth = authenticateToken;
+
+// Middleware: Require ADMIN or MAIN_ADMIN Role
 export const requireAdmin = (req, res, next) => {
   authenticateToken(req, res, () => {
     try {
-      const user = db.prepare('SELECT id, name, email, role, is_active FROM users WHERE id = ?').get(req.user.id);
-      if (!user || user.role !== 'ADMIN' || user.is_active === 0) {
+      const user = db.prepare('SELECT id, name, username, email, role, is_active FROM users WHERE id = ?').get(req.user.id);
+      if (!user || !['ADMIN', 'MAIN_ADMIN'].includes(user.role) || user.is_active === 0) {
         return res.status(403).json({
           success: false,
           error: 'FORBIDDEN',
@@ -65,6 +67,64 @@ export const requireAdmin = (req, res, next) => {
       return res.status(500).json({ success: false, message: 'Internal authorization error.' });
     }
   });
+};
+
+// Middleware: Require MAIN_ADMIN Role
+export const requireMainAdmin = (req, res, next) => {
+  authenticateToken(req, res, () => {
+    try {
+      const user = db.prepare('SELECT id, name, username, email, role, is_active FROM users WHERE id = ?').get(req.user.id);
+      if (!user || user.role !== 'MAIN_ADMIN' || user.is_active === 0) {
+        return res.status(403).json({
+          success: false,
+          error: 'FORBIDDEN',
+          message: 'Main Administrator access required.'
+        });
+      }
+      req.adminUser = user;
+      next();
+    } catch (err) {
+      return res.status(500).json({ success: false, message: 'Internal authorization error.' });
+    }
+  });
+};
+
+// Middleware: Require Specific Operational Permission
+export const requirePermission = (permissionKey) => {
+  return (req, res, next) => {
+    authenticateToken(req, res, () => {
+      try {
+        const user = db.prepare('SELECT id, name, username, email, role, is_active FROM users WHERE id = ?').get(req.user.id);
+        if (!user || !['ADMIN', 'MAIN_ADMIN'].includes(user.role) || user.is_active === 0) {
+          return res.status(403).json({
+            success: false,
+            error: 'FORBIDDEN',
+            message: 'Administrator access required.'
+          });
+        }
+        req.adminUser = user;
+
+        // MAIN_ADMIN has complete access to every system function
+        if (user.role === 'MAIN_ADMIN') {
+          return next();
+        }
+
+        // For ADMIN, check admin_permissions
+        const permRow = db.prepare('SELECT * FROM admin_permissions WHERE user_id = ?').get(user.id);
+        if (permRow && (permRow.full_access === 1 || permRow[permissionKey] === 1)) {
+          return next();
+        }
+
+        return res.status(403).json({
+          success: false,
+          error: 'FORBIDDEN',
+          message: 'You do not have permission to perform this action.'
+        });
+      } catch (err) {
+        return res.status(500).json({ success: false, message: 'Internal authorization error.' });
+      }
+    });
+  };
 };
 
 // POST /api/auth/register
@@ -163,37 +223,48 @@ router.post('/register', async (req, res) => {
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const rawIdentifier = (req.body.email || req.body.username || req.body.identifier || '').trim().toLowerCase();
+    const { password } = req.body;
 
-    if (!email || !isValidEmail(email)) {
-      return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+    if (!rawIdentifier) {
+      return res.status(400).json({ success: false, message: 'Please enter your email or username.' });
     }
 
     if (!password || typeof password !== 'string') {
       return res.status(400).json({ success: false, message: 'Please enter your password.' });
     }
 
-    const trimmedEmail = email.trim().toLowerCase();
-    const queryStmt = db.prepare('SELECT id, name, email, password_hash, role, is_active, created_at, last_login_at FROM users WHERE email = ?');
-    let user = queryStmt.get(trimmedEmail);
+    const queryStmt = db.prepare(`
+      SELECT id, name, username, email, password_hash, role, is_active, created_at, last_login_at 
+      FROM users 
+      WHERE LOWER(email) = ? OR LOWER(username) = ?
+    `);
+    let user = queryStmt.get(rawIdentifier, rawIdentifier);
 
     if (!user) {
       // Re-sync persistent users from Vercel Blob cloud store in case container is cold-started
       try {
         await syncPersistentUsers(true);
-        user = queryStmt.get(trimmedEmail);
+        user = queryStmt.get(rawIdentifier, rawIdentifier);
       } catch (syncErr) {
         console.warn('Sync users error on login:', syncErr.message);
       }
     }
 
     if (!user) {
-      // Do not expose whether the email exists
+      // Do not expose whether the account exists
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
 
-    // SECTION 24: Login after deactivation check
+    // SECTION 19 & 24: Login after deactivation check
     if (user.is_active === 0) {
+      if (['ADMIN', 'MAIN_ADMIN'].includes(user.role)) {
+        return res.status(403).json({
+          success: false,
+          error: 'ACCOUNT_DEACTIVATED',
+          message: 'Your administrator account has been deactivated. Please contact the Main Administrator.'
+        });
+      }
       return res.status(403).json({
         success: false,
         error: 'ACCOUNT_DEACTIVATED',
@@ -212,12 +283,67 @@ router.post('/login', async (req, res) => {
       updatePersistentUserMeta(user.email, { last_login_at: now });
     } catch (e) {}
 
+    // Load admin permissions if applicable
+    let permissions = null;
+    if (user.role === 'MAIN_ADMIN') {
+      permissions = {
+        full_access: 1,
+        user_management: 1,
+        admin_management: 1,
+        device_management: 1,
+        storage_management: 1,
+        sensor_monitoring: 1,
+        spoilage_monitoring: 1,
+        alert_management: 1,
+        analytics: 1,
+        reports: 1,
+        system_settings: 1,
+        audit_logs: 1
+      };
+      recordAuditLog({
+        adminId: user.id,
+        adminEmail: user.email,
+        action: 'MAIN_ADMIN_LOGIN',
+        targetUserId: user.id,
+        targetUserEmail: user.email,
+        details: 'Main Administrator signed in to console',
+        ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
+      });
+    } else if (user.role === 'ADMIN') {
+      const permRow = db.prepare('SELECT * FROM admin_permissions WHERE user_id = ?').get(user.id);
+      permissions = permRow || {
+        full_access: 1,
+        user_management: 1,
+        admin_management: 0,
+        device_management: 1,
+        storage_management: 1,
+        sensor_monitoring: 1,
+        spoilage_monitoring: 1,
+        alert_management: 1,
+        analytics: 1,
+        reports: 1,
+        system_settings: 0,
+        audit_logs: 1
+      };
+      recordAuditLog({
+        adminId: user.id,
+        adminEmail: user.email,
+        action: 'ADMIN_LOGIN',
+        targetUserId: user.id,
+        targetUserEmail: user.email,
+        details: 'Administrator signed in to console',
+        ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
+      });
+    }
+
     const userPayload = {
       id: user.id,
       name: user.name,
+      username: user.username || null,
       email: user.email,
       role: user.role || 'USER',
       is_active: user.is_active !== undefined ? user.is_active : 1,
+      permissions,
       created_at: user.created_at,
       last_login_at: now
     };
@@ -347,11 +473,45 @@ router.post('/reset-password', async (req, res) => {
 // GET /api/auth/me
 router.get('/me', authenticateToken, (req, res) => {
   try {
-    const stmt = db.prepare('SELECT id, name, email, role, is_active, created_at, last_login_at FROM users WHERE id = ?');
+    const stmt = db.prepare('SELECT id, name, username, email, role, is_active, created_at, last_login_at FROM users WHERE id = ?');
     const user = stmt.get(req.user.id);
 
     if (!user) {
       return res.status(404).json({ authenticated: false, message: 'User not found.' });
+    }
+
+    let permissions = null;
+    if (user.role === 'MAIN_ADMIN') {
+      permissions = {
+        full_access: 1,
+        user_management: 1,
+        admin_management: 1,
+        device_management: 1,
+        storage_management: 1,
+        sensor_monitoring: 1,
+        spoilage_monitoring: 1,
+        alert_management: 1,
+        analytics: 1,
+        reports: 1,
+        system_settings: 1,
+        audit_logs: 1
+      };
+    } else if (user.role === 'ADMIN') {
+      const permRow = db.prepare('SELECT * FROM admin_permissions WHERE user_id = ?').get(user.id);
+      permissions = permRow || {
+        full_access: 1,
+        user_management: 1,
+        admin_management: 0,
+        device_management: 1,
+        storage_management: 1,
+        sensor_monitoring: 1,
+        spoilage_monitoring: 1,
+        alert_management: 1,
+        analytics: 1,
+        reports: 1,
+        system_settings: 0,
+        audit_logs: 1
+      };
     }
 
     return res.status(200).json({
@@ -359,9 +519,11 @@ router.get('/me', authenticateToken, (req, res) => {
       user: {
         id: user.id,
         name: user.name,
+        username: user.username || null,
         email: user.email,
         role: user.role || 'USER',
         is_active: user.is_active !== undefined ? user.is_active : 1,
+        permissions,
         created_at: user.created_at,
         last_login_at: user.last_login_at
       }

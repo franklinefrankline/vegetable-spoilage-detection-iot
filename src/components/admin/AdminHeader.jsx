@@ -148,7 +148,9 @@ export function AdminHeader({ title, subtitle, onToggleMobile }) {
             <div className="admin-avatar">{adminInitials}</div>
             <div className="admin-user-info-text">
               <span className="admin-user-name">{currentUser?.name?.split(' ')[0] || 'Admin'}</span>
-              <span className="admin-role-badge">Administrator</span>
+              <span className={`admin-role-badge ${currentUser?.role === 'MAIN_ADMIN' ? 'badge-main-admin' : ''}`}>
+                {currentUser?.role === 'MAIN_ADMIN' ? 'MAIN ADMIN' : 'ADMIN'}
+              </span>
             </div>
             <ChevronDown size={14} className="admin-chevron" />
           </button>
@@ -160,7 +162,7 @@ export function AdminHeader({ title, subtitle, onToggleMobile }) {
                 <div className="profile-head-email">{currentUser?.email}</div>
                 <div className="profile-head-role">
                   <ShieldCheck size={12} />
-                  <span>Verified Administrator</span>
+                  <span>{currentUser?.role === 'MAIN_ADMIN' ? 'Main Administrator (Protected)' : 'Verified Administrator'}</span>
                 </div>
               </div>
 

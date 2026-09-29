@@ -3,6 +3,7 @@ import { adminService } from '../../services/adminService';
 import { useToast } from '../../context/ToastContext';
 import { AdminStatCard } from '../../components/admin/AdminStatCard';
 import { AdminActivity } from '../../components/admin/AdminActivity';
+import { AdminSystemHealth } from '../../components/admin/AdminSystemHealth';
 import { AdminCardsSkeleton } from '../../components/admin/AdminSkeleton';
 import { useNavigate } from '../../router/Router';
 import {
@@ -10,6 +11,7 @@ import {
   UserCheck,
   UserX,
   Shield,
+  ShieldCheck,
   Radio,
   Wifi,
   WifiOff,
@@ -18,7 +20,10 @@ import {
   TrendingUp,
   PieChart as PieIcon,
   RefreshCw,
-  Eye
+  Cpu,
+  Calendar,
+  Activity,
+  HeartPulse
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -32,9 +37,10 @@ import {
 
 export function AdminDashboard() {
   const [data, setData] = useState(null);
+  const [healthData, setHealthData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [trendRange, setTrendRange] = useState('30d'); // '7d' | '30d' | '90d' | '1y'
+  const [trendRange, setTrendRange] = useState('30d');
   const { addToast } = useToast();
   const navigate = useNavigate();
 
@@ -42,9 +48,15 @@ export function AdminDashboard() {
     setLoading(true);
     setError('');
     try {
-      const res = await adminService.getDashboardStats();
+      const [res, healthRes] = await Promise.all([
+        adminService.getDashboardStats(),
+        adminService.getSystemHealth().catch(() => null)
+      ]);
       if (res.success) {
         setData(res);
+      }
+      if (healthRes?.success) {
+        setHealthData(healthRes);
       }
     } catch (err) {
       console.error('Failed to load dashboard:', err);
@@ -71,11 +83,12 @@ export function AdminDashboard() {
 
   return (
     <div className="admin-page-content">
-      {/* Section Subtitle & Action Bar */}
+      {/* Title & Action Bar */}
       <div className="admin-section-header">
         <div>
+          <h2 className="admin-section-title">VegSense Administration</h2>
           <p className="section-subtitle">
-            Enterprise overview of registered accounts, hardware devices, and system activity.
+            System Management &amp; User Administration
           </p>
         </div>
 
@@ -101,77 +114,154 @@ export function AdminDashboard() {
       )}
 
       {loading && !data ? (
-        <AdminCardsSkeleton count={4} />
+        <AdminCardsSkeleton count={8} />
       ) : (
         <>
-          {/* Primary Metric Summary Cards */}
-          <div className="admin-stats-grid">
-            <AdminStatCard
-              title="Total Registered Users"
-              value={stats.totalUsers}
-              subtitle="All persistent accounts"
-              icon={Users}
-              color="primary"
-            />
+          {/* SECTION 1 & 2: USER STATISTICS */}
+          <div className="admin-dashboard-section">
+            <div className="section-subheading-row">
+              <h3 className="section-subheading">User Statistics</h3>
+              <button
+                type="button"
+                className="section-subheading-link"
+                onClick={() => navigate('/admin/users')}
+              >
+                <span>View User Directory</span>
+                <ArrowRight size={13} />
+              </button>
+            </div>
 
-            <AdminStatCard
-              title="Active Accounts"
-              value={stats.activeUsers}
-              subtitle={`${activePercent}% of total directory`}
-              icon={UserCheck}
-              color="emerald"
-            />
+            <div className="admin-stats-grid">
+              <AdminStatCard
+                title="TOTAL USERS"
+                value={stats.totalUsers}
+                subtitle="All persistent user accounts"
+                icon={Users}
+                color="primary"
+              />
 
-            <AdminStatCard
-              title="Inactive Accounts"
-              value={stats.inactiveUsers}
-              subtitle="Deactivated by administration"
-              icon={UserX}
-              color="amber"
-            />
+              <AdminStatCard
+                title="ACTIVE USERS"
+                value={stats.activeUsers}
+                subtitle={`${activePercent}% of user directory`}
+                icon={UserCheck}
+                color="emerald"
+              />
 
-            <AdminStatCard
-              title="Administrators"
-              value={stats.administrators}
-              subtitle="Full system authority"
-              icon={Shield}
-              color="purple"
-            />
+              <AdminStatCard
+                title="INACTIVE USERS"
+                value={stats.inactiveUsers}
+                subtitle="Suspended accounts"
+                icon={UserX}
+                color="amber"
+              />
+
+              <AdminStatCard
+                title="NEW USERS TODAY"
+                value={stats.newUsersToday}
+                subtitle={`${stats.newUsersThisWeek || 0} this week • ${stats.newUsersThisMonth || 0} this month`}
+                icon={UserPlus}
+                color="blue"
+              />
+            </div>
           </div>
 
-          {/* Secondary Metric Summary Cards */}
-          <div className="admin-stats-grid secondary-grid">
-            <AdminStatCard
-              title="Connected ESP32 Devices"
-              value={stats.totalDevices}
-              subtitle="Hardware gateways configured"
-              icon={Radio}
-              color="neutral"
-            />
+          {/* SECTION 3: ADMINISTRATOR STATISTICS */}
+          <div className="admin-dashboard-section">
+            <div className="section-subheading-row">
+              <h3 className="section-subheading">Administrator Statistics</h3>
+              <button
+                type="button"
+                className="section-subheading-link"
+                onClick={() => navigate('/admin/admins')}
+              >
+                <span>Manage Administrators</span>
+                <ArrowRight size={13} />
+              </button>
+            </div>
 
-            <AdminStatCard
-              title="Online Gateways"
-              value={stats.onlineDevices}
-              subtitle="Active telemetry streaming"
-              icon={Wifi}
-              color="emerald"
-            />
+            <div className="admin-stats-grid">
+              <AdminStatCard
+                title="TOTAL ADMINS"
+                value={stats.totalAdmins}
+                subtitle="Main Admin + Operations Team"
+                icon={Shield}
+                color="purple"
+              />
 
-            <AdminStatCard
-              title="Offline Gateways"
-              value={stats.offlineDevices}
-              subtitle="Pending reconnection"
-              icon={WifiOff}
-              color="amber"
-            />
+              <AdminStatCard
+                title="ACTIVE ADMINS"
+                value={stats.activeAdmins}
+                subtitle="Authenticated system operators"
+                icon={ShieldCheck}
+                color="emerald"
+              />
 
-            <AdminStatCard
-              title="New Users Today"
-              value={stats.newUsersToday}
-              subtitle={`${stats.newUsersThisWeek || 0} this week`}
-              icon={UserPlus}
-              color="blue"
-            />
+              <AdminStatCard
+                title="NEW USERS THIS WEEK"
+                value={stats.newUsersThisWeek}
+                subtitle="Rolling 7-day registrations"
+                icon={Calendar}
+                color="neutral"
+              />
+
+              <AdminStatCard
+                title="NEW USERS THIS MONTH"
+                value={stats.newUsersThisMonth}
+                subtitle="Rolling 30-day registrations"
+                icon={Activity}
+                color="neutral"
+              />
+            </div>
+          </div>
+
+          {/* SECTION 4: DEVICE OVERVIEW */}
+          <div className="admin-dashboard-section">
+            <div className="section-subheading-row">
+              <h3 className="section-subheading">Device Overview</h3>
+              <button
+                type="button"
+                className="section-subheading-link"
+                onClick={() => navigate('/admin/devices')}
+              >
+                <span>View Hardware Registry</span>
+                <ArrowRight size={13} />
+              </button>
+            </div>
+
+            <div className="admin-stats-grid">
+              <AdminStatCard
+                title="TOTAL DEVICES"
+                value={stats.totalDevices}
+                subtitle="Provisioned ESP32 gateways"
+                icon={Cpu}
+                color="neutral"
+              />
+
+              <AdminStatCard
+                title="CONNECTED DEVICES"
+                value={stats.onlineDevices}
+                subtitle="Streaming active telemetry"
+                icon={Wifi}
+                color="emerald"
+              />
+
+              <AdminStatCard
+                title="OFFLINE DEVICES"
+                value={stats.offlineDevices}
+                subtitle="Hardware pending heartbeat"
+                icon={WifiOff}
+                color="amber"
+              />
+
+              <AdminStatCard
+                title="SYSTEM TELEMETRY"
+                value={healthData?.system?.environment?.nodeVersion || 'Operational'}
+                subtitle="High-availability node engine"
+                icon={Radio}
+                color="primary"
+              />
+            </div>
           </div>
 
           {/* Charts Row: Registration Trend & Account Status Breakdown */}
@@ -203,7 +293,7 @@ export function AdminDashboard() {
 
               <div className="chart-canvas-container">
                 {trendData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={260}>
+                  <ResponsiveContainer width="100%" height={250}>
                     <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="userTrendGradient" x1="0" y1="0" x2="0" y2="1">
@@ -260,7 +350,7 @@ export function AdminDashboard() {
                 <div className="chart-title-group">
                   <PieIcon size={18} className="chart-icon" />
                   <div>
-                    <h3 className="chart-title">Account Access Status</h3>
+                    <h3 className="chart-title">Account Access Ratio</h3>
                     <p className="chart-desc">Active vs Deactivated directory breakdown</p>
                   </div>
                 </div>
@@ -299,18 +389,18 @@ export function AdminDashboard() {
                 </div>
 
                 <div className="status-security-note">
-                  Deactivated accounts are denied login access while preserving historical sensor data and audit logs.
+                  Deactivated accounts are denied login access while preserving historical storage records and telemetry.
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Bottom Dual Grid: Recent Users & Recent Admin Activity */}
+          {/* SECTION 5 & 6: RECENT USERS & RECENT ADMIN ACTIVITY */}
           <div className="dashboard-bottom-grid">
             {/* Recent Registered Users */}
             <div className="dashboard-sub-card">
               <div className="sub-card-header">
-                <h3 className="sub-card-title">Recently Registered Users</h3>
+                <h3 className="sub-card-title">Recent Users</h3>
                 <button
                   type="button"
                   className="sub-card-link-btn"
@@ -326,11 +416,11 @@ export function AdminDashboard() {
                   <div className="empty-sub-card-msg">No recent users.</div>
                 ) : (
                   recentUsers.map((u) => {
-                    const isAdmin = u.role === 'ADMIN';
+                    const isAdm = u.role === 'ADMIN' || u.role === 'MAIN_ADMIN';
                     const isActive = u.is_active === 1 || u.is_active === undefined;
                     return (
                       <div key={u.id} className="recent-user-row" onClick={() => navigate('/admin/users')}>
-                        <div className={`recent-user-avatar ${isAdmin ? 'avatar-admin' : ''}`}>
+                        <div className={`recent-user-avatar ${isAdm ? 'avatar-admin' : ''}`}>
                           {u.name ? u.name.charAt(0).toUpperCase() : 'U'}
                         </div>
                         <div className="recent-user-meta">
@@ -338,7 +428,7 @@ export function AdminDashboard() {
                           <div className="recent-user-email">{u.email}</div>
                         </div>
                         <div className="recent-user-badges">
-                          <span className={`badge-role ${isAdmin ? 'role-admin' : 'role-user'}`}>
+                          <span className={`badge-role ${isAdm ? 'role-admin' : 'role-user'}`}>
                             {u.role || 'USER'}
                           </span>
                           <span className={`badge-status ${isActive ? 'status-active' : 'status-inactive'}`}>
@@ -355,7 +445,7 @@ export function AdminDashboard() {
             {/* Recent Administrative Activity */}
             <div className="dashboard-sub-card">
               <div className="sub-card-header">
-                <h3 className="sub-card-title">Recent Administrative Activity</h3>
+                <h3 className="sub-card-title">Recent Admin Activity</h3>
                 <button
                   type="button"
                   className="sub-card-link-btn"
@@ -371,6 +461,28 @@ export function AdminDashboard() {
               </div>
             </div>
           </div>
+
+          {/* SECTION 7: SYSTEM HEALTH */}
+          {healthData?.services && (
+            <div className="admin-dashboard-section health-section-wrap">
+              <div className="section-subheading-row">
+                <div className="health-title-group">
+                  <HeartPulse size={18} className="health-icon" />
+                  <h3 className="section-subheading">System Health &amp; Subsystems</h3>
+                </div>
+                <button
+                  type="button"
+                  className="section-subheading-link"
+                  onClick={() => navigate('/admin/system')}
+                >
+                  <span>System Telemetry</span>
+                  <ArrowRight size={13} />
+                </button>
+              </div>
+
+              <AdminSystemHealth services={healthData.services} />
+            </div>
+          )}
         </>
       )}
     </div>
