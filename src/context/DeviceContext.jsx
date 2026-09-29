@@ -397,6 +397,18 @@ export function DeviceProvider({ children }) {
           const updated = [...prev, newPoint];
           return updated.slice(-30);
         });
+
+        // Part 7: Feed Demo Sensor Data & Spoilage into Central Alert Engine
+        evaluateAlerts({
+          deviceId: 'ESP32-DEMO-001',
+          sensorData: updatedFrame,
+          spoilageData: {
+            spoilageRisk: calculatedRisk,
+            classification: dynamicStatus
+          },
+          deviceStatus: 'connected',
+          storageBatches: vegetables
+        }).catch(() => {});
       }, 5000);
 
       return () => {
@@ -480,6 +492,18 @@ export function DeviceProvider({ children }) {
           const updated = [...prev, newPoint];
           return updated.slice(-30); // Keep last 30 data points exactly
         });
+
+        // Part 7: Feed Real ESP32 Data & Spoilage into Central Alert Engine
+        evaluateAlerts({
+          deviceId: device.id || 'ESP32-001',
+          sensorData: newData,
+          spoilageData: {
+            spoilageRisk: newData.spoilageRisk,
+            classification: newData.status || 'FRESH'
+          },
+          deviceStatus: 'connected',
+          storageBatches: vegetables
+        }).catch(() => {});
       },
       // On error communicating with ESP32:
       (err) => {
@@ -494,6 +518,14 @@ export function DeviceProvider({ children }) {
             signal: 'None'
           }));
           stopSensorPolling();
+
+          // Part 7: Trigger offline alert in Alert Engine
+          evaluateAlerts({
+            deviceId: device.id || 'ESP32-001',
+            sensorData: lastKnownData || {},
+            deviceStatus: 'OFFLINE',
+            storageBatches: vegetables
+          }).catch(() => {});
         }
       },
       5000 // Exact 5-second polling interval (Section 5)
@@ -535,6 +567,14 @@ export function DeviceProvider({ children }) {
         const storageKey = getDeviceStorageKey(currentUser);
         localStorage.setItem(storageKey, JSON.stringify(deviceData));
       }
+
+      // Part 7: Emits reconnected event / evaluates recovered device state
+      evaluateAlerts({
+        deviceId: result.device.id,
+        sensorData: result.sensorData,
+        deviceStatus: 'connected',
+        storageBatches: vegetables
+      }).catch(() => {});
 
       return result;
     },
