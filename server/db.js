@@ -861,15 +861,15 @@ export async function initMainAdmin() {
   try {
     const mainAdminEmail = (process.env.MAIN_ADMIN_EMAIL || 'vegsense@gmail.com').toLowerCase().trim();
     const mainAdminPassword = process.env.MAIN_ADMIN_PASSWORD || 'VegSense@Admin2026!';
+    const name = process.env.MAIN_ADMIN_NAME || 'VegSense Main Administrator';
+    const username = (process.env.MAIN_ADMIN_USERNAME || 'vegsense').toLowerCase().trim();
+    const now = new Date().toISOString();
+    const passwordHash = bcrypt.hashSync(mainAdminPassword, 10);
     
-    // Check if vegsense@gmail.com exists
+    // Check if main admin account exists
     const existing = db.prepare('SELECT id, name, email, role, is_active FROM users WHERE email = ?').get(mainAdminEmail);
     if (!existing) {
-      const passwordHash = bcrypt.hashSync(mainAdminPassword, 10);
       const id = 'usr_main_admin_vegsense';
-      const name = 'VegSense Main Administrator';
-      const username = 'vegsense';
-      const now = new Date().toISOString();
 
       db.prepare(`
         INSERT INTO users (id, name, username, email, password_hash, role, is_active, created_at, updated_at)
@@ -899,14 +899,28 @@ export async function initMainAdmin() {
 
       console.log(`[DB] Successfully initialized MAIN_ADMIN account (${mainAdminEmail}).`);
     } else {
-      // Ensure existing account has role MAIN_ADMIN, active, and username
+      // Sync updated credentials, username, and role to existing account
       db.prepare(`
         UPDATE users 
         SET role = 'MAIN_ADMIN', 
             is_active = 1,
-            username = COALESCE(username, 'vegsense')
+            name = ?,
+            username = ?,
+            password_hash = ?,
+            updated_at = ?
         WHERE email = ?
-      `).run(mainAdminEmail);
+      `).run(name, username, passwordHash, now, mainAdminEmail);
+
+      await savePersistentUser({
+        id: existing.id,
+        name,
+        username,
+        email: mainAdminEmail,
+        password_hash: passwordHash,
+        role: 'MAIN_ADMIN',
+        is_active: 1,
+        updated_at: now
+      });
 
       // Ensure full permissions
       db.prepare(`
