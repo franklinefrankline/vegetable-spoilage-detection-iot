@@ -280,6 +280,78 @@ try {
   // Safe to ignore if already exists
 }
 
+// Migration: Ensure devices has Part 10 production fields
+const deviceColumns = [
+  { name: 'device_identifier', type: 'TEXT' },
+  { name: 'mode', type: "TEXT DEFAULT 'REAL'" },
+  { name: 'last_seen', type: 'DATETIME' },
+  { name: 'is_active', type: 'INTEGER DEFAULT 1' }
+];
+
+for (const col of deviceColumns) {
+  try {
+    db.exec(`ALTER TABLE devices ADD COLUMN ${col.name} ${col.type}`);
+  } catch (e) {
+    // Column already exists or error, safe to ignore
+  }
+}
+
+// Migration: Ensure user_settings table exists with all Part 10 settings & thresholds
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_settings (
+      id TEXT PRIMARY KEY,
+      user_id TEXT UNIQUE NOT NULL,
+      theme TEXT DEFAULT 'forest',
+      accent TEXT DEFAULT 'green',
+      card_style TEXT DEFAULT 'rounded',
+      font_size TEXT DEFAULT 'medium',
+      animation TEXT DEFAULT 'subtle',
+      notifications_enabled INTEGER DEFAULT 1,
+      browser_notifications_enabled INTEGER DEFAULT 0,
+      critical_alerts_enabled INTEGER DEFAULT 1,
+      high_alerts_enabled INTEGER DEFAULT 1,
+      warning_alerts_enabled INTEGER DEFAULT 1,
+      info_alerts_enabled INTEGER DEFAULT 1,
+      temperature_alerts_enabled INTEGER DEFAULT 1,
+      humidity_alerts_enabled INTEGER DEFAULT 1,
+      gas_alerts_enabled INTEGER DEFAULT 1,
+      light_alerts_enabled INTEGER DEFAULT 1,
+      spoilage_alerts_enabled INTEGER DEFAULT 1,
+      expiry_alerts_enabled INTEGER DEFAULT 1,
+      device_alerts_enabled INTEGER DEFAULT 1,
+      sensor_alerts_enabled INTEGER DEFAULT 1,
+      sensor_temp_enabled INTEGER DEFAULT 1,
+      sensor_hum_enabled INTEGER DEFAULT 1,
+      sensor_gas_enabled INTEGER DEFAULT 1,
+      sensor_light_enabled INTEGER DEFAULT 1,
+      light_sensor_type TEXT DEFAULT 'BH1750',
+      temperature_warning_threshold REAL DEFAULT 30.0,
+      temperature_high_threshold REAL DEFAULT 35.0,
+      humidity_low_threshold REAL DEFAULT 50.0,
+      humidity_high_threshold REAL DEFAULT 80.0,
+      gas_elevated_threshold REAL DEFAULT 500.0,
+      gas_high_threshold REAL DEFAULT 700.0,
+      light_low_threshold REAL DEFAULT 100.0,
+      light_high_threshold REAL DEFAULT 500.0,
+      spoilage_warning_threshold REAL DEFAULT 31.0,
+      spoilage_risk_threshold REAL DEFAULT 61.0,
+      spoilage_critical_threshold REAL DEFAULT 81.0,
+      weight_temperature REAL DEFAULT 30.0,
+      weight_humidity REAL DEFAULT 25.0,
+      weight_gas REAL DEFAULT 25.0,
+      weight_light REAL DEFAULT 10.0,
+      weight_age REAL DEFAULT 10.0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_settings_user ON user_settings(user_id);
+  `);
+} catch (e) {
+  // Safe to ignore if already exists
+}
+
 /**
  * Reads all users from persistent_users.json (and Vercel Blob cloud store) and inserts/updates them in the database.
  * This guarantees user data is NEVER lost even if SQLite is freshly initialized or code updates.
@@ -467,6 +539,42 @@ export async function updatePersistentPassword(email, newPasswordHash) {
     }
   } catch (err) {
     console.warn('[DB] Notice: Could not update password in persistent_users.json:', err.message);
+  }
+}
+
+/**
+ * Permanently removes a user from persistent_users.json and Vercel Blob cloud store.
+ */
+export async function deletePersistentUser(email) {
+  try {
+    const cleanEmail = email.toLowerCase().trim();
+    const paths = [BUNDLED_USERS_PATH];
+    if (PERSISTENT_USERS_PATH !== BUNDLED_USERS_PATH) {
+      paths.push(PERSISTENT_USERS_PATH);
+    }
+
+    for (const p of paths) {
+      if (fs.existsSync(p)) {
+        try {
+          const content = fs.readFileSync(p, 'utf-8');
+          const users = JSON.parse(content || '[]');
+          const filtered = users.filter((u) => u.email?.toLowerCase().trim() !== cleanEmail);
+          fs.writeFileSync(p, JSON.stringify(filtered, null, 2), 'utf-8');
+        } catch (e) {}
+      }
+    }
+
+    if (process.env.BLOB_READ_WRITE_TOKEN && fs.existsSync(PERSISTENT_USERS_PATH)) {
+      try {
+        const users = JSON.parse(fs.readFileSync(PERSISTENT_USERS_PATH, 'utf-8') || '[]');
+        await vercelBlobPut('persistent_users.json', JSON.stringify(users, null, 2), {
+          access: 'public',
+          addRandomSuffix: false
+        });
+      } catch (blobErr) {}
+    }
+  } catch (err) {
+    console.warn('[DB] Notice: Could not delete from persistent_users.json:', err.message);
   }
 }
 

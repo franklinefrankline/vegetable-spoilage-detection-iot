@@ -2,7 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
-import db, { savePersistentUser, updatePersistentPassword, syncPersistentUsers } from './db.js';
+import db, { savePersistentUser, updatePersistentPassword, deletePersistentUser, syncPersistentUsers } from './db.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'veg-storage-smart-iot-secret-key-2026';
@@ -309,6 +309,145 @@ router.get('/me', authenticateToken, (req, res) => {
   }
 });
 
+// PATCH /api/auth/profile - Updates user profile name
+router.patch('/profile', authenticateToken, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || typeof name !== 'string' || name.trim().length < 2) {
+      return res.status(400).json({ success: false, message: 'Name must be at least 2 characters long.' });
+    }
+
+    const trimmedName = name.trim();
+    const now = new Date().toISOString();
+
+    const user = db.prepare('SELECT id, email, password_hash, created_at FROM users WHERE id = ?').get(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    db.prepare('UPDATE users SET name = ?, updated_at = ? WHERE id = ?').run(trimmedName, now, req.user.id);
+
+    // Update persistent JSON
+    await savePersistentUser({
+      id: user.id,
+      name: trimmedName,
+      email: user.email,
+      password_hash: user.password_hash,
+      created_at: user.created_at,
+      updated_at: now
+    });
+
+    return res.json({
+      success: true,
+      message: 'Profile updated successfully.',
+      user: {
+        id: user.id,
+        name: trimmedName,
+        email: user.email
+      }
+    });
+  } catch (err) {
+    console.error('Profile update error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update profile.' });
+  }
+});
+
+// POST /api/auth/change-password - Secure password change for authenticated users
+router.post('/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current password and new password are required.' });
+    }
+
+    if (confirmPassword !== undefined && newPassword !== confirmPassword) {
+      return res.status(400).json({ success: false, message: 'New password and confirmation password do not match.' });
+    }
+
+    if (!isValidPassword(newPassword)) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 8 characters and contain at least one uppercase letter, one lowercase letter, and one number.'
+      });
+    }
+
+    const user = db.prepare('SELECT id, email, password_hash FROM users WHERE id = ?').get(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    // Verify current password
+    const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Incorrect current password.' });
+    }
+
+    // Hash and save new password
+    const saltRounds = 10;
+    const newHash = await bcrypt.hash(newPassword, saltRounds);
+
+    db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(newHash, user.id);
+    await updatePersistentPassword(user.email, newHash);
+
+    return res.json({
+      success: true,
+      message: 'Password changed successfully.'
+    });
+  } catch (err) {
+    console.error('Change password error:', err);
+    return res.status(500).json({ success: false, message: 'Internal error changing password.' });
+  }
+});
+
+// DELETE /api/auth/account - Authenticated user deletes own account with confirmation
+router.delete('/account', authenticateToken, async (req, res) => {
+  try {
+    const { confirmationText, password } = req.body || {};
+
+    const user = db.prepare('SELECT id, email, password_hash FROM users WHERE id = ?').get(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    // Protect permanent demo seed account from complete removal
+    if (user.email === 'demo@vegsense.io' || user.id === 'usr_demo_vegsense_001') {
+      return res.status(400).json({
+        success: false,
+        message: 'The shared system Demo Account cannot be deleted. You can reset demo data instead.'
+      });
+    }
+
+    // Verify confirmation
+    const confirmed = (confirmationText && confirmationText.trim().toUpperCase() === 'DELETE') ||
+                      (password && await bcrypt.compare(password, user.password_hash));
+
+    if (!confirmed) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide your current password or type "DELETE" to confirm account deletion.'
+      });
+    }
+
+    // Clean up user-owned records according to Section 7 & 90
+    db.prepare('DELETE FROM user_settings WHERE user_id = ?').run(user.id);
+    db.prepare('DELETE FROM devices WHERE user_id = ?').run(user.id);
+    db.prepare('DELETE FROM storage_items WHERE user_id = ?').run(user.id);
+    db.prepare('DELETE FROM alerts WHERE user_id = ?').run(user.id);
+    db.prepare('DELETE FROM reports WHERE user_id = ?').run(user.id);
+    db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
+    await deletePersistentUser(user.email);
+
+    return res.json({
+      success: true,
+      message: 'Your account and all associated configuration have been permanently deleted.'
+    });
+  } catch (err) {
+    console.error('Account deletion error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete account.' });
+  }
+});
+
 // DELETE /api/auth/admin/users/:id - Only authorized Admin can delete accounts
 router.delete('/admin/users/:id', async (req, res) => {
   try {
@@ -328,6 +467,7 @@ router.delete('/admin/users/:id', async (req, res) => {
     }
 
     db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    await deletePersistentUser(user.email);
 
     return res.json({ success: true, message: `Account for ${user.email} permanently deleted by authorized Admin.` });
   } catch (err) {

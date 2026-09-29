@@ -8,6 +8,7 @@ import spoilageRoutes from '../server/spoilageRoutes.js';
 import alertRoutes from '../server/alertRoutes.js';
 import analyticsRoutes from '../server/analyticsRoutes.js';
 import reportRoutes from '../server/reportRoutes.js';
+import settingsRoutes from '../server/settingsRoutes.js';
 
 const app = express();
 
@@ -33,6 +34,8 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/analytics', analyticsRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/reports', reportRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/settings', settingsRoutes);
 app.use('/api', deviceRoutes);
 app.use('/', deviceRoutes);
 

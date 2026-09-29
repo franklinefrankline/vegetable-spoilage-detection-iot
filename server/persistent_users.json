@@ -62,13 +62,5 @@
     "password_hash": "$2b$10$lh/nTQu5AxuY1a3E5b2s4Odu/7x4Z2zk8io3HpFkZS73hL.HjJsXW",
     "created_at": "2026-09-29T04:04:22.889Z",
     "updated_at": "2026-09-29T04:04:22.908Z"
-  },
-  {
-    "id": "51a328aa-b142-4500-a9ee-fc52503af17f",
-    "name": "Dr. Spoilage Inspector",
-    "email": "spoilage_tester_1790671646615@vegsense.io",
-    "password_hash": "$2b$10$5MKflO1WKCWNNZt7V7CV2ux1iZ84LBsTWmGuMeSAr7HGizxaeZCSS",
-    "created_at": "2026-09-29T08:47:27.714Z",
-    "updated_at": "2026-09-29T08:47:27.735Z"
   }
 ]
