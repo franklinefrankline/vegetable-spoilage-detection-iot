@@ -16,7 +16,7 @@ import { AppShell } from './components/AppShell';
 import { DashboardPage } from './pages/DashboardPage';
 import { ConnectDevicePage } from './pages/ConnectDevicePage';
 import { VegetableStoragePage } from './pages/VegetableStoragePage';
-import { LiveSensorsPage } from './pages/LiveSensorsPage';
+import { SensorsPage } from './pages/SensorsPage';
 import { SpoilageDetectionPage } from './pages/SpoilageDetectionPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
@@ -94,7 +94,7 @@ function AppContent() {
         return <VegetableStoragePage />;
       case '/sensors':
       case '/live-sensors':
-        return <LiveSensorsPage />;
+        return <SensorsPage />;
       case '/spoilage':
       case '/spoilage-detection':
         return <SpoilageDetectionPage />;
