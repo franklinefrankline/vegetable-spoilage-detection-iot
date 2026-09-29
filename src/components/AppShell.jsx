@@ -3,9 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useAppearance, THEME_OPTIONS, ACCENT_OPTIONS } from '../context/AppearanceContext';
 import { useDevice } from '../context/DeviceContext';
+import { useAlerts } from '../context/AlertContext';
 import { useNavigate, useLocation, Link } from '../router/Router';
 import { VegSenseLogo } from './branding/VegSenseLogo';
 import markLogo from '../assets/vegsense-mark.png';
+import { NotificationBell } from './alerts/NotificationBell';
 import {
   LayoutDashboard,
   Radio,
@@ -49,6 +51,8 @@ export function AppShell({ children }) {
   } = useAppearance();
 
   const { isConnected, device, unreadAlertsCount, reconnectDevice } = useDevice();
+  const { unreadCount } = useAlerts();
+  const effectiveUnread = unreadCount ?? unreadAlertsCount ?? 0;
   const dropdownRef = useRef(null);
   const devicePopoverRef = useRef(null);
   const [isDeviceStatusOpen, setIsDeviceStatusOpen] = useState(false);
@@ -85,7 +89,7 @@ export function AppShell({ children }) {
     { href: '/storage', label: 'Storage', icon: Boxes },
     { href: '/sensors', label: 'Sensors', icon: Gauge },
     { href: '/spoilage', label: 'Spoilage', icon: ShieldAlert },
-    { href: '/alerts', label: 'Alerts', icon: Bell, badge: unreadAlertsCount > 0 ? unreadAlertsCount : null },
+    { href: '/alerts', label: 'Alerts', icon: Bell, badge: effectiveUnread > 0 ? effectiveUnread : null },
     { href: '/analytics', label: 'Analytics', icon: LineChart },
     { href: '/reports', label: 'Reports', icon: FileText },
     { href: '/settings', label: 'Settings', icon: Settings }
@@ -377,17 +381,8 @@ export function AppShell({ children }) {
                 </div>
               )}
 
-              {/* Notification Bell */}
-              <button
-                type="button"
-                className="header-action-btn"
-                onClick={() => navigate('/alerts')}
-                title="Notifications"
-                aria-label="Alerts"
-              >
-                <Bell size={18} />
-                {unreadAlertsCount > 0 && <span className="header-notif-dot" />}
-              </button>
+              {/* Notification Bell with live unread badge and dropdown */}
+              <NotificationBell />
 
               {/* User Profile Badge */}
               <div
@@ -453,7 +448,7 @@ export function AppShell({ children }) {
             className={`mobile-bottom-nav-item ${pathname === '/alerts' ? 'active' : ''}`}
           >
             <Bell size={20} />
-            {unreadAlertsCount > 0 && <span className="mobile-nav-dot" />}
+            {effectiveUnread > 0 && <span className="mobile-nav-dot" />}
             <span>Alerts</span>
           </Link>
 

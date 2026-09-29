@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useDevice } from '../context/DeviceContext';
+import { useAlerts } from '../context/AlertContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from '../router/Router';
 import {
@@ -25,6 +26,7 @@ import {
   Sparkles,
   Radio,
   Cpu,
+  MapPin,
   Zap,
   RotateCcw,
   Edit2,
@@ -49,6 +51,7 @@ export function VegetableStoragePage() {
     isConnected,
     connectDemoDevice
   } = useDevice();
+  const { activeAlerts } = useAlerts();
   const { addToast } = useToast();
   const navigate = useNavigate();
 
@@ -621,8 +624,14 @@ export function VegetableStoragePage() {
 
                   {/* Chamber & Device Info */}
                   <div className="storage-card-chamber-row">
-                    <span>📍 {batch.storage_chamber || 'Chamber #04'}</span>
-                    <span>📟 {batch.device_id || 'ESP32-DEMO-001'}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <MapPin size={12} />
+                      <span>{batch.storage_chamber || 'Chamber #04'}</span>
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Cpu size={12} />
+                      <span>{batch.device_id || 'ESP32-DEMO-001'}</span>
+                    </span>
                   </div>
 
                   {/* Metrics Grid */}
@@ -677,13 +686,45 @@ export function VegetableStoragePage() {
 
                 {/* Footer with Status & Actions */}
                 <div className="storage-card-footer" onClick={(e) => e.stopPropagation()}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                     <span className={`storage-status-tag ${evalCondition.badgeClass.replace('status-', '')}`}>
                       {evalCondition.status === 'FRESH' && <CheckCircle2 size={12} />}
                       {evalCondition.status === 'WARNING' && <AlertTriangle size={12} />}
                       {evalCondition.status === 'SPOILAGE RISK' && <ShieldAlert size={12} />}
                       <span>{evalCondition.status}</span>
                     </span>
+
+                    {/* Active Batch Alert Indicator (Section 36) */}
+                    {(() => {
+                      const batchAlert = (activeAlerts || []).find(
+                        (a) => a.storage_batch_id === batch.id || (isActive && a.status === 'ACTIVE')
+                      );
+                      if (!batchAlert) return null;
+                      return (
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate('/alerts');
+                          }}
+                          style={{
+                            fontSize: '0.675rem',
+                            fontWeight: 800,
+                            padding: '0.15rem 0.45rem',
+                            borderRadius: '9999px',
+                            backgroundColor: batchAlert.severity === 'CRITICAL' ? 'rgba(220, 38, 38, 0.15)' : 'rgba(234, 88, 12, 0.15)',
+                            color: batchAlert.severity === 'CRITICAL' ? '#dc2626' : '#ea580c',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            cursor: 'pointer'
+                          }}
+                          title={batchAlert.message}
+                        >
+                          <AlertTriangle size={11} />
+                          <span>{batchAlert.title}</span>
+                        </span>
+                      );
+                    })()}
 
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                       Risk: <strong>{evalCondition.preservationScore > 75 ? (sensorData?.spoilageRisk ?? 18) : 45}%</strong>

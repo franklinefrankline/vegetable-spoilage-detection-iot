@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDevice } from '../context/DeviceContext';
+import { useAlerts } from '../context/AlertContext';
 import { useNavigate } from '../router/Router';
 
 // Modular Components
@@ -52,6 +53,7 @@ export function SensorsPage() {
     history: ctxHistory,
     thresholds
   } = useDevice();
+  const { activeAlerts } = useAlerts();
   const navigate = useNavigate();
 
   const isDemo = device?.isDemo ?? true;
@@ -285,6 +287,8 @@ export function SensorsPage() {
             accentColor="#f97316"
             stats={sensorStats.temp}
             subtitle="Optimal Range: 15–30 °C"
+            hasAlert={activeAlerts?.some((a) => String(a.alert_type || a.type).toUpperCase().includes('TEMP'))}
+            onAlertClick={() => navigate('/alerts?type=temperature')}
           />
 
           {/* Card 2: HUMIDITY */}
@@ -298,6 +302,8 @@ export function SensorsPage() {
             accentColor="#0ea5e9"
             stats={sensorStats.hum}
             subtitle="Target Relative Humidity: 60–78%"
+            hasAlert={activeAlerts?.some((a) => String(a.alert_type || a.type).toUpperCase().includes('HUMID'))}
+            onAlertClick={() => navigate('/alerts?type=humidity')}
           />
 
           {/* Card 3: GAS / VOC (MQ-135) */}
@@ -312,6 +318,8 @@ export function SensorsPage() {
             stats={sensorStats.gas}
             subtitle="Gas/VOC Indicator"
             extraInfo="Baseline Indicator"
+            hasAlert={activeAlerts?.some((a) => String(a.alert_type || a.type).toUpperCase().includes('GAS'))}
+            onAlertClick={() => navigate('/alerts?type=gas_voc')}
           />
 
           {/* Card 4: LIGHT LEVEL (BH1750 / LDR) */}
@@ -328,6 +336,8 @@ export function SensorsPage() {
             unavailableMessage="Light Sensor Unavailable"
             subtitle="Configured: 100–500 lux"
             extraInfo={`Light Risk: ${lightRiskVal}%`}
+            hasAlert={activeAlerts?.some((a) => String(a.alert_type || a.type).toUpperCase().includes('LIGHT'))}
+            onAlertClick={() => navigate('/alerts?type=light')}
           />
         </div>
       )}

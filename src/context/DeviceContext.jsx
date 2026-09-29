@@ -13,6 +13,8 @@ import {
   DEFAULT_LIGHT_THRESHOLDS,
   calculateCombinedSpoilageRisk
 } from '../utils/lightClassification';
+import { calculateSpoilageRisk } from '../utils/spoilageRisk';
+import { evaluateAlerts } from '../services/alertService';
 
 const DeviceContext = createContext(null);
 
@@ -146,6 +148,14 @@ export function DeviceProvider({ children }) {
   const demoLightIndexRef = useRef(0);
   const manualDemoLightRef = useRef(null);
   const lastLightAlertClassRef = useRef('NORMAL LIGHT');
+  const demoOverridesRef = useRef({
+    temperature: 28.5,
+    humidity: 72,
+    gasLevel: 420,
+    lightLevel: 420,
+    isTempUnavailable: false,
+    isOffline: false
+  });
 
   // Load and auto-verify saved device when user logs in or page refreshes
   useEffect(() => {
@@ -281,12 +291,21 @@ export function DeviceProvider({ children }) {
       return;
     }
 
-    // Demo Mode Polling: updates clock and controlled light sensor values every 5 seconds (Section 11)
+    // Demo Mode Polling: updates clock and controlled sensor values every 5 seconds (Section 11)
     if (device.isDemo) {
       consecutiveErrorsRef.current = 0;
       const demoInterval = setInterval(() => {
+        if (demoOverridesRef.current.isOffline) {
+          // Section 32: Device offline: no new sensor readings generated
+          return;
+        }
+
         const now = new Date();
         const nowStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        const currentTemp = demoOverridesRef.current.isTempUnavailable ? null : demoOverridesRef.current.temperature;
+        const currentHum = demoOverridesRef.current.humidity;
+        const currentGas = demoOverridesRef.current.gasLevel;
 
         // Section 11: Controlled light sequence [420, 450, 390, 470, 430]
         let currentLightVal = 420;
@@ -297,21 +316,32 @@ export function DeviceProvider({ children }) {
           demoLightIndexRef.current += 1;
         }
 
-        // Section 3 & 4: Evaluate classification & light risk with active thresholds
+        // Evaluate classification & light risk with active thresholds
         const lightEval = classifyLight(currentLightVal, thresholds.minLight, thresholds.maxLight);
-        const combinedRisk = calculateCombinedSpoilageRisk(DEMO_SENSOR_DATA.spoilageRisk, lightEval.lightRisk);
+        const spoilageCalc = calculateSpoilageRisk({
+          temperature: currentTemp,
+          humidity: currentHum,
+          gasLevel: currentGas,
+          lightLevel: currentLightVal,
+          storageBatch: vegetables[0]
+        });
 
-        let dynamicStatus = 'FRESH';
-        if (combinedRisk > 60) dynamicStatus = 'SPOILAGE RISK';
-        else if (combinedRisk > 30) dynamicStatus = 'WARNING';
+        const calculatedRisk = spoilageCalc.spoilageRisk ?? 18;
+        const dynamicStatus = spoilageCalc.classification?.label || 'FRESH';
 
         const updatedFrame = {
           ...DEMO_SENSOR_DATA,
+          temperature: currentTemp,
+          humidity: currentHum,
+          gasLevel: currentGas,
+          gasVOC: currentGas,
           lightLevel: currentLightVal,
           lightClassification: lightEval.classification,
           lightRisk: lightEval.lightRisk,
-          spoilageRisk: combinedRisk,
+          spoilageRisk: calculatedRisk,
           status: dynamicStatus,
+          isTempUnavailable: Boolean(demoOverridesRef.current.isTempUnavailable),
+          isDhtUnavailable: Boolean(demoOverridesRef.current.isTempUnavailable),
           lastUpdated: now
         };
 
@@ -355,14 +385,14 @@ export function DeviceProvider({ children }) {
         setHistory((prev) => {
           const newPoint = {
             time: nowStr,
-            temp: DEMO_SENSOR_DATA.temperature,
-            temperature: DEMO_SENSOR_DATA.temperature,
-            humidity: DEMO_SENSOR_DATA.humidity,
-            gas: DEMO_SENSOR_DATA.gasLevel,
+            temp: currentTemp,
+            temperature: currentTemp,
+            humidity: currentHum,
+            gas: currentGas,
             light: currentLightVal,
             lightLevel: currentLightVal,
-            risk: combinedRisk,
-            spoilageRisk: combinedRisk
+            risk: calculatedRisk,
+            spoilageRisk: calculatedRisk
           };
           const updated = [...prev, newPoint];
           return updated.slice(-30);
@@ -631,6 +661,169 @@ export function DeviceProvider({ children }) {
     });
   }, []);
 
+  // Section 29 & 30: Controlled Demo Scenario Triggers
+  const triggerDemoScenario = useCallback(async (scenarioKey) => {
+    let newTemp = demoOverridesRef.current.temperature ?? 28.5;
+    let newHum = demoOverridesRef.current.humidity ?? 72;
+    let newGas = demoOverridesRef.current.gasLevel ?? 420;
+    let newLight = demoOverridesRef.current.lightLevel ?? 420;
+    let isTempUnavail = false;
+    let isOffline = false;
+
+    switch (scenarioKey) {
+      case 'normal':
+      case 'reset_demo':
+        newTemp = 28.5;
+        newHum = 72;
+        newGas = 420;
+        newLight = 420;
+        isTempUnavail = false;
+        isOffline = false;
+        setIsConnected(true);
+        setConnectionLost(false);
+        setDevice((prev) => ({ ...prev, status: 'Demo Connected', isDemo: true, signal: 'Strong' }));
+        break;
+      case 'temp_warning':
+        newTemp = 32.0;
+        break;
+      case 'temp_high':
+        newTemp = 36.0;
+        break;
+      case 'humidity_high':
+        newHum = 88.0;
+        break;
+      case 'humidity_low':
+        newHum = 42.0;
+        break;
+      case 'gas_elevated':
+        newGas = 600;
+        break;
+      case 'gas_high':
+        newGas = 750;
+        break;
+      case 'light_low':
+        newLight = 50;
+        break;
+      case 'light_high':
+        newLight = 700;
+        break;
+      case 'spoilage_warning':
+        newTemp = 31.0;
+        newHum = 79.0;
+        newGas = 510;
+        newLight = 460;
+        break;
+      case 'spoilage_risk':
+        newTemp = 34.0;
+        newHum = 85.0;
+        newGas = 650;
+        newLight = 550;
+        break;
+      case 'spoilage_critical':
+        newTemp = 38.0;
+        newHum = 89.0;
+        newGas = 780;
+        newLight = 700;
+        break;
+      case 'device_offline':
+        isOffline = true;
+        setIsConnected(false);
+        setConnectionLost(true);
+        setDevice((prev) => ({ ...prev, status: 'Offline', signal: 'None' }));
+        break;
+      case 'device_reconnect':
+        isOffline = false;
+        setIsConnected(true);
+        setConnectionLost(false);
+        setDevice((prev) => ({ ...prev, status: 'Demo Connected', signal: 'Strong' }));
+        break;
+      case 'sensor_unavailable':
+        isTempUnavail = true;
+        newTemp = null;
+        break;
+      case 'sensor_recovery':
+        isTempUnavail = false;
+        newTemp = 28.5;
+        break;
+      default:
+        break;
+    }
+
+    demoOverridesRef.current = {
+      temperature: newTemp,
+      humidity: newHum,
+      gasLevel: newGas,
+      lightLevel: newLight,
+      isTempUnavailable: isTempUnavail,
+      isOffline
+    };
+
+    if (newLight !== null) {
+      manualDemoLightRef.current = newLight;
+    }
+
+    const lightEval = classifyLight(newLight ?? 420, thresholds.minLight, thresholds.maxLight);
+    const spoilageCalc = calculateSpoilageRisk({
+      temperature: newTemp,
+      humidity: newHum,
+      gasLevel: newGas,
+      lightLevel: newLight,
+      storageBatch: vegetables[0]
+    });
+
+    const calculatedRisk = spoilageCalc.spoilageRisk ?? 18;
+    const dynamicStatus = spoilageCalc.classification?.label || 'FRESH';
+
+    const updatedFrame = {
+      ...sensorData,
+      temperature: newTemp,
+      humidity: newHum,
+      gasLevel: newGas,
+      gasVOC: newGas,
+      lightLevel: newLight,
+      lightClassification: lightEval.classification,
+      lightRisk: lightEval.lightRisk,
+      spoilageRisk: calculatedRisk,
+      status: dynamicStatus,
+      isTempUnavailable: isTempUnavail,
+      isDhtUnavailable: isTempUnavail,
+      isOffline,
+      lastUpdated: new Date()
+    };
+
+    setSensorData(updatedFrame);
+    setLastKnownData(updatedFrame);
+
+    // Call backend alert evaluation engine (Section 17)
+    try {
+      await evaluateAlerts({
+        deviceId: device.id || 'ESP32-DEMO-001',
+        sensorData: updatedFrame,
+        spoilageData: {
+          spoilageRisk: calculatedRisk,
+          classification: dynamicStatus
+        },
+        deviceStatus: isOffline ? 'OFFLINE' : (isConnected ? 'connected' : 'OFFLINE'),
+        storageBatches: vegetables,
+        configuredThresholds: {
+          tempWarningMax: 30,
+          tempHighMax: 35,
+          humidityMin: 50,
+          humidityMax: 80,
+          gasNormalMax: 500,
+          gasElevatedMax: 700,
+          lightMin: thresholds.minLight || 100,
+          lightMax: thresholds.maxLight || 500,
+          spoilageWarning: 30,
+          spoilageRisk: 60,
+          spoilageCritical: 80
+        }
+      });
+    } catch (e) {
+      console.warn('Backend evaluation call error:', e);
+    }
+  }, [thresholds, vegetables, sensorData, device.id, isConnected]);
+
   const value = {
     isConnected,
     isCheckingReachability,
@@ -655,7 +848,8 @@ export function DeviceProvider({ children }) {
     addVegetableBatch,
     markAlertsAsRead,
     updateThresholds,
-    setDemoLightOverride
+    setDemoLightOverride,
+    triggerDemoScenario
   };
 
   return <DeviceContext.Provider value={value}>{children}</DeviceContext.Provider>;

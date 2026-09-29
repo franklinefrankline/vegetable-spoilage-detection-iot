@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { AppearanceProvider } from './context/AppearanceContext';
 import { DeviceProvider, useDevice } from './context/DeviceContext';
+import { AlertProvider } from './context/AlertContext';
 import { RouterProvider, useLocation } from './router/Router';
 
 // Public Pages
@@ -86,7 +87,8 @@ function AppContent() {
     pathname !== '/sensors' &&
     pathname !== '/live-sensors' &&
     pathname !== '/spoilage' &&
-    pathname !== '/spoilage-detection'
+    pathname !== '/spoilage-detection' &&
+    pathname !== '/alerts'
   ) {
     return (
       <AppShell>
@@ -133,9 +135,11 @@ export default function App() {
       <AuthProvider>
         <AppearanceProvider>
           <DeviceProvider>
-            <RouterProvider>
-              <AppContent />
-            </RouterProvider>
+            <AlertProvider>
+              <RouterProvider>
+                <AppContent />
+              </RouterProvider>
+            </AlertProvider>
           </DeviceProvider>
         </AppearanceProvider>
       </AuthProvider>

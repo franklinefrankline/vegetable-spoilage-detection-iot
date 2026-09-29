@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useDevice } from '../context/DeviceContext';
+import { useAlerts } from '../context/AlertContext';
 import { useToast } from '../context/ToastContext';
 import { useAppearance, THEME_OPTIONS, ACCENT_OPTIONS } from '../context/AppearanceContext';
 import {
@@ -30,6 +31,13 @@ export function SettingsPage() {
   const { currentUser } = useAuth();
   const { device, thresholds, updateThresholds } = useDevice();
   const { addToast } = useToast();
+  const {
+    preferences,
+    updatePreferences,
+    alertThresholds,
+    updateAlertThresholds,
+    requestBrowserPermission
+  } = useAlerts();
 
   const {
     settings,
@@ -670,22 +678,23 @@ export function SettingsPage() {
           )}
 
           {/* =========================================================================
-              TAB: NOTIFICATIONS
+              TAB: NOTIFICATIONS (Part 7: Alerts & Notifications Configuration)
               ========================================================================= */}
           {activeTab === 'notifications' && (
-            <div className="vegsense-card">
+            <div className="vegsense-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div className="card-header-row">
                 <div>
-                  <h2 className="card-title">Notification Channels & Alerts</h2>
-                  <div className="card-subtitle">Control real-time browser alerts and storage risk escalation.</div>
+                  <h2 className="card-title">Alerts & Notification Preferences</h2>
+                  <div className="card-subtitle">Configure environmental alarms, desktop browser notifications, and threshold limits.</div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1.25rem' }}>
+              {/* 1. Global & Browser Notification Controls */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                 <div className="toggle-setting-row">
                   <div>
-                    <div className="toggle-setting-title">Enable Real-Time Alerts</div>
-                    <div className="toggle-setting-desc">Receive push notifications when sensor values drift from optimal preservation ranges.</div>
+                    <div className="toggle-setting-title">Enable In-App Notifications</div>
+                    <div className="toggle-setting-desc">Display real-time banners and notification bell badges for threshold events.</div>
                   </div>
                   <input
                     type="checkbox"
@@ -695,30 +704,135 @@ export function SettingsPage() {
                   />
                 </div>
 
-                <div className="toggle-setting-row">
+                <div className="toggle-setting-row" style={{ borderTop: '1px solid var(--border-light)', paddingTop: '0.85rem' }}>
                   <div>
-                    <div className="toggle-setting-title">Warning Alerts (Amber)</div>
-                    <div className="toggle-setting-desc">Alert when humidity or temperature crosses secondary preservation buffer.</div>
+                    <div className="toggle-setting-title">Desktop Browser Notifications</div>
+                    <div className="toggle-setting-desc">
+                      Display native OS/browser popups when HIGH or CRITICAL environmental risks occur.
+                    </div>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={warningAlerts}
-                    onChange={(e) => setWarningAlerts(e.target.checked)}
-                    className="custom-toggle-input"
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{ height: '32px', fontSize: '0.785rem', padding: '0 0.65rem' }}
+                      onClick={async () => {
+                        const perm = await requestBrowserPermission();
+                        if (perm === 'granted') {
+                          addToast('Browser notifications enabled successfully.', 'success');
+                        } else {
+                          addToast('Browser notification permission was not granted.', 'warning');
+                        }
+                      }}
+                    >
+                      Enable Browser Notifications
+                    </button>
+                    <input
+                      type="checkbox"
+                      checked={preferences.browserNotifications}
+                      onChange={(e) => updatePreferences({ browserNotifications: e.target.checked })}
+                      className="custom-toggle-input"
+                    />
+                  </div>
                 </div>
+              </div>
 
-                <div className="toggle-setting-row">
-                  <div>
-                    <div className="toggle-setting-title">Critical Spoilage Alerts (Red)</div>
-                    <div className="toggle-setting-desc">Urgent notification when ethylene or VOC indicates active bacterial decomposition.</div>
+              {/* 2. Notification Category Preferences (Section 41) */}
+              <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1.25rem' }}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  Alert Category Filters
+                </h3>
+                <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                  Toggle notifications for specific microclimate and equipment event types.
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem' }}>
+                  {[
+                    { key: 'temperatureAlerts', label: 'Temperature Alerts', desc: 'Threshold crossings (> 30°C / > 35°C)' },
+                    { key: 'humidityAlerts', label: 'Humidity Alerts', desc: 'Moisture limits (< 50% / > 80%)' },
+                    { key: 'gasAlerts', label: 'Gas / VOC Indicator Alerts', desc: 'MQ-135 readings (> 500 / > 700)' },
+                    { key: 'lightAlerts', label: 'Light Level Alerts', desc: 'Photic exposure (< 100 / > 500 lux)' },
+                    { key: 'spoilageAlerts', label: 'Spoilage Risk Alerts', desc: 'Multi-factor risk score escalations' },
+                    { key: 'storageExpiryAlerts', label: 'Storage Expiry Reminders', desc: '7d, 3d, 1d and expiry reminders' },
+                    { key: 'deviceAlerts', label: 'Device Connectivity Alerts', desc: 'ESP32 offline and reconnected events' },
+                    { key: 'sensorAlerts', label: 'Sensor Availability Alerts', desc: 'Telemetry dropout and recovery events' }
+                  ].map((cat) => (
+                    <div
+                      key={cat.key}
+                      style={{
+                        padding: '0.75rem 0.85rem',
+                        borderRadius: '8px',
+                        backgroundColor: 'var(--bg-subtle)',
+                        border: '1px solid var(--border-light)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '0.75rem'
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-main)' }}>{cat.label}</div>
+                        <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>{cat.desc}</div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={preferences[cat.key] !== false}
+                        onChange={(e) => updatePreferences({ [cat.key]: e.target.checked })}
+                        className="custom-toggle-input"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. Spoilage & Expiry Threshold Settings (Section 39) */}
+              <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1.25rem' }}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  Risk & Reminder Thresholds
+                </h3>
+                <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                  Customize the score thresholds for risk classification transitions and batch expiry scheduling.
+                </p>
+
+                <div className="thresholds-form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                  <div className="threshold-input-card">
+                    <label className="threshold-card-label">Spoilage Warning (%)</label>
+                    <input
+                      type="number"
+                      min="10"
+                      max="50"
+                      value={alertThresholds.spoilageWarning ?? 30}
+                      onChange={(e) => updateAlertThresholds({ spoilageWarning: parseInt(e.target.value, 10) || 30 })}
+                      className="login-form-input no-left-icon"
+                    />
+                    <div className="threshold-card-hint">Default: 31%. Triggers WARNING risk alert.</div>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={criticalAlerts}
-                    onChange={(e) => setCriticalAlerts(e.target.checked)}
-                    className="custom-toggle-input"
-                  />
+
+                  <div className="threshold-input-card">
+                    <label className="threshold-card-label">Spoilage Risk (%)</label>
+                    <input
+                      type="number"
+                      min="40"
+                      max="75"
+                      value={alertThresholds.spoilageRisk ?? 60}
+                      onChange={(e) => updateAlertThresholds({ spoilageRisk: parseInt(e.target.value, 10) || 60 })}
+                      className="login-form-input no-left-icon"
+                    />
+                    <div className="threshold-card-hint">Default: 61%. Triggers HIGH risk alert.</div>
+                  </div>
+
+                  <div className="threshold-input-card">
+                    <label className="threshold-card-label">Critical Risk (%)</label>
+                    <input
+                      type="number"
+                      min="70"
+                      max="95"
+                      value={alertThresholds.spoilageCritical ?? 80}
+                      onChange={(e) => updateAlertThresholds({ spoilageCritical: parseInt(e.target.value, 10) || 80 })}
+                      className="login-form-input no-left-icon"
+                    />
+                    <div className="threshold-card-hint">Default: 81%. Triggers CRITICAL risk alert.</div>
+                  </div>
                 </div>
               </div>
             </div>

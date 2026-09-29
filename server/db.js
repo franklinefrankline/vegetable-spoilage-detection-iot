@@ -160,6 +160,44 @@ for (const col of storageColumns) {
   }
 }
 
+// Migration: Ensure alerts has all Part 7 production fields & indexes
+const alertColumns = [
+  { name: 'user_id', type: "TEXT DEFAULT 'usr_demo_vegsense_001'" },
+  { name: 'storage_batch_id', type: 'TEXT' },
+  { name: 'alert_type', type: "TEXT DEFAULT 'SYSTEM'" },
+  { name: 'title', type: "TEXT DEFAULT 'System Alert'" },
+  { name: 'status', type: "TEXT DEFAULT 'ACTIVE'" },
+  { name: 'source', type: "TEXT DEFAULT 'SYSTEM'" },
+  { name: 'threshold', type: 'TEXT' },
+  { name: 'previous_value', type: 'TEXT' },
+  { name: 'event_key', type: "TEXT DEFAULT ''" },
+  { name: 'metadata', type: "TEXT DEFAULT '{}'" },
+  { name: 'updated_at', type: 'DATETIME' },
+  { name: 'read_at', type: 'DATETIME' },
+  { name: 'resolved_at', type: 'DATETIME' },
+  { name: 'last_seen_at', type: 'DATETIME' }
+];
+
+for (const col of alertColumns) {
+  try {
+    db.exec(`ALTER TABLE alerts ADD COLUMN ${col.name} ${col.type}`);
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+}
+
+try {
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_alerts_user_created ON alerts(user_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_alerts_user_status ON alerts(user_id, status);
+    CREATE INDEX IF NOT EXISTS idx_alerts_user_event_key ON alerts(user_id, event_key);
+    CREATE INDEX IF NOT EXISTS idx_alerts_device_status ON alerts(device_id, status);
+    CREATE INDEX IF NOT EXISTS idx_alerts_batch_created ON alerts(storage_batch_id, created_at);
+  `);
+} catch (e) {
+  // Safe to ignore if already created
+}
+
 /**
  * Reads all users from persistent_users.json (and Vercel Blob cloud store) and inserts/updates them in the database.
  * This guarantees user data is NEVER lost even if SQLite is freshly initialized or code updates.

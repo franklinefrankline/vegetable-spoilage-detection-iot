@@ -22,7 +22,9 @@ export function SensorCard({
   extraInfo,
   isUnavailable = false,
   unavailableMessage = 'Sensor Unavailable',
-  subtitle
+  subtitle,
+  hasAlert = false,
+  onAlertClick
 }) {
   const badgeConfig = getStatusBadgeConfig(status);
 
@@ -94,19 +96,49 @@ export function SensorCard({
             </div>
           </div>
 
-          {/* Hardware Source Badge */}
-          <span style={{
-            fontSize: '0.7rem',
-            fontWeight: 700,
-            padding: '2px 8px',
-            borderRadius: '4px',
-            background: 'var(--bg-card-subtle)',
-            color: 'var(--text-secondary)',
-            border: '1px solid var(--border-light)',
-            letterSpacing: '0.02em'
-          }}>
-            {source}
-          </span>
+          {/* Hardware Source & Alert Badges */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            {hasAlert && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onAlertClick) onAlertClick();
+                }}
+                style={{
+                  fontSize: '0.675rem',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                  color: '#dc2626',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  cursor: 'pointer'
+                }}
+                title="Active threshold alert. Click to view."
+                aria-label="View active alert"
+              >
+                <AlertTriangle size={11} />
+                <span>Alert</span>
+              </button>
+            )}
+
+            <span style={{
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              padding: '2px 8px',
+              borderRadius: '4px',
+              background: 'var(--bg-card-subtle)',
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border-light)',
+              letterSpacing: '0.02em'
+            }}>
+              {source}
+            </span>
+          </div>
         </div>
 
         {/* Primary Sensor Reading Display */}

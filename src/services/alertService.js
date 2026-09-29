@@ -1,88 +1,241 @@
 /**
- * VegSense Alert Service
- * Evaluates real sensor telemetry and persists alerts to SQLite and localStorage.
+ * VegSense Centralized Alerts Service (Part 7)
+ * Handles communication with /api/alerts endpoints, user isolation, and local fallback.
  */
-import { evaluateSensorReading, getSensorThresholds } from '../utils/sensorThresholds';
 
-const LOCAL_ALERTS_KEY = 'vegsense_recent_alerts';
+const LOCAL_ALERTS_KEY = 'vegsense_persisted_alerts';
 
-/**
- * Checks a sensor reading against configured thresholds and returns any generated alerts.
- */
-export function checkReadingForAlerts(reading) {
-  const thresholds = getSensorThresholds();
-  return evaluateSensorReading(reading, thresholds);
+function getAuthHeaders(token) {
+  const headers = { 'Content-Type': 'application/json' };
+  const effectiveToken =
+    token ||
+    localStorage.getItem('vegsense_jwt_token') ||
+    sessionStorage.getItem('vegsense_jwt_token');
+  if (effectiveToken) {
+    headers['Authorization'] = `Bearer ${effectiveToken}`;
+  }
+  return headers;
 }
 
 /**
- * Persists an alert to backend database with local fallback.
+ * Retrieves alerts for the authenticated user with filters, sorting, and pagination
  */
-export async function recordAlert(deviceId, alert) {
-  // Store locally
+export async function getAlerts({
+  status = null,
+  severity = null,
+  type = null,
+  search = null,
+  sort = 'newest',
+  page = 1,
+  limit = 50,
+  token = null
+} = {}) {
+  const params = new URLSearchParams();
+  if (status && status !== 'all') params.append('status', status);
+  if (severity && severity !== 'all') params.append('severity', severity);
+  if (type && type !== 'all') params.append('type', type);
+  if (search && search.trim()) params.append('search', search.trim());
+  if (sort) params.append('sort', sort);
+  if (page) params.append('page', String(page));
+  if (limit) params.append('limit', String(limit));
+
   try {
-    const stored = JSON.parse(localStorage.getItem(LOCAL_ALERTS_KEY) || '[]');
-    const updated = [alert, ...stored].slice(0, 20);
-    localStorage.setItem(LOCAL_ALERTS_KEY, JSON.stringify(updated));
-  } catch (e) {
-    console.warn('Could not save alert locally:', e);
+    const res = await fetch(`/api/alerts?${params.toString()}`, {
+      method: 'GET',
+      headers: getAuthHeaders(token)
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && Array.isArray(data.alerts)) {
+        try {
+          localStorage.setItem(LOCAL_ALERTS_KEY, JSON.stringify(data.alerts.slice(0, 50)));
+        } catch (e) {}
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn('[alertService] Network error fetching alerts, reading cache:', err.message);
   }
 
-  // Attempt backend persistence
+  // Fallback to local cache
   try {
-    const res = await fetch('/api/alerts', {
+    const cached = JSON.parse(localStorage.getItem(LOCAL_ALERTS_KEY) || '[]');
+    let filtered = [...cached];
+    if (status && status !== 'all') {
+      filtered = filtered.filter((a) => (status === 'unread' ? !a.is_read : a.status?.toLowerCase() === status.toLowerCase()));
+    }
+    if (severity && severity !== 'all') {
+      filtered = filtered.filter((a) => a.severity?.toLowerCase() === severity.toLowerCase());
+    }
+    return {
+      success: true,
+      alerts: filtered,
+      pagination: { total: filtered.length, page: 1, limit: 50, totalPages: 1 }
+    };
+  } catch (e) {
+    return { success: true, alerts: [], pagination: { total: 0, page: 1, limit: 50, totalPages: 0 } };
+  }
+}
+
+/**
+ * Retrieves unread count for global notification bell
+ */
+export async function getUnreadCount(token = null) {
+  try {
+    const res = await fetch('/api/alerts/unread-count', {
+      method: 'GET',
+      headers: getAuthHeaders(token)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.unread_count ?? 0;
+    }
+  } catch (err) {
+    console.warn('[alertService] Unread count fetch failed:', err.message);
+  }
+  return 0;
+}
+
+/**
+ * Retrieves alert overview summary
+ */
+export async function getAlertSummary(token = null) {
+  try {
+    const res = await fetch('/api/alerts/summary', {
+      method: 'GET',
+      headers: getAuthHeaders(token)
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('[alertService] Summary fetch failed:', err.message);
+  }
+  return { total: 0, active: 0, unread: 0, critical: 0, high: 0, warning: 0, info: 0, resolved: 0 };
+}
+
+/**
+ * Retrieves single alert details by ID
+ */
+export async function getAlertById(id, token = null) {
+  try {
+    const res = await fetch(`/api/alerts/${encodeURIComponent(id)}`, {
+      method: 'GET',
+      headers: getAuthHeaders(token)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.alert || null;
+    }
+  } catch (err) {
+    console.warn('[alertService] Alert details fetch error:', err.message);
+  }
+  return null;
+}
+
+/**
+ * Marks single alert as read
+ */
+export async function markAlertRead(id, token = null) {
+  try {
+    const res = await fetch(`/api/alerts/${encodeURIComponent(id)}/read`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(token)
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('[alertService] Mark read error:', err.message);
+  }
+  return { success: false };
+}
+
+/**
+ * Marks all alerts as read
+ */
+export async function markAllAlertsRead(token = null) {
+  try {
+    const res = await fetch('/api/alerts/read-all', {
+      method: 'PATCH',
+      headers: getAuthHeaders(token)
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('[alertService] Mark all read error:', err.message);
+  }
+  return { success: false };
+}
+
+/**
+ * Resolves an active alert
+ */
+export async function resolveAlert(id, token = null) {
+  try {
+    const res = await fetch(`/api/alerts/${encodeURIComponent(id)}/resolve`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(token)
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('[alertService] Resolve alert error:', err.message);
+  }
+  return { success: false };
+}
+
+/**
+ * Retrieves active alerts only
+ */
+export async function getActiveAlerts(token = null) {
+  const result = await getAlerts({ status: 'active', limit: 20, token });
+  return result?.alerts || [];
+}
+
+/**
+ * Retrieves critical alerts only
+ */
+export async function getCriticalAlerts(token = null) {
+  const result = await getAlerts({ status: 'active', severity: 'critical', limit: 10, token });
+  return result?.alerts || [];
+}
+
+/**
+ * Primary Alert Engine Evaluation endpoint
+ */
+export async function evaluateAlerts({
+  deviceId,
+  sensorData,
+  spoilageData,
+  deviceStatus,
+  storageBatches,
+  configuredThresholds,
+  previousState,
+  token = null
+}) {
+  try {
+    const res = await fetch('/api/alerts/evaluate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(token),
       body: JSON.stringify({
-        deviceId: deviceId || 'ESP32-001',
-        type: alert.type,
-        severity: alert.severity,
-        message: alert.message,
-        value: alert.value
+        deviceId: deviceId || 'ESP32-DEMO-001',
+        sensorData: sensorData || {},
+        spoilageData: spoilageData || {},
+        deviceStatus: deviceStatus || 'connected',
+        storageBatches: storageBatches || [],
+        configuredThresholds: configuredThresholds || {},
+        previousState: previousState || {}
       })
     });
     if (res.ok) {
       return await res.json();
     }
-  } catch (e) {
-    // Offline or serverless fallback
+  } catch (err) {
+    console.warn('[alertService] Evaluation request error:', err.message);
   }
-
-  return { success: true };
-}
-
-/**
- * Retrieves alerts from backend or local fallback.
- */
-export async function fetchDeviceAlerts(deviceId) {
-  try {
-    const res = await fetch(`/api/alerts/${encodeURIComponent(deviceId)}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && Array.isArray(data.alerts) && data.alerts.length > 0) {
-        return data.alerts.map((a) => ({
-          id: a.id,
-          type: a.type,
-          title: a.type,
-          severity: a.severity,
-          message: a.message,
-          value: a.value,
-          time: new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          read: Boolean(a.is_read)
-        }));
-      }
-    }
-  } catch (e) {
-    // fallback to local
-  }
-
-  try {
-    const stored = localStorage.getItem(LOCAL_ALERTS_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch (e) {
-    console.warn('Could not read local alerts:', e);
-  }
-
-  return [];
+  return { success: false };
 }

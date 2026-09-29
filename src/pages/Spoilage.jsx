@@ -12,6 +12,8 @@ import {
   getDataQuality
 } from '../utils/spoilageRisk';
 import { getVegetableProfile } from '../utils/spoilageThresholds';
+import { useAlerts } from '../context/AlertContext';
+import { AlertTriangle, ExternalLink } from 'lucide-react';
 
 // Modular Spoilage Subcomponents
 import { SpoilageHeader } from '../components/spoilage/SpoilageHeader';
@@ -36,6 +38,7 @@ export function Spoilage() {
     isDemo,
     reconnectDevice
   } = useDevice();
+  const { activeAlerts } = useAlerts();
   const { addToast } = useToast();
   const navigate = useNavigate();
 
@@ -431,6 +434,55 @@ export function Spoilage() {
               batchDetails={batchDetails}
             />
           </div>
+
+          {/* Active Environmental Alerts in Storage (Section 38) */}
+          {activeAlerts && activeAlerts.length > 0 && (
+            <div
+              className="vegsense-card"
+              style={{
+                padding: '1rem 1.25rem',
+                borderLeft: '4px solid #ea580c',
+                backgroundColor: 'rgba(234, 88, 12, 0.05)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.65rem'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, fontSize: '0.85rem', color: '#ea580c' }}>
+                  <AlertTriangle size={15} />
+                  <span>Active Environmental Alerts ({activeAlerts.length})</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/alerts')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary)',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px'
+                  }}
+                >
+                  <span>View Alerts</span>
+                  <ExternalLink size={12} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                {activeAlerts.slice(0, 3).map((alt) => (
+                  <div key={alt.id} style={{ fontSize: '0.785rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                    <span style={{ color: alt.severity === 'CRITICAL' ? '#dc2626' : '#ea580c', fontWeight: 800 }}>•</span>
+                    <span><strong>{alt.title}:</strong> {alt.message}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Storage Recommendations (Section 25, Mobile Order 5) */}
           <div className="spoilage-item-recs">
