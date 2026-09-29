@@ -95,17 +95,20 @@ export function CreateAdminModal({ isOpen, onClose, onSubmit, isSubmitting }) {
       setValidationError('Please enter full name.');
       return;
     }
-    if (!formData.username.trim() || formData.username.length < 3) {
-      setValidationError('Username must be at least 3 characters.');
-      return;
-    }
-    if (!/^[a-zA-Z0-9_.-]+$/.test(formData.username)) {
-      setValidationError('Username may only contain letters, numbers, underscores, dashes, and periods.');
-      return;
-    }
+
     if (!formData.email.trim() || !formData.email.includes('@')) {
       setValidationError('Please enter a valid email address.');
       return;
+    }
+
+    // Auto-generate or sanitize username to lowercase alphanumeric + underscore
+    let cleanUsername = String(formData.username || formData.email.split('@')[0] || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '_');
+
+    if (cleanUsername.length < 3) {
+      cleanUsername = (cleanUsername + '_adm').slice(0, 20);
     }
 
     if (!formData.password || formData.password.length < 8) {
@@ -135,12 +138,28 @@ export function CreateAdminModal({ isOpen, onClose, onSubmit, isSubmitting }) {
 
     onSubmit({
       name: formData.name.trim(),
-      username: formData.username.trim(),
+      username: cleanUsername,
       email: formData.email.trim(),
       password: formData.password,
+      confirm_password: formData.confirmPassword,
+      confirmPassword: formData.confirmPassword,
       is_active: formData.is_active,
+      status: formData.is_active ? 'ACTIVE' : 'INACTIVE',
       full_access: formData.full_access,
       permissions: formData.permissions
+    });
+  };
+
+  const handleEmailChange = (val) => {
+    setFormData((prev) => {
+      const emailPrefix = val.split('@')[0]?.toLowerCase().replace(/[^a-z0-9_]/g, '_') || '';
+      const shouldAuto = !prev.username || prev.username === prev._autoUser;
+      return {
+        ...prev,
+        email: val,
+        username: shouldAuto && emailPrefix ? emailPrefix : prev.username,
+        _autoUser: emailPrefix
+      };
     });
   };
 
@@ -164,9 +183,9 @@ export function CreateAdminModal({ isOpen, onClose, onSubmit, isSubmitting }) {
         </div>
 
         {/* Modal Body Form */}
-        <form onSubmit={handleSubmit} className="admin-modal-body">
+        <form onSubmit={handleSubmit} noValidate className="admin-modal-body">
           {validationError && (
-            <div className="form-error-alert">
+            <div className="admin-form-alert error">
               <AlertCircle size={16} />
               <span>{validationError}</span>
             </div>
@@ -187,7 +206,6 @@ export function CreateAdminModal({ isOpen, onClose, onSubmit, isSubmitting }) {
                   placeholder="e.g. Eleanor Vance"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
                   disabled={isSubmitting}
                 />
               </div>
@@ -195,7 +213,7 @@ export function CreateAdminModal({ isOpen, onClose, onSubmit, isSubmitting }) {
 
             <div className="form-field-group">
               <label className="form-label" htmlFor="admin-create-username">
-                Username <span className="required">*</span>
+                Username <span className="optional-tag">(optional)</span>
               </label>
               <div className="form-input-icon-wrap">
                 <AtSign size={16} className="input-icon" />
@@ -206,7 +224,6 @@ export function CreateAdminModal({ isOpen, onClose, onSubmit, isSubmitting }) {
                   placeholder="e.g. eleanor_admin"
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  required
                   disabled={isSubmitting}
                 />
               </div>
@@ -226,8 +243,7 @@ export function CreateAdminModal({ isOpen, onClose, onSubmit, isSubmitting }) {
                   className="admin-form-input with-icon"
                   placeholder="e.g. eleanor@vegsense.org"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
+                  onChange={(e) => handleEmailChange(e.target.value)}
                   disabled={isSubmitting}
                 />
               </div>

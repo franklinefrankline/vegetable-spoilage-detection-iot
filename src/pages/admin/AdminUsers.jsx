@@ -294,6 +294,23 @@ export function AdminUsers() {
     }
   };
 
+  // 11. Create brand new Administrator
+  const handleCreateAdmin = async (formData) => {
+    setIsSubmitting(true);
+    try {
+      const res = await adminService.createAdmin(formData);
+      if (res.success) {
+        addToast(`Administrator ${formData.name} created successfully.`, 'success');
+        setIsAddAdminOpen(false);
+        loadUsers();
+      }
+    } catch (err) {
+      addToast(err.message || 'Failed to create administrator.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const selectedUsers = users.filter((u) => selectedIds.includes(u.id));
 
   return (
@@ -637,6 +654,7 @@ export function AdminUsers() {
           users={users}
           onClose={() => setIsAddAdminOpen(false)}
           onPromote={handlePromoteAdmin}
+          onCreateAdmin={handleCreateAdmin}
           isSubmitting={isSubmitting}
         />
       )}

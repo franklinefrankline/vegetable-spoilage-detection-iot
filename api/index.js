@@ -38,6 +38,7 @@ app.use('/reports', reportRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/settings', settingsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/admin', adminRoutes);
 app.use('/admin-api', adminRoutes);
 app.use('/api', deviceRoutes);
 app.use('/', deviceRoutes);

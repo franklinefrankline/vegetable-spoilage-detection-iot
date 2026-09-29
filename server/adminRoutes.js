@@ -1031,7 +1031,7 @@ router.get('/admins/:id', requirePermission('admin_management'), (req, res) => {
 // ============================================================================
 // 15. POST /api/admin/admins - Create Administrator
 // ============================================================================
-router.post('/admins', requireMainAdmin, async (req, res) => {
+router.post('/admins', requirePermission('admin_management'), async (req, res) => {
   try {
     const {
       name,
@@ -1048,14 +1048,15 @@ router.post('/admins', requireMainAdmin, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Full name is required (min 2 characters).' });
     }
 
-    const cleanUsername = String(username || '').trim().toLowerCase();
-    if (!cleanUsername || cleanUsername.length < 3 || !/^[a-z0-9_]+$/.test(cleanUsername)) {
-      return res.status(400).json({ success: false, message: 'Username must be at least 3 characters and contain only lowercase letters, numbers, or underscores.' });
-    }
-
     const cleanEmail = String(email || '').trim().toLowerCase();
     if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+    }
+
+    // Auto-generate or sanitize username to lowercase alphanumeric + underscore
+    let cleanUsername = String(username || cleanEmail.split('@')[0] || '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    if (cleanUsername.length < 3) {
+      cleanUsername = (cleanUsername + '_adm').slice(0, 20);
     }
 
     // Password validation (min 8, upper, lower, number, special char)
@@ -1075,32 +1076,110 @@ router.post('/admins', requireMainAdmin, async (req, res) => {
       });
     }
 
-    if (confirm_password && password !== confirm_password) {
+    const confirmPwd = confirm_password || req.body.confirmPassword;
+    if (confirmPwd && password !== confirmPwd) {
       return res.status(400).json({ success: false, message: 'Confirmation password does not match.' });
     }
 
-    // Check unique email and unique username
-    const existingEmail = db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(cleanEmail);
-    if (existingEmail) {
-      return res.status(409).json({ success: false, message: 'An account with this email address already exists.' });
+    const now = new Date().toISOString();
+    const isActive = (status === 'INACTIVE' || req.body.is_active === 0) ? 0 : 1;
+    const isFull = Boolean(full_access);
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Check if email already exists
+    const existingUser = db.prepare('SELECT id, name, username, role, is_active FROM users WHERE LOWER(email) = ?').get(cleanEmail);
+    if (existingUser) {
+      if (existingUser.role === 'ADMIN' || existingUser.role === 'MAIN_ADMIN') {
+        return res.status(409).json({ success: false, message: 'An administrator account with this email address already exists.' });
+      }
+      
+      // Elevate existing standard USER to ADMIN
+      const adminId = existingUser.id;
+      db.prepare(`
+        UPDATE users
+        SET role = 'ADMIN', is_active = ?, password_hash = ?, updated_at = ?
+        WHERE id = ?
+      `).run(isActive, passwordHash, now, adminId);
+
+      // Upsert permissions
+      db.prepare('DELETE FROM admin_permissions WHERE user_id = ?').run(adminId);
+      const permId = 'perm_' + crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO admin_permissions (
+          id, user_id, full_access, user_management, admin_management,
+          device_management, storage_management, sensor_monitoring,
+          spoilage_monitoring, alert_management, analytics, reports,
+          system_settings, audit_logs, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        permId,
+        adminId,
+        isFull ? 1 : 0,
+        isFull || permissions.user_management ? 1 : 0,
+        isFull || permissions.admin_management ? 1 : 0,
+        isFull || permissions.device_management ? 1 : 0,
+        isFull || permissions.storage_management ? 1 : 0,
+        isFull || permissions.sensor_monitoring ? 1 : 0,
+        isFull || permissions.spoilage_monitoring ? 1 : 0,
+        isFull || permissions.alert_management ? 1 : 0,
+        isFull || permissions.analytics ? 1 : 0,
+        isFull || permissions.reports ? 1 : 0,
+        isFull || permissions.system_settings ? 1 : 0,
+        isFull || permissions.audit_logs ? 1 : 0,
+        now,
+        now
+      );
+
+      await savePersistentUser({
+        id: adminId,
+        name: existingUser.name || name.trim(),
+        username: existingUser.username || cleanUsername,
+        email: cleanEmail,
+        password_hash: passwordHash,
+        role: 'ADMIN',
+        is_active: isActive,
+        updated_at: now
+      });
+
+      recordAuditLog({
+        adminId: req.user.id,
+        adminEmail: req.user.email,
+        action: 'ADMIN_PROMOTED',
+        targetUserId: adminId,
+        targetUserEmail: cleanEmail,
+        details: `Administrator privileges granted to existing user ${cleanEmail}`,
+        ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: `Administrator privileges granted to ${cleanEmail}.`,
+        admin: {
+          id: adminId,
+          name: existingUser.name || name.trim(),
+          username: existingUser.username || cleanUsername,
+          email: cleanEmail,
+          role: 'ADMIN',
+          is_active: isActive,
+          status: isActive ? 'ACTIVE' : 'INACTIVE',
+          access_type: isFull ? 'FULL ACCESS' : 'CUSTOM ACCESS',
+          created_at: now
+        }
+      });
     }
 
+    // Check unique username for new accounts
     const existingUsername = db.prepare('SELECT id FROM users WHERE LOWER(username) = ?').get(cleanUsername);
     if (existingUsername) {
-      return res.status(409).json({ success: false, message: 'This username is already taken. Please choose another.' });
+      cleanUsername = cleanUsername + '_' + Math.floor(Math.random() * 1000);
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
     const adminId = 'usr_admin_' + crypto.randomUUID().slice(0, 8);
-    const now = new Date().toISOString();
-    const isActive = status === 'INACTIVE' ? 0 : 1;
-
     db.prepare(`
       INSERT INTO users (id, name, username, email, password_hash, role, is_active, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, 'ADMIN', ?, ?, ?)
     `).run(adminId, name.trim(), cleanUsername, cleanEmail, passwordHash, isActive, now, now);
 
-    const isFull = Boolean(full_access);
     const permId = 'perm_' + crypto.randomUUID();
 
     db.prepare(`
