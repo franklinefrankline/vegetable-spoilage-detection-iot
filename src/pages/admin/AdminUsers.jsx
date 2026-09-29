@@ -300,9 +300,10 @@ export function AdminUsers() {
     <div className="admin-page-content">
       {/* Subtitle & Actions Bar */}
       <div className="admin-section-header">
-        <div>
+        <div className="admin-section-title-wrap">
+          <h2 className="admin-section-title">User Management</h2>
           <p className="section-subtitle">
-            Manage registered accounts, access status and user permissions.
+            Manage registered users and account access.
           </p>
         </div>
 
@@ -312,6 +313,7 @@ export function AdminUsers() {
             className="btn-primary add-admin-btn"
             onClick={() => setIsAddAdminOpen(true)}
             title="Promote verified user to Administrator"
+            aria-label="Add Administrator"
           >
             <UserPlus size={16} />
             <span>Add Admin</span>
@@ -327,7 +329,8 @@ export function AdminUsers() {
             <input
               type="text"
               className="admin-input-field toolbar-search-input"
-              placeholder="Search by name, email or user ID..."
+              placeholder="Search users..."
+              aria-label="Search users"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -340,6 +343,7 @@ export function AdminUsers() {
                 className="search-clear-btn"
                 onClick={() => setSearch('')}
                 title="Clear search"
+                aria-label="Clear search"
               >
                 <X size={14} />
               </button>
@@ -353,6 +357,7 @@ export function AdminUsers() {
             <Shield size={14} className="select-icon" />
             <select
               className="admin-select-field toolbar-select"
+              aria-label="Role Filter"
               value={roleFilter}
               onChange={(e) => {
                 setRoleFilter(e.target.value);
@@ -370,6 +375,7 @@ export function AdminUsers() {
             <Filter size={14} className="select-icon" />
             <select
               className="admin-select-field toolbar-select"
+              aria-label="Status Filter"
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
@@ -387,11 +393,12 @@ export function AdminUsers() {
             <ArrowUpDown size={14} className="select-icon" />
             <select
               className="admin-select-field toolbar-select"
+              aria-label="Sort Users"
               value={sortOption}
               onChange={(e) => setSortOption(e.target.value)}
             >
-              <option value="newest">Newest First</option>
-              <option value="oldest">Oldest First</option>
+              <option value="newest">Sort: Newest</option>
+              <option value="oldest">Sort: Oldest</option>
               <option value="name_asc">Name (A–Z)</option>
               <option value="name_desc">Name (Z–A)</option>
               <option value="last_login">Recently Active</option>
@@ -405,6 +412,7 @@ export function AdminUsers() {
             onClick={loadUsers}
             disabled={loading}
             title="Refresh Users"
+            aria-label="Refresh users list"
           >
             <RefreshCw size={15} className={loading ? 'spin-anim' : ''} />
           </button>

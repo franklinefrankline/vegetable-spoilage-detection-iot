@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useAppearance } from '../../context/AppearanceContext';
 import { useNavigate, Link } from '../../router/Router';
+import markLogo from '../../assets/vegsense-mark.png';
 import {
   Menu,
   Sun,
@@ -58,17 +59,31 @@ export function AdminHeader({ title, subtitle, onToggleMobile }) {
 
   return (
     <header className="admin-header">
-      {/* Left: Mobile hamburger & Page Title */}
+      {/* Left: Mobile hamburger, Mobile Logo Mark, & Page Title */}
       <div className="admin-header-left">
         <button
           type="button"
           className="admin-hamburger-btn"
           onClick={onToggleMobile}
           aria-label="Open admin navigation"
+          title="Toggle Navigation Menu"
         >
           <Menu size={20} />
         </button>
 
+        {/* Compact Mobile Brand */}
+        <Link href="/admin" className="admin-mobile-header-brand" title="VegSense Admin Portal">
+          <img
+            src={markLogo}
+            alt="VegSense"
+            className="admin-mobile-logo-mark"
+            width="26"
+            height="26"
+          />
+          <span className="admin-mobile-brand-title">VegSense Admin</span>
+        </Link>
+
+        {/* Desktop Breadcrumb and Page Title */}
         <div className="admin-title-group">
           <div className="admin-header-breadcrumb">
             <span className="breadcrumb-brand">VegSense Admin Portal</span>

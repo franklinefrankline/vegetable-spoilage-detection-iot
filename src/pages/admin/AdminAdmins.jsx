@@ -212,7 +212,7 @@ export function AdminAdmins() {
     <div className="admin-page-content">
       {/* Top Banner / Controls */}
       <div className="admin-section-header">
-        <div>
+        <div className="admin-section-title-wrap">
           <h2 className="admin-section-title">Administrator Management</h2>
           <p className="section-subtitle">
             Configure system administrator accounts, manage operational entitlements, and control access permissions.

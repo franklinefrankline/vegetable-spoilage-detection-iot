@@ -476,7 +476,15 @@ html, body {
 [data-theme="dark"] .admin-popover-dropdown,
 [data-theme="night-monitor"] .admin-popover-dropdown,
 [data-theme="dark"] .quick-appearance-dropdown,
-[data-theme="night-monitor"] .quick-appearance-dropdown {
+[data-theme="night-monitor"] .quick-appearance-dropdown,
+[data-theme="dark"] .user-table-container,
+[data-theme="night-monitor"] .user-table-container,
+[data-theme="dark"] .admin-table-container,
+[data-theme="night-monitor"] .admin-table-container,
+[data-theme="dark"] .admin-user-card,
+[data-theme="night-monitor"] .admin-user-card,
+[data-theme="dark"] .admin-toolbar-card,
+[data-theme="night-monitor"] .admin-toolbar-card {
   background-color: var(--bg-card) !important;
   border: 1px solid var(--border) !important;
   color: var(--text-primary) !important;

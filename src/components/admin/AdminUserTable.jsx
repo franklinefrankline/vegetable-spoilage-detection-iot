@@ -7,13 +7,21 @@ import {
   Trash2,
   MoreVertical,
   Shield,
+  ShieldAlert,
   UserCheck,
-  Clock,
-  Mail,
-  Fingerprint
+  Lock
 } from 'lucide-react';
 
-function UserActionMenu({ user, currentAdmin, onView, onEdit, onActivate, onDeactivate, onDelete, onChangeRole }) {
+function UserActionMenu({
+  user,
+  currentAdmin,
+  onView,
+  onEdit,
+  onActivate,
+  onDeactivate,
+  onDelete,
+  onChangeRole
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -30,22 +38,23 @@ function UserActionMenu({ user, currentAdmin, onView, onEdit, onActivate, onDeac
   }, [isOpen]);
 
   const isSelf = currentAdmin?.id === user.id;
+  const isMain = user.role === 'MAIN_ADMIN';
   const isAdmin = user.role === 'ADMIN';
 
   return (
     <div className="user-action-menu-container" ref={menuRef}>
       <button
         type="button"
-        className="action-menu-trigger-btn"
+        className={`action-menu-trigger-btn ${isOpen ? 'active' : ''}`}
         onClick={() => setIsOpen((prev) => !prev)}
-        aria-label={`Actions for ${user.name}`}
+        aria-label={`More actions for ${user.name}`}
         title="More Actions"
       >
         <MoreVertical size={16} />
       </button>
 
       {isOpen && (
-        <div className="user-action-dropdown" role="menu">
+        <div className="user-action-dropdown" role="menu" aria-label="User Options Menu">
           <button
             type="button"
             className="action-dropdown-item"
@@ -53,78 +62,98 @@ function UserActionMenu({ user, currentAdmin, onView, onEdit, onActivate, onDeac
               setIsOpen(false);
               onView(user);
             }}
+            aria-label="View user profile"
           >
-            <Eye size={14} />
+            <Eye size={15} />
             <span>View Profile</span>
           </button>
 
-          <button
-            type="button"
-            className="action-dropdown-item"
-            onClick={() => {
-              setIsOpen(false);
-              onEdit(user);
-            }}
-          >
-            <Edit2 size={14} />
-            <span>Edit Account</span>
-          </button>
-
-          <button
-            type="button"
-            className="action-dropdown-item"
-            onClick={() => {
-              setIsOpen(false);
-              onChangeRole(user);
-            }}
-          >
-            <Shield size={14} />
-            <span>{isAdmin ? 'Demote to User' : 'Promote to Admin'}</span>
-          </button>
-
-          {user.is_active === 0 ? (
+          {!isMain && (
             <button
               type="button"
-              className="action-dropdown-item item-activate"
+              className="action-dropdown-item"
               onClick={() => {
                 setIsOpen(false);
-                onActivate(user);
+                onEdit(user);
               }}
+              aria-label="Edit user account"
             >
-              <CheckCircle size={14} />
-              <span>Activate Account</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="action-dropdown-item item-warning"
-              disabled={isSelf}
-              title={isSelf ? 'Cannot deactivate your own account' : 'Deactivate user'}
-              onClick={() => {
-                setIsOpen(false);
-                onDeactivate(user);
-              }}
-            >
-              <Ban size={14} />
-              <span>Deactivate Account</span>
+              <Edit2 size={15} />
+              <span>Edit Account</span>
             </button>
           )}
 
-          <div className="dropdown-separator" />
+          {!isMain && (
+            <button
+              type="button"
+              className="action-dropdown-item"
+              onClick={() => {
+                setIsOpen(false);
+                onChangeRole(user);
+              }}
+              aria-label="Manage user role and permissions"
+            >
+              <Shield size={15} />
+              <span>{isAdmin ? 'Demote to User' : 'Promote to Admin'}</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            className="action-dropdown-item item-danger"
-            disabled={isSelf}
-            title={isSelf ? 'Cannot delete your own account' : 'Permanently Delete'}
-            onClick={() => {
-              setIsOpen(false);
-              onDelete(user);
-            }}
-          >
-            <Trash2 size={14} />
-            <span>Delete Account</span>
-          </button>
+          {!isMain && (
+            user.is_active === 0 ? (
+              <button
+                type="button"
+                className="action-dropdown-item item-activate"
+                onClick={() => {
+                  setIsOpen(false);
+                  onActivate(user);
+                }}
+                aria-label="Activate user account"
+              >
+                <CheckCircle size={15} />
+                <span>Activate Account</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="action-dropdown-item item-warning"
+                disabled={isSelf}
+                title={isSelf ? 'Cannot deactivate your own account' : 'Deactivate user'}
+                onClick={() => {
+                  setIsOpen(false);
+                  onDeactivate(user);
+                }}
+                aria-label="Deactivate user account"
+              >
+                <Ban size={15} />
+                <span>Deactivate Account</span>
+              </button>
+            )
+          )}
+
+          {isMain ? (
+            <div className="action-dropdown-protected">
+              <Lock size={13} />
+              <span>Protected Account</span>
+            </div>
+          ) : (
+            <>
+              <div className="dropdown-separator" />
+              <button
+                type="button"
+                className="action-dropdown-item item-danger"
+                disabled={isSelf}
+                title={isSelf ? 'Cannot delete your own account' : 'Permanently Delete'}
+                onClick={() => {
+                  setIsOpen(false);
+                  onDelete(user);
+                }}
+                aria-label="Delete user account"
+              >
+                <Trash2 size={15} />
+                <span>Delete Account</span>
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -173,14 +202,14 @@ export function AdminUserTable({
       const diffDays = Math.floor(diffHours / 24);
       if (diffDays === 1) return 'Yesterday';
       if (diffDays < 7) return `${diffDays}d ago`;
-      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     } catch (e) {
       return iso;
     }
   };
 
   return (
-    <div className="admin-table-container">
+    <div className="user-table-container admin-table-container">
       <table className="admin-data-table" aria-label="User Accounts Table">
         <thead>
           <tr>
@@ -193,13 +222,13 @@ export function AdminUserTable({
                 className="admin-checkbox"
               />
             </th>
-            <th className="th-user">User</th>
-            <th className="th-email">Email</th>
-            <th className="th-role">Role</th>
-            <th className="th-status">Status</th>
-            <th className="th-created">Created</th>
-            <th className="th-last-login">Last Login</th>
-            <th className="th-actions text-right">Actions</th>
+            <th className="th-user">USER</th>
+            <th className="th-email">EMAIL</th>
+            <th className="th-role">ROLE</th>
+            <th className="th-status">STATUS</th>
+            <th className="th-created">CREATED</th>
+            <th className="th-last-login">LAST LOGIN</th>
+            <th className="th-actions text-right">ACTIONS</th>
           </tr>
         </thead>
         <tbody>
@@ -208,12 +237,16 @@ export function AdminUserTable({
             const initials = user.name
               ? user.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
               : 'U';
+            const isMainAdmin = user.role === 'MAIN_ADMIN';
             const isAdmin = user.role === 'ADMIN';
             const isActive = user.is_active === 1 || user.is_active === undefined;
             const shortId = user.id ? `USR-${user.id.slice(0, 8).toUpperCase()}` : 'USR-000';
 
             return (
-              <tr key={user.id} className={`admin-table-row ${isSelected ? 'row-selected' : ''}`}>
+              <tr
+                key={user.id}
+                className={`admin-table-row ${isSelected ? 'row-selected' : ''} ${isMainAdmin ? 'row-main-admin' : ''}`}
+              >
                 <td className="td-checkbox">
                   <input
                     type="checkbox"
@@ -226,7 +259,9 @@ export function AdminUserTable({
 
                 <td className="td-user">
                   <div className="user-cell-flex">
-                    <div className={`user-table-avatar ${isAdmin ? 'avatar-admin' : ''}`}>
+                    <div
+                      className={`user-table-avatar ${isMainAdmin ? 'avatar-main-admin' : isAdmin ? 'avatar-admin' : ''}`}
+                    >
                       {initials}
                     </div>
                     <div className="user-table-meta">
@@ -248,17 +283,34 @@ export function AdminUserTable({
                 </td>
 
                 <td className="td-role">
-                  <span className={`badge-role ${isAdmin ? 'role-admin' : 'role-user'}`}>
-                    {isAdmin ? <Shield size={11} className="badge-icon" /> : <UserCheck size={11} className="badge-icon" />}
-                    <span>{user.role || 'USER'}</span>
+                  <span
+                    className={`badge-role ${
+                      isMainAdmin ? 'role-main-admin' : isAdmin ? 'role-admin' : 'role-user'
+                    }`}
+                  >
+                    {isMainAdmin ? (
+                      <ShieldAlert size={12} className="badge-icon" />
+                    ) : isAdmin ? (
+                      <Shield size={12} className="badge-icon" />
+                    ) : (
+                      <UserCheck size={12} className="badge-icon" />
+                    )}
+                    <span>{isMainAdmin ? 'MAIN ADMIN' : user.role || 'USER'}</span>
                   </span>
                 </td>
 
                 <td className="td-status">
-                  <span className={`badge-status ${isActive ? 'status-active' : 'status-inactive'}`}>
-                    <span className="status-indicator-dot" />
-                    <span>{isActive ? 'ACTIVE' : 'INACTIVE'}</span>
-                  </span>
+                  {isMainAdmin ? (
+                    <span className="badge-status status-protected" title="Protected Account - System Root Admin">
+                      <Lock size={11} className="badge-icon" />
+                      <span>PROTECTED</span>
+                    </span>
+                  ) : (
+                    <span className={`badge-status ${isActive ? 'status-active' : 'status-inactive'}`}>
+                      <span className="status-indicator-dot" />
+                      <span>{isActive ? 'ACTIVE' : 'INACTIVE'}</span>
+                    </span>
+                  )}
                 </td>
 
                 <td className="td-created">
@@ -273,26 +325,35 @@ export function AdminUserTable({
 
                 <td className="td-actions text-right">
                   <div className="row-action-buttons">
+                    {/* View Button */}
                     <button
                       type="button"
                       className="quick-action-btn view-btn"
                       onClick={() => onView(user)}
-                      title="View Details"
-                      aria-label="View user profile"
+                      title="View User"
+                      aria-label="View user"
                     >
-                      <Eye size={15} />
+                      <Eye size={16} />
                     </button>
 
-                    <button
-                      type="button"
-                      className="quick-action-btn edit-btn"
-                      onClick={() => onEdit(user)}
-                      title="Edit User"
-                      aria-label="Edit user account"
-                    >
-                      <Edit2 size={15} />
-                    </button>
+                    {/* Edit Button (disabled or hidden for protected main admin) */}
+                    {isMainAdmin ? (
+                      <span className="protected-tag-badge" title="Protected Main Administrator Account">
+                        Protected
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="quick-action-btn edit-btn"
+                        onClick={() => onEdit(user)}
+                        title="Edit User"
+                        aria-label="Edit user"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                    )}
 
+                    {/* More Action Menu */}
                     <UserActionMenu
                       user={user}
                       currentAdmin={currentAdmin}
