@@ -23,6 +23,7 @@ import { AlertsPage } from './pages/AlertsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { AdminPortal } from './pages/admin/AdminPortal';
 import { VegSenseLogo } from './components/branding/VegSenseLogo';
 
 function AppContent() {
@@ -74,6 +75,11 @@ function AppContent() {
   // If not authenticated, default to LoginPage
   if (!isAuthenticated) {
     return <LoginPage />;
+  }
+
+  // Dedicated Enterprise Admin Portal Route (with its own SaaS layout)
+  if (pathname.startsWith('/admin')) {
+    return <AdminPortal />;
   }
 
   // Authenticated user without any device must connect first (except device-independent routes or demo/spoilage/sensors/storage)

@@ -2,7 +2,14 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
-import db, { savePersistentUser, updatePersistentPassword, deletePersistentUser, syncPersistentUsers } from './db.js';
+import db, {
+  savePersistentUser,
+  updatePersistentPassword,
+  deletePersistentUser,
+  syncPersistentUsers,
+  updatePersistentUserMeta,
+  recordAuditLog
+} from './db.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'veg-storage-smart-iot-secret-key-2026';
@@ -37,6 +44,26 @@ export const authenticateToken = (req, res, next) => {
     }
     req.user = decoded;
     next();
+  });
+};
+
+// Middleware: Require ADMIN Role
+export const requireAdmin = (req, res, next) => {
+  authenticateToken(req, res, () => {
+    try {
+      const user = db.prepare('SELECT id, name, email, role, is_active FROM users WHERE id = ?').get(req.user.id);
+      if (!user || user.role !== 'ADMIN' || user.is_active === 0) {
+        return res.status(403).json({
+          success: false,
+          error: 'FORBIDDEN',
+          message: 'Administrator access required.'
+        });
+      }
+      req.adminUser = user;
+      next();
+    } catch (err) {
+      return res.status(500).json({ success: false, message: 'Internal authorization error.' });
+    }
   });
 };
 
@@ -89,8 +116,8 @@ router.post('/register', async (req, res) => {
     const now = new Date().toISOString();
 
     const insertStmt = db.prepare(`
-      INSERT INTO users (id, name, email, password_hash, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, name, email, password_hash, role, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, 'USER', 1, ?, ?)
     `);
     insertStmt.run(userId, name.trim(), trimmedEmail, password_hash, now, now);
 
@@ -100,6 +127,8 @@ router.post('/register', async (req, res) => {
       name: name.trim(),
       email: trimmedEmail,
       password_hash,
+      role: 'USER',
+      is_active: 1,
       created_at: now,
       updated_at: now
     });
@@ -107,10 +136,17 @@ router.post('/register', async (req, res) => {
     const userPayload = {
       id: userId,
       name: name.trim(),
-      email: trimmedEmail
+      email: trimmedEmail,
+      role: 'USER',
+      is_active: 1,
+      created_at: now
     };
 
-    const token = jwt.sign(userPayload, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
+    const token = jwt.sign(
+      { id: userId, name: name.trim(), email: trimmedEmail, role: 'USER' },
+      JWT_SECRET,
+      { expiresIn: TOKEN_EXPIRY }
+    );
 
     return res.status(201).json({
       success: true,
@@ -138,7 +174,7 @@ router.post('/login', async (req, res) => {
     }
 
     const trimmedEmail = email.trim().toLowerCase();
-    const queryStmt = db.prepare('SELECT id, name, email, password_hash FROM users WHERE email = ?');
+    const queryStmt = db.prepare('SELECT id, name, email, password_hash, role, is_active, created_at, last_login_at FROM users WHERE email = ?');
     let user = queryStmt.get(trimmedEmail);
 
     if (!user) {
@@ -156,18 +192,41 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
 
+    // SECTION 24: Login after deactivation check
+    if (user.is_active === 0) {
+      return res.status(403).json({
+        success: false,
+        error: 'ACCOUNT_DEACTIVATED',
+        message: 'Your account has been deactivated. Please contact an administrator.'
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
 
+    const now = new Date().toISOString();
+    try {
+      db.prepare('UPDATE users SET last_login_at = ?, updated_at = ? WHERE id = ?').run(now, now, user.id);
+      updatePersistentUserMeta(user.email, { last_login_at: now });
+    } catch (e) {}
+
     const userPayload = {
       id: user.id,
       name: user.name,
-      email: user.email
+      email: user.email,
+      role: user.role || 'USER',
+      is_active: user.is_active !== undefined ? user.is_active : 1,
+      created_at: user.created_at,
+      last_login_at: now
     };
 
-    const token = jwt.sign(userPayload, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
+    const token = jwt.sign(
+      { id: user.id, name: user.name, email: user.email, role: user.role || 'USER' },
+      JWT_SECRET,
+      { expiresIn: TOKEN_EXPIRY }
+    );
 
     return res.status(200).json({
       success: true,
@@ -288,7 +347,7 @@ router.post('/reset-password', async (req, res) => {
 // GET /api/auth/me
 router.get('/me', authenticateToken, (req, res) => {
   try {
-    const stmt = db.prepare('SELECT id, name, email, created_at FROM users WHERE id = ?');
+    const stmt = db.prepare('SELECT id, name, email, role, is_active, created_at, last_login_at FROM users WHERE id = ?');
     const user = stmt.get(req.user.id);
 
     if (!user) {
@@ -300,7 +359,11 @@ router.get('/me', authenticateToken, (req, res) => {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        role: user.role || 'USER',
+        is_active: user.is_active !== undefined ? user.is_active : 1,
+        created_at: user.created_at,
+        last_login_at: user.last_login_at
       }
     });
   } catch (error) {

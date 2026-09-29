@@ -9,6 +9,7 @@ import alertRoutes from '../server/alertRoutes.js';
 import analyticsRoutes from '../server/analyticsRoutes.js';
 import reportRoutes from '../server/reportRoutes.js';
 import settingsRoutes from '../server/settingsRoutes.js';
+import adminRoutes from '../server/adminRoutes.js';
 
 const app = express();
 
@@ -36,6 +37,8 @@ app.use('/api/reports', reportRoutes);
 app.use('/reports', reportRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/settings', settingsRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/admin-api', adminRoutes);
 app.use('/api', deviceRoutes);
 app.use('/', deviceRoutes);
 

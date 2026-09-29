@@ -52,7 +52,8 @@ export function RouterProvider({ children }) {
       '/analytics',
       '/history',
       '/reports',
-      '/settings'
+      '/settings',
+      '/admin'
     ];
 
     const isProtected = protectedRoutes.some((route) => currentPath === route || currentPath.startsWith(route + '/'));

@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import crypto from 'node:crypto';
 import { put as vercelBlobPut } from '@vercel/blob';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -352,6 +353,48 @@ try {
   // Safe to ignore if already exists
 }
 
+// Migration: Ensure users table has Part 11 Enterprise Admin fields & indexes
+const userAdminColumns = [
+  { name: 'role', type: "TEXT DEFAULT 'USER'" },
+  { name: 'is_active', type: 'INTEGER DEFAULT 1' },
+  { name: 'last_login_at', type: 'DATETIME' }
+];
+
+for (const col of userAdminColumns) {
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN ${col.name} ${col.type}`);
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+}
+
+try {
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+    CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
+    CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
+
+    CREATE TABLE IF NOT EXISTS admin_audit_logs (
+      id TEXT PRIMARY KEY,
+      admin_id TEXT NOT NULL,
+      admin_email TEXT NOT NULL,
+      action TEXT NOT NULL,
+      target_user_id TEXT,
+      target_user_email TEXT,
+      details TEXT,
+      ip_address TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_audit_admin_created ON admin_audit_logs(admin_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_audit_action_created ON admin_audit_logs(action, created_at);
+    CREATE INDEX IF NOT EXISTS idx_audit_target_created ON admin_audit_logs(target_user_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_audit_created ON admin_audit_logs(created_at);
+  `);
+} catch (e) {
+  // Safe to ignore if already exists
+}
+
 /**
  * Reads all users from persistent_users.json (and Vercel Blob cloud store) and inserts/updates them in the database.
  * This guarantees user data is NEVER lost even if SQLite is freshly initialized or code updates.
@@ -364,11 +407,14 @@ export async function syncPersistentUsers(fetchRemote = true) {
     }
 
     const insertStmt = db.prepare(`
-      INSERT INTO users (id, name, email, password_hash, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, name, email, password_hash, role, is_active, last_login_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(email) DO UPDATE SET
         name = excluded.name,
         password_hash = excluded.password_hash,
+        role = COALESCE(users.role, excluded.role),
+        is_active = COALESCE(users.is_active, excluded.is_active),
+        last_login_at = COALESCE(excluded.last_login_at, users.last_login_at),
         updated_at = excluded.updated_at
     `);
 
@@ -384,11 +430,16 @@ export async function syncPersistentUsers(fetchRemote = true) {
           for (const u of users) {
             if (u.id && u.name && u.email && u.password_hash) {
               const cleanEmail = u.email.toLowerCase().trim();
+              const userRole = u.role || (cleanEmail === 'demo@vegsense.io' || cleanEmail === 'admin@vegsense.io' ? 'ADMIN' : 'USER');
+              const isActive = u.is_active !== undefined ? (u.is_active ? 1 : 0) : 1;
               insertStmt.run(
                 u.id,
                 u.name,
                 cleanEmail,
                 u.password_hash,
+                userRole,
+                isActive,
+                u.last_login_at || null,
                 u.created_at || new Date().toISOString(),
                 u.updated_at || new Date().toISOString()
               );
@@ -420,11 +471,16 @@ export async function syncPersistentUsers(fetchRemote = true) {
             for (const u of remoteUsers) {
               if (u.id && u.name && u.email && u.password_hash) {
                 const cleanEmail = u.email.toLowerCase().trim();
+                const userRole = u.role || (cleanEmail === 'demo@vegsense.io' || cleanEmail === 'admin@vegsense.io' ? 'ADMIN' : 'USER');
+                const isActive = u.is_active !== undefined ? (u.is_active ? 1 : 0) : 1;
                 insertStmt.run(
                   u.id,
                   u.name,
                   cleanEmail,
                   u.password_hash,
+                  userRole,
+                  isActive,
+                  u.last_login_at || null,
                   u.created_at || new Date().toISOString(),
                   u.updated_at || new Date().toISOString()
                 );
@@ -466,13 +522,16 @@ export async function savePersistentUser(user) {
     }
 
     const cleanEmail = user.email.toLowerCase().trim();
-    const existingIndex = users.findIndex((u) => u.email.toLowerCase().trim() === cleanEmail);
+    const existingIndex = users.findIndex((u) => u.email && u.email.toLowerCase().trim() === cleanEmail);
 
     const record = {
       id: user.id,
       name: user.name,
       email: cleanEmail,
       password_hash: user.password_hash,
+      role: user.role || (existingIndex >= 0 ? users[existingIndex].role : 'USER') || 'USER',
+      is_active: user.is_active !== undefined ? (user.is_active ? 1 : 0) : (existingIndex >= 0 && users[existingIndex].is_active !== undefined ? users[existingIndex].is_active : 1),
+      last_login_at: user.last_login_at || (existingIndex >= 0 ? users[existingIndex].last_login_at : null),
       created_at: user.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -500,6 +559,75 @@ export async function savePersistentUser(user) {
     }
   } catch (err) {
     console.warn('[DB] Notice: Could not write to persistent_users.json:', err.message);
+  }
+}
+
+/**
+ * Updates a user's persistent metadata (role, is_active, name, last_login_at) in JSON & Blob.
+ */
+export async function updatePersistentUserMeta(email, meta = {}) {
+  try {
+    let users = [];
+    if (fs.existsSync(PERSISTENT_USERS_PATH)) {
+      try {
+        const content = fs.readFileSync(PERSISTENT_USERS_PATH, 'utf-8');
+        users = JSON.parse(content || '[]');
+      } catch (e) {
+        users = [];
+      }
+    }
+    const cleanEmail = email.toLowerCase().trim();
+    const user = users.find((u) => u.email && u.email.toLowerCase().trim() === cleanEmail);
+    if (user) {
+      if (meta.name !== undefined) user.name = meta.name;
+      if (meta.role !== undefined) user.role = meta.role;
+      if (meta.is_active !== undefined) user.is_active = meta.is_active ? 1 : 0;
+      if (meta.last_login_at !== undefined) user.last_login_at = meta.last_login_at;
+      user.updated_at = new Date().toISOString();
+      try {
+        fs.writeFileSync(PERSISTENT_USERS_PATH, JSON.stringify(users, null, 2), 'utf-8');
+      } catch (e) {}
+
+      if (process.env.BLOB_READ_WRITE_TOKEN) {
+        try {
+          await vercelBlobPut('persistent_users.json', JSON.stringify(users, null, 2), {
+            access: 'public',
+            addRandomSuffix: false
+          });
+        } catch (blobErr) {
+          console.warn('[DB] Notice: Could not upload updated user meta to Vercel Blob:', blobErr.message);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[DB] Notice: Could not update persistent user metadata:', err.message);
+  }
+}
+
+/**
+ * Records an entry into the enterprise admin_audit_logs table.
+ */
+export function recordAuditLog({ adminId, adminEmail, action, targetUserId = null, targetUserEmail = null, details = '', ipAddress = '' }) {
+  try {
+    const id = 'log_' + crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+    const detailString = typeof details === 'object' ? JSON.stringify(details) : String(details || '');
+    db.prepare(`
+      INSERT INTO admin_audit_logs (id, admin_id, admin_email, action, target_user_id, target_user_email, details, ip_address, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).run(
+      id,
+      adminId,
+      adminEmail,
+      action,
+      targetUserId,
+      targetUserEmail,
+      detailString,
+      ipAddress
+    );
+    return id;
+  } catch (err) {
+    console.warn('[AuditLog] Notice: Could not record audit log:', err.message);
+    return null;
   }
 }
 
@@ -581,33 +709,71 @@ export async function deletePersistentUser(email) {
 // Initial sync on module load
 syncPersistentUsers();
 
-// Auto-seed demo account if not already present
+// Auto-seed demo and administrator accounts if not already present
 try {
-  const demoUser = db.prepare('SELECT id FROM users WHERE email = ?').get('demo@vegsense.io');
+  const demoUser = db.prepare('SELECT id, role, is_active FROM users WHERE email = ?').get('demo@vegsense.io');
   if (!demoUser) {
     const demoPayload = {
       id: 'usr_demo_vegsense_001',
       name: 'Dr. Aris Thorne',
       email: 'demo@vegsense.io',
-      password_hash: '$2b$10$p7J1xm5RnPLX66VEJu7F8Oy1AzvRSvYFxnNY3xG3oSUBFTItXkw/O',
+      password_hash: '$2b$10$QbNx7WCTa9dv5lYaSPRJ9eS3tnCETvBDkOjyX5LAENSAYMVza8.7q', // Password123
+      role: 'ADMIN',
+      is_active: 1,
       created_at: '2026-09-28 11:43:52',
       updated_at: '2026-09-28 11:43:52'
     };
     db.prepare(`
-      INSERT INTO users (id, name, email, password_hash, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, name, email, password_hash, role, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       demoPayload.id,
       demoPayload.name,
       demoPayload.email,
       demoPayload.password_hash,
+      demoPayload.role,
+      demoPayload.is_active,
       demoPayload.created_at,
       demoPayload.updated_at
     );
     savePersistentUser(demoPayload);
+  } else {
+    // Ensure demo account has ADMIN role and active status
+    db.prepare("UPDATE users SET role = 'ADMIN', is_active = 1 WHERE email = 'demo@vegsense.io'").run();
+  }
+
+  // Also ensure dedicated admin account exists
+  const adminUser = db.prepare('SELECT id FROM users WHERE email = ?').get('admin@vegsense.io');
+  if (!adminUser) {
+    const adminPayload = {
+      id: 'usr_admin_vegsense_001',
+      name: 'System Administrator',
+      email: 'admin@vegsense.io',
+      password_hash: '$2b$10$QbNx7WCTa9dv5lYaSPRJ9eS3tnCETvBDkOjyX5LAENSAYMVza8.7q', // Password123
+      role: 'ADMIN',
+      is_active: 1,
+      created_at: '2026-09-28 10:00:00',
+      updated_at: '2026-09-28 10:00:00'
+    };
+    db.prepare(`
+      INSERT INTO users (id, name, email, password_hash, role, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      adminPayload.id,
+      adminPayload.name,
+      adminPayload.email,
+      adminPayload.password_hash,
+      adminPayload.role,
+      adminPayload.is_active,
+      adminPayload.created_at,
+      adminPayload.updated_at
+    );
+    savePersistentUser(adminPayload);
+  } else {
+    db.prepare("UPDATE users SET role = 'ADMIN', is_active = 1 WHERE email = 'admin@vegsense.io'").run();
   }
 } catch (seedErr) {
-  console.warn('Notice: Could not seed demo user:', seedErr.message);
+  console.warn('Notice: Could not seed admin users:', seedErr.message);
 }
 
 export default db;

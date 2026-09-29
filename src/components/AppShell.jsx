@@ -92,7 +92,8 @@ export function AppShell({ children }) {
     { href: '/alerts', label: 'Alerts', icon: Bell, badge: effectiveUnread > 0 ? effectiveUnread : null },
     { href: '/analytics', label: 'Analytics', icon: LineChart },
     { href: '/reports', label: 'Reports', icon: FileText },
-    { href: '/settings', label: 'Settings', icon: Settings }
+    { href: '/settings', label: 'Settings', icon: Settings },
+    ...(currentUser?.role === 'ADMIN' ? [{ href: '/admin', label: 'Admin Portal', icon: ShieldCheck }] : [])
   ];
 
   return (
