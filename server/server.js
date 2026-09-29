@@ -8,6 +8,7 @@ import storageRoutes from './storageRoutes.js';
 import sensorRoutes from './sensorRoutes.js';
 import spoilageRoutes from './spoilageRoutes.js';
 import alertRoutes from './alertRoutes.js';
+import analyticsRoutes from './analyticsRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,6 +30,7 @@ app.use('/api/storage', storageRoutes);
 app.use('/api/sensors', sensorRoutes);
 app.use('/api/spoilage', spoilageRoutes);
 app.use('/api/alerts', alertRoutes);
+app.use('/api/analytics', analyticsRoutes);
 app.use('/api', deviceRoutes);
 
 // Health check endpoint

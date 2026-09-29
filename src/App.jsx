@@ -88,7 +88,9 @@ function AppContent() {
     pathname !== '/live-sensors' &&
     pathname !== '/spoilage' &&
     pathname !== '/spoilage-detection' &&
-    pathname !== '/alerts'
+    pathname !== '/alerts' &&
+    pathname !== '/analytics' &&
+    pathname !== '/history'
   ) {
     return (
       <AppShell>

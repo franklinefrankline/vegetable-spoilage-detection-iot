@@ -121,11 +121,20 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_storage_user ON storage_items(user_id);
 `);
 
-// Migration: Ensure sensor_readings has light columns (Section 14)
+// Migration: Ensure sensor_readings has all Part 8 fields & indexes
 const sensorReadingColumns = [
+  { name: 'user_id', type: "TEXT DEFAULT 'usr_demo_vegsense_001'" },
+  { name: 'storage_batch_id', type: 'TEXT' },
+  { name: 'vegetable_type', type: 'TEXT' },
+  { name: 'source_mode', type: "TEXT DEFAULT 'DEMO'" },
+  { name: 'source', type: "TEXT DEFAULT 'demo'" },
   { name: 'light_level', type: 'REAL DEFAULT 420' },
   { name: 'light_classification', type: 'TEXT DEFAULT "NORMAL LIGHT"' },
-  { name: 'light_risk', type: 'INTEGER DEFAULT 10' }
+  { name: 'light_risk', type: 'INTEGER DEFAULT 10' },
+  { name: 'is_temp_unavailable', type: 'INTEGER DEFAULT 0' },
+  { name: 'is_hum_unavailable', type: 'INTEGER DEFAULT 0' },
+  { name: 'is_gas_unavailable', type: 'INTEGER DEFAULT 0' },
+  { name: 'is_light_unavailable', type: 'INTEGER DEFAULT 0' }
 ];
 
 for (const col of sensorReadingColumns) {
@@ -135,6 +144,43 @@ for (const col of sensorReadingColumns) {
     // Column already exists, safe to ignore
   }
 }
+
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS spoilage_history (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      device_id TEXT NOT NULL,
+      storage_batch_id TEXT,
+      vegetable_type TEXT,
+      temperature_risk INTEGER NOT NULL,
+      humidity_risk INTEGER NOT NULL,
+      gas_risk INTEGER NOT NULL,
+      light_risk INTEGER NOT NULL,
+      storage_age_risk INTEGER NOT NULL,
+      spoilage_risk INTEGER NOT NULL,
+      classification TEXT NOT NULL,
+      source_mode TEXT DEFAULT 'DEMO',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_spoilage_user_created ON spoilage_history(user_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_spoilage_device_created ON spoilage_history(device_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_spoilage_batch_created ON spoilage_history(storage_batch_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_readings_user_recorded ON sensor_readings(user_id, recorded_at);
+    CREATE INDEX IF NOT EXISTS idx_readings_dev_recorded ON sensor_readings(device_id, recorded_at);
+    CREATE INDEX IF NOT EXISTS idx_readings_batch_recorded ON sensor_readings(storage_batch_id, recorded_at);
+    CREATE INDEX IF NOT EXISTS idx_readings_source_mode ON sensor_readings(source_mode);
+  `);
+} catch (e) {
+  // Safe to ignore if already exists
+}
+
+try {
+  db.exec("ALTER TABLE spoilage_history ADD COLUMN vegetable_type TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE spoilage_history ADD COLUMN source_mode TEXT DEFAULT 'DEMO'");
+} catch (e) {}
 
 // Migration: Ensure storage_items has all production fields
 const storageColumns = [
