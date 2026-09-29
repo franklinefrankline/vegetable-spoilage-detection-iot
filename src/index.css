@@ -1473,11 +1473,11 @@ input, select, textarea {
 }
 
 .header-primary-row {
-  height: 64px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1.5rem;
+  padding: 0 1.25rem;
 }
 
 .header-left {
@@ -6592,88 +6592,273 @@ input, select, textarea {
   max-width: 270px;
 }
 
-/* Sidebar Branding: 90–100px (Desktop), max-width 110px, centered */
+/* ==========================================================================
+   VEGSENSE OFFICIAL BRANDING & COMPACT LOGO SYSTEM
+   ========================================================================== */
+
+/* SIDEBAR BRANDING AREA (Section 4, 5, 6, 7, 8, 17, 18) */
+.vegsense-sidebar {
+  background-color: #F7F8F5; /* Light Theme Default (Section 7) */
+  border-right: 1px solid var(--border-light);
+}
+
 .vegsense-sidebar .sidebar-header {
-  padding: 16px 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 56px;
+  height: 95px !important;
+  min-height: 95px !important;
+  max-height: 110px !important;
+  padding: 8px 6px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-bottom: 1px solid var(--border-light);
+  box-sizing: border-box;
 }
 
 .vegsense-sidebar .sidebar-header .sidebar-logo-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
   text-decoration: none;
   width: 100%;
 }
 
-.vegsense-sidebar .sidebar-header .vegsense-official-logo {
-  width: 95px;
-  max-width: 105px;
-  margin: 0 auto;
+.vegsense-sidebar-mark {
+  width: 42px !important;
+  height: 42px !important;
+  max-width: 42px !important;
+  max-height: 42px !important;
+  object-fit: contain !important;
+  display: block !important;
+  margin-bottom: 3px !important;
+  flex-shrink: 0;
 }
 
-/* Compact Sidebar Rail Mode */
+.vegsense-sidebar-name {
+  margin-top: 2px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+  color: #172033; /* Light theme (Section 7) */
+  text-align: center;
+  letter-spacing: -0.01em;
+}
+
+.vegsense-sidebar-tagline {
+  margin-top: 1px !important;
+  font-size: 7px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  color: #607084; /* Light theme (Section 7) */
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+/* Sidebar navigation links in light theme (Section 7) */
+.vegsense-sidebar .sidebar-link {
+  color: #344054;
+}
+
+/* Compact Sidebar Rail Mode (Section 14 & 27) */
+[data-sidebar="compact"] .vegsense-sidebar {
+  width: 76px;
+}
+
 [data-sidebar="compact"] .vegsense-sidebar .sidebar-header {
-  padding: 12px 6px;
+  padding: 10px 4px !important;
+  height: auto !important;
+  min-height: 64px !important;
+}
+
+[data-sidebar="compact"] .vegsense-sidebar-mark {
+  width: 38px !important;
+  height: 38px !important;
+  max-width: 38px !important;
+  max-height: 38px !important;
+  margin-bottom: 0 !important;
+}
+
+[data-sidebar="compact"] .vegsense-sidebar-name,
+[data-sidebar="compact"] .vegsense-sidebar-tagline {
+  display: none !important;
+}
+
+/* SIDEBAR DARK THEME (Section 8 & 23) */
+[data-theme="night-monitor"] .vegsense-sidebar,
+[data-theme="dark"] .vegsense-sidebar {
+  background-color: #0B1520 !important;
+  border-right: 1px solid rgba(34, 211, 238, 0.12) !important;
+}
+
+[data-theme="night-monitor"] .vegsense-sidebar .sidebar-header,
+[data-theme="dark"] .vegsense-sidebar .sidebar-header {
+  border-bottom: 1px solid rgba(34, 211, 238, 0.12) !important;
+}
+
+[data-theme="night-monitor"] .vegsense-sidebar-name,
+[data-theme="dark"] .vegsense-sidebar-name {
+  color: #FFFFFF !important;
+}
+
+[data-theme="night-monitor"] .vegsense-sidebar-tagline,
+[data-theme="dark"] .vegsense-sidebar-tagline {
+  color: #9BAFC2 !important;
+}
+
+[data-theme="night-monitor"] .vegsense-sidebar .sidebar-link,
+[data-theme="dark"] .vegsense-sidebar .sidebar-link {
+  color: #B9C7D6 !important;
+}
+
+[data-theme="night-monitor"] .vegsense-sidebar .sidebar-link:hover,
+[data-theme="dark"] .vegsense-sidebar .sidebar-link:hover {
+  background-color: rgba(34, 211, 238, 0.08) !important;
+  color: #22d3ee !important;
+}
+
+[data-theme="night-monitor"] .vegsense-sidebar .sidebar-link.active,
+[data-theme="dark"] .vegsense-sidebar .sidebar-link.active {
+  color: #00C99A !important;
+  background-color: rgba(0, 201, 154, 0.14) !important;
+}
+
+[data-theme="night-monitor"] .vegsense-sidebar .sidebar-link.active::before,
+[data-theme="dark"] .vegsense-sidebar .sidebar-link.active::before {
+  background-color: #00C99A !important;
+}
+
+/* HEADER BRANDING (Section 9, 10, 11, 15, 16, 17) */
+.vegsense-header {
+  height: 56px !important;
+  min-height: 56px !important;
+  max-height: 56px !important;
+  background-color: var(--bg-card);
+  border-bottom: 1px solid var(--border-light);
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center;
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  transition: all var(--transition-fast);
+}
+
+.header-primary-row {
+  height: 56px !important;
+  min-height: 56px !important;
+  max-height: 56px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between;
+  padding: 0 1.25rem !important;
+  width: 100%;
+}
+
+.header-brand-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  text-decoration: none !important;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.vegsense-header-mark {
+  width: 28px !important;
+  height: 28px !important;
+  max-width: 32px !important;
+  max-height: 32px !important;
+  object-fit: contain !important;
+  display: block !important;
+  flex-shrink: 0;
+}
+
+.vegsense-header-text-group {
+  display: flex !important;
+  flex-direction: column !important;
   justify-content: center;
 }
 
-[data-sidebar="compact"] .vegsense-sidebar .sidebar-full-logo {
-  display: none !important;
+.vegsense-header-name {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+  color: #172033; /* Light theme (Section 24) */
+  letter-spacing: -0.01em;
 }
 
-[data-sidebar="compact"] .vegsense-sidebar .sidebar-mark-only {
-  display: inline-flex !important;
-  width: 32px !important;
-  max-width: 32px !important;
+.vegsense-header-tagline {
+  font-size: 7px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  color: #607084; /* Light theme (Section 24) */
+  letter-spacing: 0.02em;
 }
 
-:not([data-sidebar="compact"]) .vegsense-sidebar .sidebar-mark-only {
-  display: none !important;
+/* Header Dark Theme Overrides (Section 23) */
+[data-theme="night-monitor"] .vegsense-header,
+[data-theme="dark"] .vegsense-header {
+  background-color: #0B1520 !important;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.12) !important;
 }
 
-/* Prevent duplicate logo in global top bar on desktop since sidebar already prominently displays it */
-@media (min-width: 1025px) {
-  .vegsense-header .header-brand-link {
-    display: none;
-  }
+[data-theme="night-monitor"] .vegsense-header-name,
+[data-theme="dark"] .vegsense-header-name {
+  color: #FFFFFF !important;
 }
 
-/* Global / Dashboard Desktop Header: 75–90px */
-.dashboard-header-brand .vegsense-official-logo,
-.header-brand-link .vegsense-official-logo {
-  width: 85px;
-  max-width: 90px;
-  max-height: 48px;
-  height: auto;
-  object-fit: contain;
+[data-theme="night-monitor"] .vegsense-header-tagline,
+[data-theme="dark"] .vegsense-header-tagline {
+  color: #9BAFC2 !important;
 }
 
-/* Tablet: 80–90px */
-@media (max-width: 1024px) {
-  .dashboard-header-brand .vegsense-official-logo,
-  .header-brand-link .vegsense-official-logo {
-    width: 80px;
-    max-width: 85px;
-    max-height: 44px;
-    height: auto;
-    object-fit: contain;
-  }
-}
-
-/* Mobile Header: 65–80px */
+/* Mobile & Tablet Header Sizing (Section 16 & 27) */
 @media (max-width: 768px) {
-  .header-brand-link .vegsense-official-logo,
-  .dashboard-header-brand .vegsense-official-logo {
-    width: 72px;
-    max-width: 78px;
-    max-height: 40px;
-    height: auto;
-    object-fit: contain;
+  .vegsense-header-mark {
+    width: 26px !important;
+    height: 26px !important;
+    max-width: 28px !important;
+    max-height: 28px !important;
   }
+
+  .vegsense-header-tagline {
+    display: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .vegsense-header-mark {
+    width: 24px !important;
+    height: 24px !important;
+    max-width: 26px !important;
+    max-height: 26px !important;
+  }
+}
+
+/* DASHBOARD HERO TITLE AREA (Section 13: Replacing duplicate logo) */
+.dashboard-hero-title-area {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.dashboard-hero-main-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.dashboard-hero-sub-title {
+  font-size: 0.785rem;
+  color: var(--text-secondary);
+  margin: 0;
+  font-weight: 500;
 }
 
 /* Loading Screen Animation (Subtle pulse without altering logo geometry) */

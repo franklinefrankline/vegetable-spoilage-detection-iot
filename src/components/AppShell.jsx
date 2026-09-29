@@ -5,6 +5,7 @@ import { useAppearance, THEME_OPTIONS, ACCENT_OPTIONS } from '../context/Appeara
 import { useDevice } from '../context/DeviceContext';
 import { useNavigate, useLocation, Link } from '../router/Router';
 import { VegSenseLogo } from './branding/VegSenseLogo';
+import markLogo from '../assets/vegsense-mark.png';
 import {
   LayoutDashboard,
   Radio,
@@ -110,12 +111,18 @@ export function AppShell({ children }) {
               <Link
                 href="/dashboard"
                 className="sidebar-logo-link"
-                style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}
                 onClick={() => setIsMobileSidebarOpen(false)}
                 title="VegSense - Smart Storage Intelligence"
               >
-                <VegSenseLogo variant="full" width="95px" maxWidth="105px" priority={true} className="sidebar-full-logo" />
-                <VegSenseLogo variant="mark" size={32} priority={true} className="sidebar-mark-only" />
+                <img
+                  src={markLogo}
+                  alt="VegSense"
+                  className="vegsense-sidebar-mark"
+                  width="42"
+                  height="42"
+                />
+                <span className="vegsense-sidebar-name">VegSense</span>
+                <span className="vegsense-sidebar-tagline">Smart Storage Intelligence</span>
               </Link>
               {isMobileSidebarOpen && (
                 <button
@@ -180,8 +187,22 @@ export function AppShell({ children }) {
                 <Menu size={22} />
               </button>
 
-              <Link href="/dashboard" className="header-brand-link" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }} title="VegSense - Smart Storage Intelligence">
-                <VegSenseLogo variant="compact" width="75px" maxWidth="82px" priority={true} />
+              <Link
+                href="/dashboard"
+                className="header-brand-link"
+                title="VegSense - Smart Storage Intelligence"
+              >
+                <img
+                  src={markLogo}
+                  alt="VegSense"
+                  className="vegsense-header-mark"
+                  width="28"
+                  height="28"
+                />
+                <div className="vegsense-header-text-group">
+                  <span className="vegsense-header-name">VegSense</span>
+                  <span className="vegsense-header-tagline">Smart Storage Intelligence</span>
+                </div>
               </Link>
 
               {/* Desktop Status Indicators */}

@@ -1,5 +1,5 @@
 import React from 'react';
-import fullLogo from '../../assets/vegsense-logo.png';
+import wordmarkLogo from '../../assets/vegsense-wordmark.png';
 import compactLogo from '../../assets/vegsense-logo-compact.png';
 import markLogo from '../../assets/vegsense-mark.png';
 
@@ -7,9 +7,9 @@ import markLogo from '../../assets/vegsense-mark.png';
  * Official VegSense Brand Logo Component
  * 
  * Variants:
- * - 'full': Complete official logo (Symbol + Wordmark + Tagline)
- * - 'compact': Symbol + VegSense Wordmark
- * - 'mark': Symbol only (House + Wi-Fi + V + Leaf)
+ * - 'mark': Symbol only (House + Wi-Fi + V + Leaf) from vegsense-mark.png
+ * - 'full' / 'wordmark': Complete official logo (Symbol + Wordmark + Tagline) from vegsense-wordmark.png
+ * - 'compact': Compact official logo
  * 
  * Respects strict official brand guidelines:
  * - Direct image asset rendering (no CSS/SVG recreation)
@@ -29,7 +29,7 @@ export function VegSenseLogo({
   alt
 }) {
   // Determine asset source
-  let src = fullLogo;
+  let src = wordmarkLogo;
   let defaultAlt = 'VegSense - Smart Storage Intelligence';
   let defaultMaxWidth = '260px';
 
@@ -40,10 +40,10 @@ export function VegSenseLogo({
   } else if (variant === 'compact') {
     src = compactLogo;
     defaultAlt = 'VegSense - Smart Storage Intelligence';
-    defaultMaxWidth = size ? `${size}px` : '150px';
+    defaultMaxWidth = size ? `${size}px` : '160px';
   } else {
-    // variant === 'full'
-    src = fullLogo;
+    // variant === 'full' || variant === 'wordmark'
+    src = wordmarkLogo;
     defaultAlt = 'VegSense - Smart Storage Intelligence';
     defaultMaxWidth = size ? `${size}px` : '260px';
   }
@@ -72,8 +72,7 @@ export function VegSenseLogo({
     objectFit: 'contain',
     display: 'block',
     userSelect: 'none',
-    pointerEvents: 'none',
-    filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.08))'
+    pointerEvents: 'none'
   };
 
   return (

@@ -1,5 +1,4 @@
 import React from 'react';
-import { VegSenseLogo } from '../branding/VegSenseLogo';
 import { useAppearance } from '../../context/AppearanceContext';
 import { useNavigate } from '../../router/Router';
 import {
@@ -29,16 +28,14 @@ export function DashboardHeader({
 
   return (
     <header className="dashboard-header-container">
-      {/* Left: Brand Identity (Section 2 & 6: ~85px logo + tagline) */}
-      <div
-        className="dashboard-header-brand"
-        onClick={() => navigate('/dashboard')}
-        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.65rem' }}
-        title="VegSense - Smart Storage Intelligence"
-      >
-        <VegSenseLogo variant="compact" width="85px" maxWidth="90px" priority={true} />
-        <span className="header-brand-divider" />
-        <span className="header-tagline-text">Smart Storage Intelligence</span>
+      {/* Left: Section 13 Replaced Logo Area (No duplicate logo in dashboard content) */}
+      <div className="dashboard-hero-title-area">
+        <h2 className="dashboard-hero-main-title" style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>
+          Smart Storage Intelligence
+        </h2>
+        <p className="dashboard-hero-sub-title" style={{ fontSize: '0.785rem', color: 'var(--text-secondary)', margin: '2px 0 0 0', fontWeight: 500 }}>
+          Real-time monitoring for fresh and healthy vegetables
+        </p>
       </div>
 
       {/* Center: Live Storage Device Status Pill */}

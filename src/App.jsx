@@ -49,11 +49,8 @@ function AppContent() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', textAlign: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-main)' }}>
             <span className="spinner spinner-dark" />
-            <span style={{ fontSize: '1.05rem', fontWeight: 700 }}>Loading VegSense...</span>
+            <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Initializing storage telemetry...</span>
           </div>
-          <span style={{ fontSize: '0.825rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>
-            Smart Storage Intelligence
-          </span>
         </div>
       </div>
     );

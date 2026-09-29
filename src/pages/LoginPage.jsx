@@ -124,7 +124,7 @@ export function LoginPage() {
         {/* Top Header Pill */}
         <div className="visual-header">
           <div className="visual-brand-pill">
-            <VegSenseLogo variant="compact" maxWidth="170px" />
+            <VegSenseLogo variant="mark" width="84px" height="84px" />
           </div>
 
           <div className="visual-title-block">
