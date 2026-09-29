@@ -10,9 +10,11 @@ import { DeviceStatusCard } from '../components/dashboard/DeviceStatusCard';
 import { TemperatureCard } from '../components/dashboard/TemperatureCard';
 import { HumidityCard } from '../components/dashboard/HumidityCard';
 import { GasLevelCard } from '../components/dashboard/GasLevelCard';
+import { LightLevelCard } from '../components/dashboard/LightLevelCard';
 import { SpoilageRiskCard } from '../components/dashboard/SpoilageRiskCard';
 import { StorageStatusCard } from '../components/dashboard/StorageStatusCard';
 import { StorageHealthCard } from '../components/dashboard/StorageHealthCard';
+import { EnvironmentalConditionsCard } from '../components/dashboard/EnvironmentalConditionsCard';
 import { SensorChart } from '../components/dashboard/SensorChart';
 import { RecentAlerts } from '../components/dashboard/RecentAlerts';
 import { QuickActions } from '../components/dashboard/QuickActions';
@@ -36,7 +38,8 @@ export function DashboardPage() {
     alerts,
     unreadAlertsCount,
     reconnectDevice,
-    loadingStage
+    loadingStage,
+    thresholds
   } = useDevice();
 
   const navigate = useNavigate();
@@ -123,6 +126,14 @@ export function DashboardPage() {
           isOffline={isOffline}
         />
 
+        <LightLevelCard
+          lightLevel={sensorData?.lightLevel}
+          lightClassification={sensorData?.lightClassification}
+          lightRisk={sensorData?.lightRisk}
+          lastUpdated={sensorData?.lastUpdated}
+          isOffline={isOffline}
+        />
+
         <SpoilageRiskCard
           spoilageRisk={sensorData?.spoilageRisk}
           lastUpdated={sensorData?.lastUpdated}
@@ -130,16 +141,27 @@ export function DashboardPage() {
         />
       </section>
 
-      {/* 4. Main Storage Overview (Status Hero, Storage Health & Crop Summary) */}
+      {/* 4. Main Storage Overview (Status Hero, Environmental Conditions, Storage Health & Crop Summary) */}
       <section className="dashboard-overview-split" aria-label="Atmospheric Status and Crop Health">
-        {/* Left: Large Storage Status Card (Section 11) */}
-        <div className="overview-status-column">
+        {/* Left: Large Storage Status Card & Multi-Pillar Environmental Conditions (Section 8 & 11) */}
+        <div className="overview-status-column" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <StorageStatusCard
             status={sensorData?.status}
             spoilageRisk={sensorData?.spoilageRisk}
             temperature={sensorData?.temperature}
             humidity={sensorData?.humidity}
             gasLevel={sensorData?.gasLevel ?? sensorData?.gasVOC}
+            lightLevel={sensorData?.lightLevel}
+            lightClassification={sensorData?.lightClassification}
+            isOffline={isOffline}
+          />
+
+          <EnvironmentalConditionsCard
+            temperature={sensorData?.temperature}
+            humidity={sensorData?.humidity}
+            gasLevel={sensorData?.gasLevel ?? sensorData?.gasVOC}
+            lightLevel={sensorData?.lightLevel}
+            thresholds={thresholds}
             isOffline={isOffline}
           />
         </div>

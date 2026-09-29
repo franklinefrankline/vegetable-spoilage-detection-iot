@@ -1861,6 +1861,12 @@ input, select, textarea {
 }
 
 /* Responsive Grid Systems */
+.grid-5 {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-unit);
+}
+
 .grid-4 {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -3872,6 +3878,10 @@ input, select, textarea {
     grid-template-columns: 1fr;
   }
 
+  .grid-5 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
   .grid-4 {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -3977,6 +3987,11 @@ input, select, textarea {
   }
 
   /* Sensor Cards 2-column or 1-column */
+  .grid-5 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
   .grid-4 {
     grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
@@ -4120,6 +4135,10 @@ input, select, textarea {
 
 /* SMALL MOBILE (Below 480px) */
 @media (max-width: 479px) {
+  .grid-5 {
+    grid-template-columns: 1fr;
+  }
+
   .grid-4 {
     grid-template-columns: 1fr;
   }
@@ -4350,12 +4369,18 @@ input, select, textarea {
   color: var(--text-main);
 }
 
-/* 2. Primary 4-Metric Sensor Cards Grid */
+/* 2. Primary 5-Metric Sensor Cards Grid (Temperature, Humidity, Gas/VOC, Light Level, Spoilage Risk) */
 .dashboard-sensor-metrics-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 1.15rem;
   margin-bottom: 1.25rem;
+}
+
+@media (max-width: 1280px) {
+  .dashboard-sensor-metrics-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
 }
 
 .sensor-metric-card {

@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Sparkles,
   Sun,
+  SunMedium,
   Moon,
   Check,
   Activity,
@@ -46,9 +47,16 @@ export function SettingsPage() {
   const [activeTab, setActiveTab] = useState('appearance');
 
   // Storage Thresholds local state
-  const [maxTemp, setMaxTemp] = useState(thresholds.maxTemp);
-  const [maxHumidity, setMaxHumidity] = useState(thresholds.maxHumidity);
-  const [maxGas, setMaxGas] = useState(thresholds.maxGas);
+  const [maxTemp, setMaxTemp] = useState(thresholds.maxTemp ?? 30);
+  const [maxHumidity, setMaxHumidity] = useState(thresholds.maxHumidity ?? 80);
+  const [maxGas, setMaxGas] = useState(thresholds.maxGas ?? 500);
+
+  // Light Sensor Settings (BH1750 / LDR)
+  const [lightMonitoringEnabled, setLightMonitoringEnabled] = useState(thresholds.lightMonitoringEnabled ?? true);
+  const [minLight, setMinLight] = useState(thresholds.minLight ?? 100);
+  const [maxLight, setMaxLight] = useState(thresholds.maxLight ?? 500);
+  const [alertLowLight, setAlertLowLight] = useState(thresholds.alertLowLight ?? true);
+  const [alertHighLight, setAlertHighLight] = useState(thresholds.alertHighLight ?? true);
 
   // Notification toggles
   const [alertsEnabled, setAlertsEnabled] = useState(true);
@@ -57,8 +65,17 @@ export function SettingsPage() {
 
   const handleSaveThresholds = (e) => {
     e.preventDefault();
-    updateThresholds({ maxTemp, maxHumidity, maxGas });
-    addToast('Storage threshold limits updated successfully.', 'success');
+    updateThresholds({
+      maxTemp,
+      maxHumidity,
+      maxGas,
+      lightMonitoringEnabled,
+      minLight,
+      maxLight,
+      alertLowLight,
+      alertHighLight
+    });
+    addToast('Storage threshold limits and Light Sensor settings saved.', 'success');
   };
 
   const handleResetAppearance = () => {
@@ -128,6 +145,11 @@ export function SettingsPage() {
           <div className="preview-telemetry-item">
             <span className="preview-telemetry-label">Spoilage Risk</span>
             <span className="preview-telemetry-val">18%</span>
+          </div>
+
+          <div className="preview-telemetry-item" style={{ gridColumn: 'span 2' }}>
+            <span className="preview-telemetry-label">Light Level</span>
+            <span className="preview-telemetry-val" style={{ color: '#d97706' }}>420 lux (Normal)</span>
           </div>
         </div>
 
@@ -534,9 +556,113 @@ export function SettingsPage() {
                   </div>
                 </div>
 
-                <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
-                  <button type="submit" className="btn-primary" style={{ padding: '0.75rem 1.5rem', width: 'auto' }}>
-                    Save Threshold Limits
+                {/* Light Sensor Settings Section */}
+                <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-light)', paddingTop: '1.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <SunMedium size={18} color="#d97706" />
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                          Light Sensor Settings (BH1750 / LDR)
+                        </h3>
+                      </div>
+                      <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                        Configure ambient photic limits. Thresholds are customizable because appropriate exposure varies across crops.
+                      </p>
+                    </div>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                      <span>Enable Light Monitoring:</span>
+                      <input
+                        type="checkbox"
+                        checked={lightMonitoringEnabled}
+                        onChange={(e) => setLightMonitoringEnabled(e.target.checked)}
+                        className="custom-toggle-input"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="thresholds-form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+                    {/* Minimum Light Threshold */}
+                    <div className="threshold-input-card">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <Sun size={16} color="#eab308" />
+                        <label className="threshold-card-label">Minimum Light (lux)</label>
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        max="2000"
+                        step="10"
+                        value={minLight}
+                        onChange={(e) => setMinLight(parseInt(e.target.value, 10) || 0)}
+                        className="login-form-input no-left-icon"
+                        disabled={!lightMonitoringEnabled}
+                        required
+                      />
+                      <div className="threshold-card-hint">
+                        Default: 100 lux. Readings below this level trigger <strong>LOW LIGHT</strong> classification.
+                      </div>
+                    </div>
+
+                    {/* Maximum Light Threshold */}
+                    <div className="threshold-input-card">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <SunMedium size={16} color="#ef4444" />
+                        <label className="threshold-card-label">Maximum Light (lux)</label>
+                      </div>
+                      <input
+                        type="number"
+                        min="10"
+                        max="10000"
+                        step="10"
+                        value={maxLight}
+                        onChange={(e) => setMaxLight(parseInt(e.target.value, 10) || 100)}
+                        className="login-form-input no-left-icon"
+                        disabled={!lightMonitoringEnabled}
+                        required
+                      />
+                      <div className="threshold-card-hint">
+                        Default: 500 lux. Readings above this level trigger <strong>HIGH LIGHT</strong> classification.
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Light Alert Toggles */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.25rem', padding: '1rem', borderRadius: '10px', background: 'var(--bg-subtle, rgba(0,0,0,0.02))', border: '1px solid var(--border-light)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>Alert on Low Light (&lt; {minLight} lux)</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Notify when storage compartment drops below minimum photic threshold.</div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={alertLowLight}
+                        onChange={(e) => setAlertLowLight(e.target.checked)}
+                        disabled={!lightMonitoringEnabled}
+                        className="custom-toggle-input"
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-light)', paddingTop: '0.75rem' }}>
+                      <div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>Alert on High Light (&gt; {maxLight} lux)</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Notify when excessive illumination exposes produce to chlorophyll degradation or solanine risk.</div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={alertHighLight}
+                        onChange={(e) => setAlertHighLight(e.target.checked)}
+                        disabled={!lightMonitoringEnabled}
+                        className="custom-toggle-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '1.75rem', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="submit" className="btn-primary" style={{ padding: '0.75rem 1.75rem', width: 'auto' }}>
+                    Save All Thresholds & Light Settings
                   </button>
                 </div>
               </form>

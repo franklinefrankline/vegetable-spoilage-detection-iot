@@ -71,7 +71,22 @@ router.get('/device/:userId', (req, res) => {
  * Records an actual sensor reading into history.
  */
 router.post('/readings', (req, res) => {
-  const { deviceId, temperature, humidity, gasLevel, spoilageRisk, storageStatus } = req.body;
+  const {
+    deviceId,
+    temperature,
+    humidity,
+    gasLevel,
+    lightLevel,
+    light_level,
+    spoilageRisk,
+    spoilage_risk,
+    lightRisk,
+    light_risk,
+    lightClassification,
+    light_classification,
+    storageStatus,
+    storage_status
+  } = req.body;
 
   if (!deviceId || temperature === undefined || humidity === undefined || gasLevel === undefined) {
     return res.status(400).json({ success: false, error: 'Required sensor fields missing.' });
@@ -81,16 +96,58 @@ router.post('/readings', (req, res) => {
     const id = 'rd_' + crypto.randomUUID().slice(0, 10);
     const now = new Date().toISOString();
 
+    const finalLight = lightLevel !== undefined ? Number(lightLevel) : (light_level !== undefined ? Number(light_level) : 420);
+    const finalLightRisk = lightRisk !== undefined ? Number(lightRisk) : (light_risk !== undefined ? Number(light_risk) : 10);
+    const finalLightClass = lightClassification || light_classification || 'NORMAL LIGHT';
+    const finalRisk = spoilageRisk !== undefined ? Number(spoilageRisk) : (spoilage_risk !== undefined ? Number(spoilage_risk) : 0);
+    const finalStatus = storageStatus || storage_status || 'FRESH';
+
     db.prepare(`
-      INSERT INTO sensor_readings (id, device_id, temperature, humidity, gas_level, spoilage_risk, storage_status, recorded_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, deviceId, temperature, humidity, gasLevel, spoilageRisk || 0, storageStatus || 'FRESH', now);
+      INSERT INTO sensor_readings (id, device_id, temperature, humidity, gas_level, light_level, spoilage_risk, light_risk, light_classification, storage_status, recorded_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, deviceId, temperature, humidity, gasLevel, finalLight, finalRisk, finalLightRisk, finalLightClass, finalStatus, now);
 
     return res.json({ success: true, readingId: id });
   } catch (err) {
     console.error('Error storing sensor reading:', err);
     return res.status(500).json({ success: false, error: 'Database error storing reading.' });
   }
+});
+
+/**
+ * GET /api/data (Section 12: Real ESP32 API spec)
+ * Returns live or baseline environmental & light telemetry in exact Section 12 format.
+ */
+router.get('/data', (req, res) => {
+  try {
+    const latest = db.prepare('SELECT * FROM sensor_readings ORDER BY recorded_at DESC LIMIT 1').get();
+    if (latest) {
+      return res.json({
+        temperature: latest.temperature,
+        humidity: latest.humidity,
+        gas_level: latest.gas_level,
+        light_level: latest.light_level ?? 420,
+        status: latest.storage_status || 'FRESH',
+        spoilage_risk: latest.spoilage_risk || 18,
+        light_classification: latest.light_classification || 'NORMAL LIGHT',
+        light_risk: latest.light_risk ?? 10
+      });
+    }
+  } catch (e) {
+    console.warn('[API] Fallback for GET /api/data:', e.message);
+  }
+
+  // Baseline Section 12 response
+  return res.json({
+    temperature: 28.5,
+    humidity: 72,
+    gas_level: 420,
+    light_level: 420,
+    status: 'FRESH',
+    spoilage_risk: 18,
+    light_classification: 'NORMAL LIGHT',
+    light_risk: 10
+  });
 });
 
 /**

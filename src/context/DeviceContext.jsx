@@ -8,30 +8,36 @@ import {
   stopSensorPolling,
   validateIPAddress
 } from '../services/deviceService';
+import {
+  classifyLight,
+  DEFAULT_LIGHT_THRESHOLDS,
+  calculateCombinedSpoilageRisk
+} from '../utils/lightClassification';
 
 const DeviceContext = createContext(null);
 
 const INITIAL_VEGETABLES = [
-  { id: 'v1', name: 'Tomato', variety: 'Roma / Cherry', quantity: '12 kg', temp: '28.5°C', humidity: '72%', risk: 18, status: 'FRESH', optimalTemp: '20-25°C', shelfLife: '14 days' },
-  { id: 'v2', name: 'Potato', variety: 'Russet', quantity: '25 kg', temp: '18.2°C', humidity: '65%', risk: 12, status: 'FRESH', optimalTemp: '12-16°C', shelfLife: '30 days' },
-  { id: 'v3', name: 'Onion', variety: 'Red & Yellow', quantity: '30 kg', temp: '20.1°C', humidity: '58%', risk: 14, status: 'FRESH', optimalTemp: '15-20°C', shelfLife: '45 days' },
-  { id: 'v4', name: 'Carrot', variety: 'Nantes', quantity: '15 kg', temp: '24.3°C', humidity: '70%', risk: 19, status: 'FRESH', optimalTemp: '18-22°C', shelfLife: '21 days' },
-  { id: 'v5', name: 'Cabbage', variety: 'Savoy Green', quantity: '18 kg', temp: '22.0°C', humidity: '76%', risk: 24, status: 'WARNING', optimalTemp: '10-15°C', shelfLife: '10 days' },
-  { id: 'v6', name: 'Bell Pepper', variety: 'Tricolor', quantity: '10 kg', temp: '26.1°C', humidity: '74%', risk: 21, status: 'FRESH', optimalTemp: '18-24°C', shelfLife: '12 days' }
+  { id: 'v1', name: 'Tomato', variety: 'Roma / Cherry', quantity: '12 kg', temp: '28.5°C', humidity: '72%', gas: '420 ppm', light: '420 lux', lightClassification: 'NORMAL LIGHT', risk: 18, status: 'FRESH', optimalTemp: '20-25°C', shelfLife: '14 days' },
+  { id: 'v2', name: 'Potato', variety: 'Russet', quantity: '25 kg', temp: '18.2°C', humidity: '65%', gas: '390 ppm', light: '35 lux', lightClassification: 'NORMAL LIGHT', risk: 12, status: 'FRESH', optimalTemp: '12-16°C', shelfLife: '30 days' },
+  { id: 'v3', name: 'Onion', variety: 'Red & Yellow', quantity: '30 kg', temp: '20.1°C', humidity: '58%', gas: '405 ppm', light: '80 lux', lightClassification: 'NORMAL LIGHT', risk: 14, status: 'FRESH', optimalTemp: '15-20°C', shelfLife: '45 days' },
+  { id: 'v4', name: 'Carrot', variety: 'Nantes', quantity: '15 kg', temp: '24.3°C', humidity: '70%', gas: '415 ppm', light: '120 lux', lightClassification: 'NORMAL LIGHT', risk: 19, status: 'FRESH', optimalTemp: '18-22°C', shelfLife: '21 days' },
+  { id: 'v5', name: 'Cabbage', variety: 'Savoy Green', quantity: '18 kg', temp: '22.0°C', humidity: '76%', gas: '460 ppm', light: '160 lux', lightClassification: 'NORMAL LIGHT', risk: 24, status: 'WARNING', optimalTemp: '10-15°C', shelfLife: '10 days' },
+  { id: 'v6', name: 'Bell Pepper', variety: 'Tricolor', quantity: '10 kg', temp: '26.1°C', humidity: '74%', gas: '425 ppm', light: '220 lux', lightClassification: 'NORMAL LIGHT', risk: 21, status: 'FRESH', optimalTemp: '18-24°C', shelfLife: '12 days' }
 ];
 
 const INITIAL_ALERTS = [
   { id: 'a1', title: 'High Humidity Detected', message: 'Storage bay #04 relative humidity exceeded the configured threshold.', category: 'warning', time: '14 mins ago', read: false },
-  { id: 'a2', title: 'Temperature Stable', message: 'Storage temperature normalized within optimal vegetable preservation limits.', category: 'info', time: '1 hour ago', read: false },
-  { id: 'a3', title: 'Gas / VOC Level Normal', message: 'MQ-135 sensor verified: no abnormal spoilage gas accumulation detected.', category: 'info', time: '3 hours ago', read: true }
+  { id: 'a2', title: 'Light Monitoring Active', message: 'BH1750 / LDR sensor verified: 420 lux within configured suitable range (100–500 lux).', category: 'info', time: '25 mins ago', read: false },
+  { id: 'a3', title: 'Temperature Stable', message: 'Storage temperature normalized within optimal vegetable preservation limits.', category: 'info', time: '1 hour ago', read: false },
+  { id: 'a4', title: 'Gas / VOC Level Normal', message: 'MQ-135 sensor verified: no abnormal spoilage gas accumulation detected.', category: 'info', time: '3 hours ago', read: true }
 ];
 
 const INITIAL_HISTORY = [
-  { time: '00:00', temp: 28.0, humidity: 70, gas: 410, risk: 16 },
-  { time: '03:00', temp: 28.2, humidity: 71, gas: 415, risk: 17 },
-  { time: '06:00', temp: 28.4, humidity: 72, gas: 418, risk: 17 },
-  { time: '09:00', temp: 28.6, humidity: 72, gas: 422, risk: 18 },
-  { time: '12:00', temp: 28.5, humidity: 72, gas: 420, risk: 18 }
+  { time: '00:00', temp: 28.0, humidity: 70, gas: 410, light: 420, lightLevel: 420, risk: 16 },
+  { time: '03:00', temp: 28.2, humidity: 71, gas: 415, light: 430, lightLevel: 430, risk: 17 },
+  { time: '06:00', temp: 28.4, humidity: 72, gas: 418, light: 440, lightLevel: 440, risk: 17 },
+  { time: '09:00', temp: 28.6, humidity: 72, gas: 422, light: 450, lightLevel: 450, risk: 18 },
+  { time: '12:00', temp: 28.5, humidity: 72, gas: 420, light: 420, lightLevel: 420, risk: 18 }
 ];
 
 const getDeviceStorageKey = (user) => {
@@ -55,17 +61,25 @@ export const DEMO_DEVICE = {
   lastConnected: null
 };
 
+// Section 10: Demo initial data with Light Level
 export const DEMO_SENSOR_DATA = {
   temperature: 28.5,
   humidity: 72,
   gasLevel: 420,
   gasVOC: 420,
+  lightLevel: 420,
+  lightClassification: 'NORMAL LIGHT',
+  lightRisk: 10,
   spoilageRisk: 18,
   status: 'FRESH',
   storageCondition: 'Stable',
   isDhtUnavailable: false,
+  isLightUnavailable: false,
   lastUpdated: new Date()
 };
+
+// Controlled 5-second demo light changes per Section 11
+export const DEMO_LIGHT_SEQUENCE = [420, 450, 390, 470, 430];
 
 export function DeviceProvider({ children }) {
   const { currentUser, isAuthenticated } = useAuth();
@@ -89,23 +103,39 @@ export function DeviceProvider({ children }) {
   });
 
   const [sensorData, setSensorData] = useState({
-    temperature: 0,
-    humidity: 0,
-    gasLevel: 0,
-    gasVOC: 0,
-    spoilageRisk: 0,
+    temperature: 28.5,
+    humidity: 72,
+    gasLevel: 420,
+    gasVOC: 420,
+    lightLevel: 420,
+    lightClassification: 'NORMAL LIGHT',
+    lightRisk: 10,
+    spoilageRisk: 18,
     status: 'FRESH',
     storageCondition: 'Stable',
+    isDhtUnavailable: false,
+    isLightUnavailable: false,
     lastUpdated: new Date()
   });
 
   const [vegetables, setVegetables] = useState(INITIAL_VEGETABLES);
   const [alerts, setAlerts] = useState(INITIAL_ALERTS);
   const [history, setHistory] = useState(INITIAL_HISTORY);
-  const [thresholds, setThresholds] = useState({
-    maxTemp: 30,
-    maxHumidity: 78,
-    maxGas: 500
+  const [thresholds, setThresholds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('vegsense_thresholds');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      maxTemp: 30,
+      maxHumidity: 78,
+      maxGas: 500,
+      lightMonitoringEnabled: true,
+      minLight: 100,
+      maxLight: 500,
+      alertLowLight: true,
+      alertHighLight: true
+    };
   });
 
   const [lastKnownData, setLastKnownData] = useState(null);
@@ -113,6 +143,9 @@ export function DeviceProvider({ children }) {
   const [loadingStage, setLoadingStage] = useState('Connecting to ESP32...');
 
   const consecutiveErrorsRef = useRef(0);
+  const demoLightIndexRef = useRef(0);
+  const manualDemoLightRef = useRef(null);
+  const lastLightAlertClassRef = useRef('NORMAL LIGHT');
 
   // Load and auto-verify saved device when user logs in or page refreshes
   useEffect(() => {
@@ -248,22 +281,75 @@ export function DeviceProvider({ children }) {
       return;
     }
 
-    // Demo Mode Polling: updates clock and chart history every 5 seconds
+    // Demo Mode Polling: updates clock and controlled light sensor values every 5 seconds (Section 11)
     if (device.isDemo) {
       consecutiveErrorsRef.current = 0;
       const demoInterval = setInterval(() => {
         const now = new Date();
         const nowStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-        setSensorData({
+        // Section 11: Controlled light sequence [420, 450, 390, 470, 430]
+        let currentLightVal = 420;
+        if (manualDemoLightRef.current !== null && manualDemoLightRef.current !== undefined) {
+          currentLightVal = manualDemoLightRef.current;
+        } else {
+          currentLightVal = DEMO_LIGHT_SEQUENCE[demoLightIndexRef.current % DEMO_LIGHT_SEQUENCE.length];
+          demoLightIndexRef.current += 1;
+        }
+
+        // Section 3 & 4: Evaluate classification & light risk with active thresholds
+        const lightEval = classifyLight(currentLightVal, thresholds.minLight, thresholds.maxLight);
+        const combinedRisk = calculateCombinedSpoilageRisk(DEMO_SENSOR_DATA.spoilageRisk, lightEval.lightRisk);
+
+        let dynamicStatus = 'FRESH';
+        if (combinedRisk > 60) dynamicStatus = 'SPOILAGE RISK';
+        else if (combinedRisk > 30) dynamicStatus = 'WARNING';
+
+        const updatedFrame = {
           ...DEMO_SENSOR_DATA,
+          lightLevel: currentLightVal,
+          lightClassification: lightEval.classification,
+          lightRisk: lightEval.lightRisk,
+          spoilageRisk: combinedRisk,
+          status: dynamicStatus,
           lastUpdated: now
-        });
-        setLastKnownData({
-          ...DEMO_SENSOR_DATA,
-          lastUpdated: now
-        });
+        };
+
+        setSensorData(updatedFrame);
+        setLastKnownData(updatedFrame);
         setConnectionLost(false);
+
+        // Section 16 & 17: Light Alerts with state change deduplication
+        if (thresholds.lightMonitoringEnabled !== false) {
+          if (lightEval.classification !== lastLightAlertClassRef.current) {
+            lastLightAlertClassRef.current = lightEval.classification;
+            if (lightEval.classification === 'LOW LIGHT' && thresholds.alertLowLight !== false) {
+              setAlerts((prev) => [
+                {
+                  id: 'alert_light_' + Date.now(),
+                  title: 'Low Light Detected',
+                  message: `Current: ${currentLightVal} lux is below configured minimum (${thresholds.minLight || 100} lux). Storage conditions outside configured range.`,
+                  category: 'warning',
+                  time: 'Just now',
+                  read: false
+                },
+                ...prev.slice(0, 19)
+              ]);
+            } else if (lightEval.classification === 'HIGH LIGHT' && thresholds.alertHighLight !== false) {
+              setAlerts((prev) => [
+                {
+                  id: 'alert_light_' + Date.now(),
+                  title: 'High Light Level Detected',
+                  message: `⚠ Light Level High: Current: ${currentLightVal} lux. Recommended range: ${thresholds.minLight || 100}–${thresholds.maxLight || 500} lux.`,
+                  category: 'warning',
+                  time: 'Just now',
+                  read: false
+                },
+                ...prev.slice(0, 19)
+              ]);
+            }
+          }
+        }
 
         // Update history chart data dynamically: maximum 30 FIFO points
         setHistory((prev) => {
@@ -273,8 +359,10 @@ export function DeviceProvider({ children }) {
             temperature: DEMO_SENSOR_DATA.temperature,
             humidity: DEMO_SENSOR_DATA.humidity,
             gas: DEMO_SENSOR_DATA.gasLevel,
-            risk: DEMO_SENSOR_DATA.spoilageRisk,
-            spoilageRisk: DEMO_SENSOR_DATA.spoilageRisk
+            light: currentLightVal,
+            lightLevel: currentLightVal,
+            risk: combinedRisk,
+            spoilageRisk: combinedRisk
           };
           const updated = [...prev, newPoint];
           return updated.slice(-30);
@@ -312,6 +400,39 @@ export function DeviceProvider({ children }) {
           signal: 'Strong'
         }));
 
+        // Real Light Alert generation on state change
+        if (thresholds.lightMonitoringEnabled !== false && newData.lightLevel !== null && newData.lightLevel !== undefined) {
+          const lEval = classifyLight(newData.lightLevel, thresholds.minLight, thresholds.maxLight);
+          if (lEval.classification !== lastLightAlertClassRef.current) {
+            lastLightAlertClassRef.current = lEval.classification;
+            if (lEval.classification === 'LOW LIGHT' && thresholds.alertLowLight !== false) {
+              setAlerts((prev) => [
+                {
+                  id: 'alert_light_' + Date.now(),
+                  title: 'Low Light Detected',
+                  message: `Current: ${newData.lightLevel} lux is below configured minimum (${thresholds.minLight || 100} lux).`,
+                  category: 'warning',
+                  time: 'Just now',
+                  read: false
+                },
+                ...prev.slice(0, 19)
+              ]);
+            } else if (lEval.classification === 'HIGH LIGHT' && thresholds.alertHighLight !== false) {
+              setAlerts((prev) => [
+                {
+                  id: 'alert_light_' + Date.now(),
+                  title: 'High Light Level Detected',
+                  message: `⚠ Light Level High: Current: ${newData.lightLevel} lux. Recommended range: ${thresholds.minLight || 100}–${thresholds.maxLight || 500} lux.`,
+                  category: 'warning',
+                  time: 'Just now',
+                  read: false
+                },
+                ...prev.slice(0, 19)
+              ]);
+            }
+          }
+        }
+
         // Update history chart data dynamically: maximum 30 FIFO points (Section 13)
         setHistory((prev) => {
           const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -321,6 +442,8 @@ export function DeviceProvider({ children }) {
             temperature: newData.temperature,
             humidity: newData.humidity,
             gas: newData.gasLevel,
+            light: newData.lightLevel,
+            lightLevel: newData.lightLevel,
             risk: newData.spoilageRisk,
             spoilageRisk: newData.spoilageRisk
           };
@@ -477,8 +600,35 @@ export function DeviceProvider({ children }) {
 
   const unreadAlertsCount = alerts.filter((a) => !a.read).length;
 
+  const setDemoLightOverride = useCallback((lux) => {
+    manualDemoLightRef.current = lux;
+    if (lux !== null && lux !== undefined) {
+      const lEval = classifyLight(lux, thresholds.minLight, thresholds.maxLight);
+      const combined = calculateCombinedSpoilageRisk(DEMO_SENSOR_DATA.spoilageRisk, lEval.lightRisk);
+      let dynamicStatus = 'FRESH';
+      if (combined > 60) dynamicStatus = 'SPOILAGE RISK';
+      else if (combined > 30) dynamicStatus = 'WARNING';
+
+      setSensorData((prev) => ({
+        ...prev,
+        lightLevel: lux,
+        lightClassification: lEval.classification,
+        lightRisk: lEval.lightRisk,
+        spoilageRisk: combined,
+        status: dynamicStatus,
+        lastUpdated: new Date()
+      }));
+    }
+  }, [thresholds.minLight, thresholds.maxLight]);
+
   const updateThresholds = useCallback((newSettings) => {
-    setThresholds((prev) => ({ ...prev, ...newSettings }));
+    setThresholds((prev) => {
+      const updated = { ...prev, ...newSettings };
+      try {
+        localStorage.setItem('vegsense_thresholds', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
   }, []);
 
   const value = {
@@ -504,7 +654,8 @@ export function DeviceProvider({ children }) {
     clearSavedDevice,
     addVegetableBatch,
     markAlertsAsRead,
-    updateThresholds
+    updateThresholds,
+    setDemoLightOverride
   };
 
   return <DeviceContext.Provider value={value}>{children}</DeviceContext.Provider>;

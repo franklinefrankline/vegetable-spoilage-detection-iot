@@ -8,6 +8,8 @@ export function StorageStatusCard({
   temperature = 28.5,
   humidity = 72,
   gasLevel = 420,
+  lightLevel = 420,
+  lightClassification = 'NORMAL LIGHT',
   isOffline = false
 }) {
   const details = getStatusDetails(status);
@@ -99,6 +101,10 @@ export function StorageStatusCard({
             <div className="status-pillar-item">
               <span className="pillar-label">MQ-135 Gas</span>
               <span className="pillar-value">{isOffline ? 'Offline' : `${gasLevel} ppm`}</span>
+            </div>
+            <div className="status-pillar-item">
+              <span className="pillar-label">Light</span>
+              <span className="pillar-value">{isOffline ? 'Offline' : lightLevel !== null && lightLevel !== undefined ? `${lightLevel} lux` : 'Unavailable'}</span>
             </div>
             <div className="status-pillar-item">
               <span className="pillar-label">Status Link</span>

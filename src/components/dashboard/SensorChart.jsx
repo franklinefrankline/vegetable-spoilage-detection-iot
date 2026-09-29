@@ -9,7 +9,7 @@ import {
   CartesianGrid
 } from 'recharts';
 import { useAppearance } from '../../context/AppearanceContext';
-import { Activity, Thermometer, Droplets, Wind, Layers } from 'lucide-react';
+import { Activity, Thermometer, Droplets, Wind, Layers, SunMedium } from 'lucide-react';
 
 export function SensorChart({
   history = [],
@@ -55,6 +55,17 @@ export function SensorChart({
       icon: Wind,
       domain: ['auto', 'auto'],
       currentVal: (currentData?.gasLevel ?? currentData?.gasVOC) !== undefined ? `${currentData.gasLevel ?? currentData.gasVOC} ppm` : '--'
+    },
+    light: {
+      name: 'Light Level',
+      dataKey: 'lightLevel',
+      unit: 'lux',
+      color: isNight ? '#fbbf24' : '#d97706',
+      stroke: isNight ? '#fbbf24' : '#d97706',
+      fill: isNight ? '#fbbf24' : '#f59e0b',
+      icon: SunMedium,
+      domain: ['auto', 'auto'],
+      currentVal: currentData?.isLightUnavailable ? 'Unavailable' : (currentData?.lightLevel !== undefined ? `${currentData.lightLevel} lux` : '--')
     }
   };
 
@@ -69,8 +80,13 @@ export function SensorChart({
           <div className="tooltip-time">{label}</div>
           <div className="tooltip-value" style={{ color: activeConfig.stroke }}>
             <span>{activeConfig.name}:</span>
-            <strong>{dataPoint.value} {activeConfig.unit}</strong>
+            <strong>{dataPoint.value !== null && dataPoint.value !== undefined ? `${dataPoint.value} ${activeConfig.unit}` : 'Unavailable'}</strong>
           </div>
+          {dataPoint.payload.lightClassification && (
+            <div style={{ fontSize: '0.75rem', color: '#f59e0b', marginTop: '0.15rem' }}>
+              <span>Light Class:</span> <strong>{dataPoint.payload.lightClassification}</strong>
+            </div>
+          )}
           {dataPoint.payload.spoilageRisk !== undefined && (
             <div className="tooltip-risk">
               <span>Risk:</span>
@@ -121,6 +137,15 @@ export function SensorChart({
           >
             <Wind size={14} />
             <span>Gas / VOC ({metricConfigs.gas.currentVal})</span>
+          </button>
+
+          <button
+            type="button"
+            className={`metric-tab-btn ${selectedMetric === 'light' ? 'active' : ''}`}
+            onClick={() => setSelectedMetric('light')}
+          >
+            <SunMedium size={14} />
+            <span>Light ({metricConfigs.light.currentVal})</span>
           </button>
         </div>
       </div>

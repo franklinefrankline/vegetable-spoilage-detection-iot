@@ -82,7 +82,10 @@ db.exec(`
     temperature REAL NOT NULL,
     humidity REAL NOT NULL,
     gas_level INTEGER NOT NULL,
+    light_level REAL DEFAULT 420,
     spoilage_risk INTEGER NOT NULL,
+    light_risk INTEGER DEFAULT 10,
+    light_classification TEXT DEFAULT 'NORMAL LIGHT',
     storage_status TEXT NOT NULL,
     recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -117,6 +120,21 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_alerts_device ON alerts(device_id);
   CREATE INDEX IF NOT EXISTS idx_storage_user ON storage_items(user_id);
 `);
+
+// Migration: Ensure sensor_readings has light columns (Section 14)
+const sensorReadingColumns = [
+  { name: 'light_level', type: 'REAL DEFAULT 420' },
+  { name: 'light_classification', type: 'TEXT DEFAULT "NORMAL LIGHT"' },
+  { name: 'light_risk', type: 'INTEGER DEFAULT 10' }
+];
+
+for (const col of sensorReadingColumns) {
+  try {
+    db.exec(`ALTER TABLE sensor_readings ADD COLUMN ${col.name} ${col.type}`);
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+}
 
 // Migration: Ensure storage_items has all production fields
 const storageColumns = [

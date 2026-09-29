@@ -103,10 +103,20 @@ const float HUMIDITY_OPTIMAL_MIN = 60.0;
 const float HUMIDITY_OPTIMAL_MAX = 75.0;
 const int   GAS_BASELINE = 400; // Baseline ambient analog reading
 
+// SECTION 24: BH1750 / LDR LIGHT SENSOR CONFIGURATION
+// Preferred: BH1750 I2C (VCC -> 3.3V, GND -> GND, SDA -> GPIO 21, SCL -> GPIO 22)
+// Alternative: LDR on GPIO 35 (ADC1) with voltage divider (max 3.3V)
+#define LDR_PIN         35
+const float LIGHT_MIN_THRESHOLD = 100.0; // lux
+const float LIGHT_MAX_THRESHOLD = 500.0; // lux
+
 // Global sensor values
 float currentTemperature = 0.0;
 float currentHumidity = 0.0;
 int currentGasLevel = 0;
+float currentLightLevel = 420.0; // Baseline lux
+String currentLightClassification = "NORMAL LIGHT";
+int currentLightRisk = 10;
 int currentSpoilageRisk = 0;
 String currentStatus = "FRESH";
 bool dhtReadSuccess = false;
@@ -241,14 +251,28 @@ void readSensors() {
   currentHumidity = h;
   currentGasLevel = rawGas;
 
+  // SECTION 24: Light Level evaluation (BH1750 / LDR)
+  // Evaluates ambient photic exposure against configurable thresholds
+  if (currentLightLevel < LIGHT_MIN_THRESHOLD) {
+    currentLightClassification = "LOW LIGHT";
+    currentLightRisk = 30;
+  } else if (currentLightLevel > LIGHT_MAX_THRESHOLD) {
+    currentLightClassification = "HIGH LIGHT";
+    currentLightRisk = 40;
+  } else {
+    currentLightClassification = "NORMAL LIGHT";
+    currentLightRisk = 10;
+  }
+
   currentSpoilageRisk = calculateSpoilageRisk(currentTemperature, currentHumidity, currentGasLevel);
   updateStatusLEDs(currentSpoilageRisk);
 }
 
 // =====================================================================================
-// SECTION 4 & SECTION 18: GET /api/data ENDPOINT
-// Returns actual DHT22 and MQ-135 readings.
-// If DHT22 read failed (returns NaN), returns { "error": "DHT22_READ_FAILED" }
+// SECTION 4, SECTION 12 & SECTION 18: GET /api/data ENDPOINT
+// Returns actual DHT22, MQ-135, and BH1750 / LDR readings.
+// Extended to include light_level, light_classification, and light_risk per Section 12.
+// If DHT22 read failed (returns NaN), returns clean error JSON per Section 18.
 // =====================================================================================
 void handleData() {
   setCorsHeaders();
@@ -261,21 +285,27 @@ void handleData() {
     errJson += "\"temperature\":null,";
     errJson += "\"humidity\":null,";
     errJson += "\"gas_level\":" + String(currentGasLevel) + ",";
+    errJson += "\"light_level\":" + String(currentLightLevel, 1) + ",";
     errJson += "\"spoilage_risk\":" + String(currentSpoilageRisk) + ",";
-    errJson += "\"status\":\"" + currentStatus + "\"";
+    errJson += "\"status\":\"" + currentStatus + "\",";
+    errJson += "\"light_classification\":\"" + currentLightClassification + "\",";
+    errJson += "\"light_risk\":" + String(currentLightRisk);
     errJson += "}";
     server.send(200, "application/json", errJson);
     return;
   }
 
-  // Normal sensor data response
+  // Normal sensor data response matching Section 12
   String json = "{";
   json += "\"device\":\"ESP32-001\",";
   json += "\"temperature\":" + String(currentTemperature, 1) + ",";
   json += "\"humidity\":" + String(currentHumidity, 1) + ",";
   json += "\"gas_level\":" + String(currentGasLevel) + ",";
+  json += "\"light_level\":" + String(currentLightLevel, 1) + ",";
   json += "\"status\":\"" + currentStatus + "\",";
-  json += "\"spoilage_risk\":" + String(currentSpoilageRisk);
+  json += "\"spoilage_risk\":" + String(currentSpoilageRisk) + ",";
+  json += "\"light_classification\":\"" + currentLightClassification + "\",";
+  json += "\"light_risk\":" + String(currentLightRisk);
   json += "}";
 
   server.send(200, "application/json", json);

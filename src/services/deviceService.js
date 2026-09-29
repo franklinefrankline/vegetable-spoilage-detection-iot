@@ -10,6 +10,8 @@
  * =====================================================================================
  */
 
+import { classifyLight } from '../utils/lightClassification.js';
+
 // Connection timeout in milliseconds: 5 seconds (Section 8)
 export const CONNECTION_TIMEOUT_MS = 5000;
 
@@ -239,6 +241,8 @@ export async function getSensorData(ip) {
 /**
  * Validates that the sensor response contains required fields.
  * Handles Section 18 DHT22 error cleanly (e.g. DHT22_READ_FAILED).
+ * Backward Compatibility (Section 13): If older ESP32 payload does not have light_level,
+ * marks light as unavailable without crashing.
  */
 export function validateAndParseSensorResponse(data) {
   if (!data || typeof data !== 'object') {
@@ -264,6 +268,18 @@ export function validateAndParseSensorResponse(data) {
     throw err;
   }
 
+  // Section 1 & 13: Light Sensor (BH1750 / LDR) & Backward Compatibility
+  const rawLight = data.light_level ?? data.lightLevel ?? data.light;
+  const hasLight = rawLight !== undefined && rawLight !== null && rawLight !== '' && !isNaN(Number(rawLight));
+  const lightLevel = hasLight ? Math.round(Number(rawLight)) : null;
+  const isLightUnavailable = !hasLight;
+  const lightEval = hasLight ? classifyLight(lightLevel) : {
+    classification: data.light_classification || 'UNAVAILABLE',
+    riskCategory: 'Unavailable',
+    lightRisk: null,
+    statusLabel: 'Light Sensor Unavailable'
+  };
+
   const temp = hasTemp ? Number(Number(data.temperature).toFixed(1)) : null;
   const humidity = hasHum ? Math.round(Number(data.humidity)) : null;
   const gasLevel = Math.round(Number(data.gas_level ?? data.gasLevel ?? data.gasVOC ?? 0));
@@ -276,10 +292,14 @@ export function validateAndParseSensorResponse(data) {
     humidity,
     gasLevel,
     gasVOC: gasLevel,
+    lightLevel,
+    lightClassification: data.light_classification || lightEval.classification,
+    lightRisk: data.light_risk !== undefined && data.light_risk !== null ? Number(data.light_risk) : lightEval.lightRisk,
     spoilageRisk,
     status,
     storageCondition,
     isDhtUnavailable: isDhtError,
+    isLightUnavailable,
     lastUpdated: new Date()
   };
 }

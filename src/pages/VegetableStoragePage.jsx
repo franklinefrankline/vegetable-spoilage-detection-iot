@@ -122,7 +122,8 @@ export function VegetableStoragePage() {
       sensorData?.temperature,
       sensorData?.humidity,
       sensorData?.gasLevel ?? sensorData?.gasVOC,
-      sensorData?.spoilageRisk
+      sensorData?.spoilageRisk,
+      sensorData?.lightLevel
     );
   }, [activeBatch, sensorData]);
 
@@ -583,7 +584,8 @@ export function VegetableStoragePage() {
               sensorData?.temperature,
               sensorData?.humidity,
               sensorData?.gasLevel ?? sensorData?.gasVOC,
-              sensorData?.spoilageRisk
+              sensorData?.spoilageRisk,
+              sensorData?.lightLevel
             );
 
             return (
@@ -643,6 +645,32 @@ export function VegetableStoragePage() {
                       <span className="storage-metric-box-sub">
                         Target: {batch.target_humidity || 70}%
                       </span>
+                    </div>
+                  </div>
+
+                  {/* Section 15: Live Monitored Batch Telemetry (Temp, Humidity, Gas/VOC, Light Level, Spoilage Risk) */}
+                  <div style={{ marginTop: '0.65rem', padding: '0.5rem 0.65rem', borderRadius: 'var(--radius-sm)', background: 'var(--bg-subtle)', border: '1px solid var(--border-light)', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.35rem', fontSize: '0.725rem', textAlign: 'center' }}>
+                    <div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>Temp</div>
+                      <strong>{sensorData?.temperature ?? 28.5}°C</strong>
+                    </div>
+                    <div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>Humidity</div>
+                      <strong>{sensorData?.humidity ?? 72}%</strong>
+                    </div>
+                    <div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>Gas/VOC</div>
+                      <strong>{sensorData?.gasLevel ?? sensorData?.gasVOC ?? 420}</strong>
+                    </div>
+                    <div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>Light</div>
+                      <strong style={{ color: sensorData?.lightClassification === 'LOW LIGHT' ? '#f59e0b' : sensorData?.lightClassification === 'HIGH LIGHT' ? '#ef4444' : '#10b981' }}>
+                        {sensorData?.lightLevel != null ? `${sensorData.lightLevel} lx` : '420 lx'}
+                      </strong>
+                    </div>
+                    <div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>Risk</div>
+                      <strong style={{ color: 'var(--primary)' }}>{sensorData?.spoilageRisk ?? 18}%</strong>
                     </div>
                   </div>
                 </div>

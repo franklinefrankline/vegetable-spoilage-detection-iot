@@ -99,6 +99,20 @@ export function VegetableStorageSummary({
             </div>
 
             <div className="veg-metric-cell">
+              <span className="cell-label">Light Level</span>
+              <span className="cell-val">
+                {isOffline ? '--' : currentSensorData?.lightLevel != null ? `${currentSensorData.lightLevel} lux` : 'Unavailable'}
+              </span>
+            </div>
+
+            <div className="veg-metric-cell">
+              <span className="cell-label">Light Class</span>
+              <span className="cell-val" style={{ fontSize: '0.75rem', fontWeight: 700, color: currentSensorData?.lightClassification === 'LOW LIGHT' ? '#f59e0b' : currentSensorData?.lightClassification === 'HIGH LIGHT' ? '#ef4444' : '#10b981' }}>
+                {isOffline ? '--' : currentSensorData?.lightClassification || 'NORMAL LIGHT'}
+              </span>
+            </div>
+
+            <div className="veg-metric-cell">
               <span className="cell-label">Spoilage Risk</span>
               <span className="cell-val" style={{ color: 'var(--primary)' }}>
                 {isOffline ? '--' : formatSpoilageRisk(currentSensorData?.spoilageRisk)}
