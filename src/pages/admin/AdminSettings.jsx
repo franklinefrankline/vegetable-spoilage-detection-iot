@@ -114,10 +114,9 @@ export function AdminSettings() {
 
   return (
     <div className="admin-page-content">
-      {/* Page Header */}
+      {/* Subtitle & Actions Bar */}
       <div className="admin-section-header">
         <div>
-          <h2 className="section-title">Administrator Settings & Security</h2>
           <p className="section-subtitle">
             Manage your administrator profile, credentials, and authentication security.
           </p>

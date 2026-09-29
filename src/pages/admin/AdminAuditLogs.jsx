@@ -57,10 +57,9 @@ export function AdminAuditLogs() {
 
   return (
     <div className="admin-page-content">
-      {/* Page Header */}
+      {/* Subtitle & Actions Bar */}
       <div className="admin-section-header">
         <div>
-          <h2 className="section-title">Administrative Audit Logs</h2>
           <p className="section-subtitle">
             Cryptographically tracked security audit trail for user account lifecycle events, roles, and administrative interventions.
           </p>

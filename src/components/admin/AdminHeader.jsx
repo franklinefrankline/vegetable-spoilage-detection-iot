@@ -70,8 +70,11 @@ export function AdminHeader({ title, subtitle, onToggleMobile }) {
         </button>
 
         <div className="admin-title-group">
+          <div className="admin-header-breadcrumb">
+            <span className="breadcrumb-brand">VegSense Admin Portal</span>
+            <span className="breadcrumb-sep">/</span>
+          </div>
           <h1 className="admin-page-title">{title || 'Admin Portal'}</h1>
-          {subtitle && <p className="admin-page-subtitle">{subtitle}</p>}
         </div>
       </div>
 

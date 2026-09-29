@@ -298,10 +298,9 @@ export function AdminUsers() {
 
   return (
     <div className="admin-page-content">
-      {/* Page Header */}
+      {/* Subtitle & Actions Bar */}
       <div className="admin-section-header">
         <div>
-          <h2 className="section-title">User Management</h2>
           <p className="section-subtitle">
             Manage registered accounts, access status and user permissions.
           </p>

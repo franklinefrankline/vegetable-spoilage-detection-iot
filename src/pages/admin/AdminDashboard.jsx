@@ -71,10 +71,9 @@ export function AdminDashboard() {
 
   return (
     <div className="admin-page-content">
-      {/* Page Header */}
+      {/* Section Subtitle & Action Bar */}
       <div className="admin-section-header">
         <div>
-          <h2 className="section-title">Admin Dashboard</h2>
           <p className="section-subtitle">
             Enterprise overview of registered accounts, hardware devices, and system activity.
           </p>

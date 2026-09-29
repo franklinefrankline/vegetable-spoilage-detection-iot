@@ -30,10 +30,9 @@ export function AdminSystem() {
 
   return (
     <div className="admin-page-content">
-      {/* Page Header */}
+      {/* Subtitle & Actions Bar */}
       <div className="admin-section-header">
         <div>
-          <h2 className="section-title">System Infrastructure & Microservices</h2>
           <p className="section-subtitle">
             Real-time diagnostics and operational status of persistent databases, telemetry gateways, PDF rendering engines, and security services.
           </p>
