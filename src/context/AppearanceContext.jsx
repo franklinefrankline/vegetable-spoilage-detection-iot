@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { getAppearanceSettings, updateAppearanceSettings } from '../services/settingsService';
 
 const AppearanceContext = createContext(null);
 
@@ -7,9 +8,9 @@ const STORAGE_KEY = 'vegsense_appearance_settings';
 export const THEME_OPTIONS = [
   {
     id: 'forest',
-    name: 'FOREST',
+    name: 'Forest / Organic',
     subtitle: 'Organic',
-    description: 'Premium light agriculture-tech interface with warm cream tones, deep forest & olive greens, soft mint accents, and clean modern typography.',
+    description: 'Warm cream tones, deep forest & olive greens, soft mint accents, and natural agriculture-tech palette.',
     primary: '#1b4d2e',
     secondary: '#365314',
     surface: '#ffffff',
@@ -18,15 +19,27 @@ export const THEME_OPTIONS = [
     mode: 'light'
   },
   {
-    id: 'night-monitor',
-    name: 'NIGHT MONITOR',
-    subtitle: 'Dark Pro',
-    description: 'Professional dark IoT monitoring interface with deep charcoal navy, emerald & cyan telemetry highlights, and layered dark monitoring cards.',
+    id: 'light',
+    name: 'Light',
+    subtitle: 'Enterprise Clean',
+    description: 'Crisp light enterprise interface with cool slate borders, balanced whites, emerald accents, and high-clarity typography.',
+    primary: '#166534',
+    secondary: '#15803d',
+    surface: '#ffffff',
+    bg: '#f7f8f5',
+    badge: 'Light',
+    mode: 'light'
+  },
+  {
+    id: 'dark',
+    name: 'Night Monitor',
+    subtitle: 'Dark / Night Monitor',
+    description: 'Deep navy charcoal canvas, elevated cards, emerald telemetry signals, cyan highlights, and ultra-high contrast for low-light monitoring.',
     primary: '#10b981',
-    secondary: '#06b6d4',
-    surface: '#111a26',
-    bg: '#0b1118',
-    badge: 'Dark Pro',
+    secondary: '#22d3ee',
+    surface: '#172033',
+    bg: '#0b1220',
+    badge: 'Night Monitor',
     mode: 'dark'
   }
 ];
@@ -39,7 +52,7 @@ export const ACCENT_OPTIONS = [
   { id: 'orange', name: 'Orange', color: '#ea580c' }
 ];
 
-const DEFAULT_SETTINGS = {
+export const DEFAULT_SETTINGS = {
   theme: 'forest',
   accent: 'green',
   layout: 'comfortable',
@@ -49,19 +62,28 @@ const DEFAULT_SETTINGS = {
   fontSize: 'medium'
 };
 
+export function normalizeTheme(th) {
+  if (!th) return 'forest';
+  const lower = String(th).toLowerCase().trim();
+  if (lower === 'dark' || lower === 'night-monitor' || lower === 'night_monitor' || lower === 'night') {
+    return 'dark';
+  }
+  if (lower === 'light') {
+    return 'light';
+  }
+  if (lower === 'forest' || lower === 'organic') {
+    return 'forest';
+  }
+  return 'forest'; // Safe fallback for unknown theme values per Section 33 & 34
+}
+
 export function AppearanceProvider({ children }) {
   const [settings, setSettings] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        // Normalize legacy or other theme IDs to either forest or night-monitor
-        let normalizedTheme = parsed.theme;
-        if (normalizedTheme === 'dark') {
-          normalizedTheme = 'night-monitor';
-        } else if (normalizedTheme !== 'night-monitor') {
-          normalizedTheme = 'forest';
-        }
+        const normalizedTheme = normalizeTheme(parsed.theme);
         return { ...DEFAULT_SETTINGS, ...parsed, theme: normalizedTheme };
       }
     } catch (e) {
@@ -73,7 +95,7 @@ export function AppearanceProvider({ children }) {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isQuickAppearanceOpen, setIsQuickAppearanceOpen] = useState(false);
 
-  // Sync to document attributes
+  // Sync to document attributes immediately
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', settings.theme);
@@ -84,7 +106,7 @@ export function AppearanceProvider({ children }) {
     root.setAttribute('data-font-size', settings.fontSize);
     root.setAttribute('data-animation', settings.animation);
 
-    // Save to localStorage
+    // Also keep localStorage updated
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
     } catch (e) {
@@ -92,17 +114,79 @@ export function AppearanceProvider({ children }) {
     }
   }, [settings]);
 
+  // Load saved appearance settings from backend on mount if user is authenticated
+  useEffect(() => {
+    const token =
+      localStorage.getItem('veg_storage_auth_token') ||
+      sessionStorage.getItem('veg_storage_auth_token');
+
+    if (token) {
+      getAppearanceSettings(token)
+        .then((res) => {
+          if (res?.success && res.appearance?.theme) {
+            const remoteTheme = normalizeTheme(res.appearance.theme);
+            setSettings((prev) => {
+              if (prev.theme !== remoteTheme) {
+                return {
+                  ...prev,
+                  theme: remoteTheme,
+                  accent: res.appearance.accent || prev.accent,
+                  cardStyle: res.appearance.card_style || prev.cardStyle,
+                  fontSize: res.appearance.font_size || prev.fontSize,
+                  animation: res.appearance.animation || prev.animation
+                };
+              }
+              return prev;
+            });
+          }
+        })
+        .catch((err) => {
+          console.warn('Initial appearance load fallback to local/default:', err);
+        });
+    }
+  }, []);
+
   const updateSetting = useCallback((key, value) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  const setTheme = useCallback((theme) => {
-    // Ensure only valid themes are applied
-    const valid = theme === 'night-monitor' ? 'night-monitor' : 'forest';
-    updateSetting('theme', valid);
+  const setTheme = useCallback((themeInput) => {
+    const valid = normalizeTheme(themeInput);
+
+    // Apply immediately to HTML root element
+    document.documentElement.setAttribute('data-theme', valid);
+
+    // Update state
+    setSettings((prev) => {
+      const next = { ...prev, theme: valid };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
+    // Asynchronously persist to backend database
+    const token =
+      localStorage.getItem('veg_storage_auth_token') ||
+      sessionStorage.getItem('veg_storage_auth_token');
+
+    if (token) {
+      updateAppearanceSettings({ theme: valid }, token).catch((err) => {
+        console.warn('Backend appearance theme persist notice:', err);
+      });
+    }
+  }, []);
+
+  const setAccent = useCallback((accent) => {
+    updateSetting('accent', accent);
+    const token =
+      localStorage.getItem('veg_storage_auth_token') ||
+      sessionStorage.getItem('veg_storage_auth_token');
+    if (token) {
+      updateAppearanceSettings({ accent }, token).catch(() => {});
+    }
   }, [updateSetting]);
 
-  const setAccent = useCallback((accent) => updateSetting('accent', accent), [updateSetting]);
   const setLayout = useCallback((layout) => updateSetting('layout', layout), [updateSetting]);
   const setSidebarMode = useCallback((mode) => updateSetting('sidebarMode', mode), [updateSetting]);
   const setAnimation = useCallback((anim) => updateSetting('animation', anim), [updateSetting]);
@@ -111,6 +195,13 @@ export function AppearanceProvider({ children }) {
 
   const resetToDefault = useCallback(() => {
     setSettings(DEFAULT_SETTINGS);
+    document.documentElement.setAttribute('data-theme', DEFAULT_SETTINGS.theme);
+    const token =
+      localStorage.getItem('veg_storage_auth_token') ||
+      sessionStorage.getItem('veg_storage_auth_token');
+    if (token) {
+      updateAppearanceSettings({ theme: DEFAULT_SETTINGS.theme }, token).catch(() => {});
+    }
   }, []);
 
   const toggleMobileSidebar = useCallback(() => {
@@ -121,11 +212,15 @@ export function AppearanceProvider({ children }) {
     setIsQuickAppearanceOpen((prev) => !prev);
   }, []);
 
+  const isDark = settings.theme === 'dark';
+
   const toggleMode = useCallback(() => {
-    setTheme(settings.theme === 'night-monitor' ? 'forest' : 'night-monitor');
+    setTheme(settings.theme === 'dark' ? 'forest' : 'dark');
   }, [settings.theme, setTheme]);
 
   const value = {
+    theme: settings.theme,
+    isDark,
     settings,
     setTheme,
     toggleMode,
@@ -154,3 +249,6 @@ export function useAppearance() {
   }
   return context;
 }
+
+// Global alias for compatibility
+export const useTheme = useAppearance;

@@ -1,15 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Palette,
-  Sun,
-  Moon,
-  Sparkles,
   Check,
   RotateCcw,
-  Layout,
-  Type
+  Sparkles,
+  Circle,
+  CheckCircle2
 } from 'lucide-react';
-import { THEME_OPTIONS, ACCENT_OPTIONS } from '../../context/AppearanceContext';
+import { THEME_OPTIONS, ACCENT_OPTIONS, normalizeTheme } from '../../context/AppearanceContext';
 
 export function AppearanceSettings({
   currentTheme,
@@ -24,15 +21,35 @@ export function AppearanceSettings({
   onSave,
   isSaving
 }) {
-  const [selectedTheme, setSelectedTheme] = useState(currentTheme || 'forest');
+  const [selectedTheme, setSelectedTheme] = useState(() => normalizeTheme(currentTheme || 'forest'));
   const [selectedAccent, setSelectedAccent] = useState(currentAccent || 'green');
   const [selectedCardStyle, setSelectedCardStyle] = useState(cardStyle || 'rounded');
   const [selectedFontSize, setSelectedFontSize] = useState(fontSize || 'medium');
   const [isTouched, setIsTouched] = useState(false);
 
+  // Synchronize when currentTheme changes externally
+  useEffect(() => {
+    if (currentTheme) {
+      setSelectedTheme(normalizeTheme(currentTheme));
+    }
+  }, [currentTheme]);
+
+  useEffect(() => {
+    if (currentAccent) setSelectedAccent(currentAccent);
+  }, [currentAccent]);
+
+  useEffect(() => {
+    if (cardStyle) setSelectedCardStyle(cardStyle);
+  }, [cardStyle]);
+
+  useEffect(() => {
+    if (fontSize) setSelectedFontSize(fontSize);
+  }, [fontSize]);
+
   const handleSelectTheme = (themeId) => {
-    setSelectedTheme(themeId);
-    onThemeChange(themeId);
+    const valid = normalizeTheme(themeId);
+    setSelectedTheme(valid);
+    onThemeChange(valid);
     setIsTouched(true);
   };
 
@@ -67,7 +84,16 @@ export function AppearanceSettings({
 
   return (
     <div className="settings-panel">
-      <div className="settings-panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
+      <div
+        className="settings-panel-header"
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: '0.75rem'
+        }}
+      >
         <div>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
             Appearance & Visual Identity
@@ -85,10 +111,17 @@ export function AppearanceSettings({
             setSelectedAccent('green');
             setSelectedCardStyle('rounded');
             setSelectedFontSize('medium');
-            setIsTouched(true);
+            setIsTouched(false);
           }}
           className="btn btn-secondary"
-          style={{ padding: '0.45rem 0.85rem', fontSize: '0.8rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+          style={{
+            padding: '0.45rem 0.85rem',
+            fontSize: '0.8rem',
+            fontWeight: 600,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.35rem'
+          }}
         >
           <RotateCcw size={14} /> Reset Defaults
         </button>
@@ -97,70 +130,140 @@ export function AppearanceSettings({
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1.25rem' }}>
         {/* Theme Cards */}
         <div>
-          <label style={{ display: 'block', fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.75rem' }}>
-            Brand Themes
+          <label
+            style={{
+              display: 'block',
+              fontSize: '0.88rem',
+              fontWeight: 700,
+              color: 'var(--text-main)',
+              marginBottom: '0.75rem'
+            }}
+          >
+            Theme
           </label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: '1rem'
+            }}
+          >
             {THEME_OPTIONS.map((theme) => {
               const isSelected = selectedTheme === theme.id;
               return (
                 <div
                   key={theme.id}
+                  id={`theme-card-${theme.id}`}
                   onClick={() => handleSelectTheme(theme.id)}
                   style={{
                     padding: '1.15rem',
                     borderRadius: '12px',
                     border: isSelected
-                      ? '2px solid var(--primary-color, #1b4d2e)'
-                      : '1px solid var(--border-color)',
-                    background: theme.surface,
+                      ? '2px solid var(--primary, #10b981)'
+                      : '1px solid var(--border-light, var(--border, #e2e8f0))',
+                    backgroundColor: isSelected
+                      ? 'var(--bg-card-hover, var(--bg-card))'
+                      : 'var(--bg-card)',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '0.65rem',
                     position: 'relative',
-                    transition: 'all 0.15s ease',
-                    boxShadow: isSelected ? '0 4px 14px rgba(27, 77, 46, 0.1)' : 'none'
+                    transition: 'all 0.18s ease',
+                    boxShadow: isSelected
+                      ? '0 0 0 1px var(--primary, #10b981), 0 4px 14px rgba(0, 0, 0, 0.12)'
+                      : 'var(--shadow-sm)'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      {/* Check / Radio indicator per Section 30 */}
                       <div
                         style={{
-                          width: 18,
-                          height: 18,
+                          width: 20,
+                          height: 20,
                           borderRadius: '50%',
-                          background: theme.primary,
-                          border: '2px solid #ffffff'
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: isSelected
+                            ? '2px solid var(--primary, #10b981)'
+                            : '2px solid var(--text-secondary, #94a3b8)',
+                          backgroundColor: isSelected ? 'var(--primary, #10b981)' : 'transparent',
+                          color: '#ffffff',
+                          transition: 'all 0.15s ease'
                         }}
-                      />
-                      <span style={{ fontSize: '0.92rem', fontWeight: 700, color: theme.id === 'night-monitor' ? '#f8fafc' : '#0f172a' }}>
+                      >
+                        {isSelected && <Check size={13} strokeWidth={3} />}
+                      </div>
+
+                      <span
+                        style={{
+                          fontSize: '0.95rem',
+                          fontWeight: 700,
+                          color: 'var(--text-main, #ffffff)'
+                        }}
+                      >
                         {theme.name}
                       </span>
                     </div>
 
                     <span
                       style={{
-                        fontSize: '0.7rem',
+                        fontSize: '0.72rem',
                         fontWeight: 600,
-                        padding: '0.15rem 0.45rem',
+                        padding: '0.2rem 0.55rem',
                         borderRadius: '999px',
-                        background: `${theme.primary}20`,
-                        color: theme.primary
+                        backgroundColor: isSelected
+                          ? 'var(--primary, #10b981)'
+                          : 'rgba(16, 185, 129, 0.14)',
+                        color: isSelected ? '#ffffff' : 'var(--primary, #10b981)'
                       }}
                     >
                       {theme.badge}
                     </span>
                   </div>
 
-                  <p style={{ margin: 0, fontSize: '0.78rem', color: theme.id === 'night-monitor' ? '#94a3b8' : '#64748b', lineHeight: 1.4 }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: '0.8rem',
+                      color: 'var(--text-secondary, #9bafc2)',
+                      lineHeight: 1.45
+                    }}
+                  >
                     {theme.description}
                   </p>
 
-                  <div style={{ display: 'flex', gap: '0.35rem', marginTop: 'auto', paddingTop: '0.5rem' }}>
-                    <div style={{ height: 6, flex: 1, borderRadius: 3, background: theme.primary }} />
-                    <div style={{ height: 6, flex: 1, borderRadius: 3, background: theme.secondary }} />
-                    <div style={{ height: 6, flex: 1, borderRadius: 3, background: theme.bg, border: '1px solid #cbd5e1' }} />
+                  <div style={{ display: 'flex', gap: '0.4rem', marginTop: 'auto', paddingTop: '0.5rem' }}>
+                    <div
+                      style={{
+                        height: 6,
+                        flex: 1,
+                        borderRadius: 3,
+                        backgroundColor: theme.primary
+                      }}
+                      title="Primary Brand Accent"
+                    />
+                    <div
+                      style={{
+                        height: 6,
+                        flex: 1,
+                        borderRadius: 3,
+                        backgroundColor: theme.secondary
+                      }}
+                      title="Secondary Accent"
+                    />
+                    <div
+                      style={{
+                        height: 6,
+                        flex: 1,
+                        borderRadius: 3,
+                        backgroundColor: theme.bg,
+                        border: '1px solid var(--border-light, #cbd5e1)'
+                      }}
+                      title="Canvas Background"
+                    />
                   </div>
                 </div>
               );
@@ -170,7 +273,15 @@ export function AppearanceSettings({
 
         {/* Accent Colors */}
         <div>
-          <label style={{ display: 'block', fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.65rem' }}>
+          <label
+            style={{
+              display: 'block',
+              fontSize: '0.86rem',
+              fontWeight: 700,
+              color: 'var(--text-main)',
+              marginBottom: '0.65rem'
+            }}
+          >
             Accent Highlights
           </label>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -184,20 +295,29 @@ export function AppearanceSettings({
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.5rem',
+                    gap: '0.45rem',
                     padding: '0.45rem 0.85rem',
                     borderRadius: '8px',
-                    border: isSelected ? `2px solid ${acc.color}` : '1px solid var(--border-color)',
-                    background: isSelected ? `${acc.color}15` : 'var(--bg-surface)',
-                    color: isSelected ? acc.color : 'var(--text-main)',
-                    fontSize: '0.82rem',
+                    border: isSelected ? `2px solid ${acc.color}` : '1px solid var(--border-light, #e2e8f0)',
+                    backgroundColor: isSelected ? `${acc.color}15` : 'var(--bg-card)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.825rem',
                     fontWeight: 600,
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
                   }}
                 >
-                  <span style={{ width: 12, height: 12, borderRadius: '50%', background: acc.color }} />
-                  {acc.name}
-                  {isSelected && <Check size={14} />}
+                  <span
+                    style={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: '50%',
+                      backgroundColor: acc.color,
+                      display: 'inline-block'
+                    }}
+                  />
+                  <span>{acc.name}</span>
+                  {isSelected && <Check size={14} color={acc.color} />}
                 </button>
               );
             })}
@@ -220,9 +340,9 @@ export function AppearanceSettings({
                     flex: 1,
                     padding: '0.45rem 0.75rem',
                     borderRadius: style === 'rounded' ? '8px' : '2px',
-                    border: selectedCardStyle === style ? '1px solid var(--primary-color, #1b4d2e)' : '1px solid var(--border-color)',
-                    background: selectedCardStyle === style ? 'rgba(27, 77, 46, 0.1)' : 'var(--bg-surface)',
-                    color: selectedCardStyle === style ? 'var(--primary-color, #1b4d2e)' : 'var(--text-main)',
+                    border: selectedCardStyle === style ? '1px solid var(--primary, #10b981)' : '1px solid var(--border-light, #e2e8f0)',
+                    backgroundColor: selectedCardStyle === style ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-card)',
+                    color: selectedCardStyle === style ? 'var(--primary, #10b981)' : 'var(--text-main)',
                     fontSize: '0.8rem',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -249,9 +369,9 @@ export function AppearanceSettings({
                     flex: 1,
                     padding: '0.45rem 0.75rem',
                     borderRadius: '8px',
-                    border: selectedFontSize === size ? '1px solid var(--primary-color, #1b4d2e)' : '1px solid var(--border-color)',
-                    background: selectedFontSize === size ? 'rgba(27, 77, 46, 0.1)' : 'var(--bg-surface)',
-                    color: selectedFontSize === size ? 'var(--primary-color, #1b4d2e)' : 'var(--text-main)',
+                    border: selectedFontSize === size ? '1px solid var(--primary, #10b981)' : '1px solid var(--border-light, #e2e8f0)',
+                    backgroundColor: selectedFontSize === size ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-card)',
+                    color: selectedFontSize === size ? 'var(--primary, #10b981)' : 'var(--text-main)',
                     fontSize: '0.8rem',
                     fontWeight: 600,
                     cursor: 'pointer',

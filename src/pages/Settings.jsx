@@ -124,14 +124,7 @@ export function Settings() {
       const s = settingsRes.settings || {};
       setSettingsData(s);
 
-      // Sync appearance if stored in user_settings
-      if (s.theme && s.theme !== appearanceSettings.theme) {
-        setTheme(s.theme);
-      }
-      if (s.accent && s.accent !== appearanceSettings.accent) {
-        setAccent(s.accent);
-      }
-
+      // Note: Appearance is synchronized centrally by AppearanceContext
       const devs = devicesRes.devices || [];
       setDevicesList(devs);
     } catch (err) {
@@ -140,7 +133,7 @@ export function Settings() {
     } finally {
       setLoading(false);
     }
-  }, [token, setTheme, setAccent, appearanceSettings.theme, appearanceSettings.accent]);
+  }, [token]);
 
   useEffect(() => {
     loadData();

@@ -429,10 +429,10 @@ export function ConnectedStateView({
         <CheckCircle2 size={24} color="#ffffff" />
         <div>
           <h2 className="connected-banner-title">
-            ✓ {device.isDemo || device.status === 'Demo Connected' ? 'Demo Connected' : 'Connected'}
+            {device?.isDemo || device?.status === 'Demo Connected' ? 'Demo Connected' : 'Connected'}
           </h2>
           <div className="connected-device-subtitle">
-            {device.name || (device.isDemo ? 'ESP32-DEMO-001' : 'ESP32-001')} · <span className="mono-ip">{device.ip || device.ipAddress || '192.168.1.105'}</span>
+            {device?.name || (device?.isDemo ? 'ESP32-DEMO-001' : 'ESP32-001')} · <span className="mono-ip">{device?.ip || device?.ipAddress || '192.168.1.105'}</span>
           </div>
         </div>
       </div>
@@ -441,21 +441,21 @@ export function ConnectedStateView({
       <div className="connected-three-sensors-grid">
         {/* Card 1: Temperature */}
         <div className="compact-sensor-card">
-          <span className="compact-sensor-icon">🌡</span>
+          <span className="compact-sensor-icon"><Thermometer size={16} /></span>
           <span className="compact-sensor-val">{temp}</span>
           <span className="compact-sensor-label">Temperature</span>
         </div>
 
         {/* Card 2: Humidity */}
         <div className="compact-sensor-card">
-          <span className="compact-sensor-icon">💧</span>
+          <span className="compact-sensor-icon"><Droplets size={16} /></span>
           <span className="compact-sensor-val">{humidity}</span>
           <span className="compact-sensor-label">Humidity</span>
         </div>
 
         {/* Card 3: Gas / VOC */}
         <div className="compact-sensor-card">
-          <span className="compact-sensor-icon">◉</span>
+          <span className="compact-sensor-icon"><Wind size={16} /></span>
           <span className="compact-sensor-val">{gasLevel !== undefined && gasLevel !== null ? `${gasLevel} ppm` : '420 ppm'}</span>
           <span className="compact-sensor-label">Gas / VOC</span>
         </div>

@@ -289,7 +289,7 @@ export function ConnectDevicePage() {
               </div>
               <span className={`status-pill ${isConnected ? 'active' : ''}`}>
                 <span className={`status-indicator-dot ${isConnected ? 'dot-green' : 'dot-amber'}`} />
-                <span>{isConnected ? `${device.id || 'ESP32-001'} Connected` : 'Ready to Connect'}</span>
+                <span>{isConnected ? `${device?.id || 'ESP32-001'} Connected` : 'Ready to Connect'}</span>
               </span>
             </div>
 
@@ -317,8 +317,8 @@ export function ConnectDevicePage() {
           {isConnected ? (
             <div className="vegsense-card refined-connected-card">
               <ConnectedStateView
-                device={device}
-                sensorData={sensorData}
+                device={device || {}}
+                sensorData={sensorData || {}}
                 onContinue={() => navigate('/dashboard')}
                 onChangeDevice={handleChangeDevice}
               />

@@ -1,54 +1,63 @@
 /* ==========================================================================
    VEGSENSE DESIGN SYSTEM & THEME ENGINE
-   1. FOREST — Organic (Default Agriculture-Tech Light)
-   2. NIGHT MONITOR — Dark Pro (High-Tech IoT Telemetry Dark)
+   1. FOREST — Organic (Default Agriculture-Tech Cream & Forest Green)
+   2. LIGHT — Clean Enterprise (High-Clarity Light Slate & White)
+   3. NIGHT MONITOR / DARK — Professional IoT Telemetry (Deep Charcoal & Emerald)
    ========================================================================== */
 
 :root {
-  /* Default Theme 1: FOREST — Organic */
-  --primary: #1b4d2e;
+  /* Default: Forest / Organic Theme */
+  --bg-primary: #FAF7F0;
+  --bg-secondary: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F5F0E6;
+  --bg-subtle: #F4EFE4;
+
+  --text-primary: #142417;
+  --text-secondary: #3E5043;
+  --text-muted: #5E7264;
+  --text-light: #8A9D90;
+
+  --border: #E3DBCB;
+  --border-light: #E3DBCB;
+  --border-color: #E3DBCB;
+  --border-focus: #1B4D2E;
+
+  --primary: #1B4D2E;
   --primary-hover: #143820;
-  --primary-active: #0c2314;
-  --primary-light: #e8f5ec;
-  --primary-border: #a9dcb8;
+  --primary-active: #0C2314;
+  --primary-light: #E8F5EC;
+  --primary-border: #A9DCB8;
   --primary-glow: rgba(27, 77, 46, 0.16);
 
-  --accent-color: #16a34a;
-  --accent-hover: #15803d;
-  --accent-light: #e8f5ec;
+  --accent: #16A34A;
+  --accent-color: #16A34A;
+  --accent-hover: #15803D;
+  --accent-light: #E8F5EC;
 
-  --accent-olive: #425f33;
-  --accent-mint: #dcfce7;
-  --accent-blue: #0284c7;
-  --accent-amber: #d97706;
-  --accent-red: #dc2626;
-  --accent-red-light: #fef2f2;
-  --accent-red-border: #fecaca;
-  --accent-cyan: #06b6d4;
+  --accent-olive: #425F33;
+  --accent-mint: #DCFCE7;
+  --accent-blue: #0284C7;
+  --accent-amber: #D97706;
+  --accent-red: #DC2626;
+  --accent-red-light: #FEF2F2;
+  --accent-red-border: #FECACA;
+  --accent-cyan: #06B6D4;
 
-  /* Neutrals: Warm cream & organic beige */
-  --bg-page: #faf7f0;
-  --bg-card: #ffffff;
-  --bg-subtle: #f4efe4;
-  --border-light: #e3dbcb;
-  --border-focus: #1b4d2e;
-  
-  --text-main: #142417;
-  --text-secondary: #3e5043;
-  --text-muted: #5e7264;
-  --text-light: #8a9d90;
+  --bg-page: var(--bg-primary);
+  --text-main: var(--text-primary);
 
   /* Status Colors */
-  --status-green: #16a34a;
-  --status-yellow: #eab308;
-  --status-red: #ef4444;
-  --status-blue: #0284c7;
+  --status-green: #16A34A;
+  --status-yellow: #EAB308;
+  --status-red: #EF4444;
+  --status-blue: #0284C7;
 
   /* Typography & Sizing */
   --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --app-font-size: 15px;
 
-  /* Radii & Organic Geometry */
+  /* Radii & Geometry */
   --card-radius: 18px;
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -72,28 +81,42 @@
 }
 
 /* ==========================================================================
-   THEME 1 — FOREST / ORGANIC (Light Agriculture-Tech)
+   THEME 1 — FOREST / ORGANIC (Agriculture-Tech Light)
    ========================================================================== */
 [data-theme="forest"],
 [data-theme="fresh-green"],
 [data-theme="earth"] {
-  --primary: #1b4d2e;
+  --bg-primary: #FAF7F0;
+  --bg-secondary: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F5F0E6;
+  --bg-subtle: #F4EFE4;
+
+  --text-primary: #142417;
+  --text-secondary: #3E5043;
+  --text-muted: #5E7264;
+  --text-light: #8A9D90;
+
+  --border: #E3DBCB;
+  --border-light: #E3DBCB;
+  --border-color: #E3DBCB;
+  --border-focus: #1B4D2E;
+
+  --primary: #1B4D2E;
   --primary-hover: #143820;
-  --primary-active: #0c2314;
-  --primary-light: #e8f5ec;
-  --primary-border: #a9dcb8;
+  --primary-active: #0C2314;
+  --primary-light: #E8F5EC;
+  --primary-border: #A9DCB8;
   --primary-glow: rgba(27, 77, 46, 0.16);
 
-  --bg-page: #faf7f0;
-  --bg-card: #ffffff;
-  --bg-subtle: #f4efe4;
-  --border-light: #e3dbcb;
-  --border-focus: #1b4d2e;
+  --accent: #16A34A;
+  --accent-color: #16A34A;
+  --accent-hover: #15803D;
+  --accent-light: #E8F5EC;
+  --accent-cyan: #06B6D4;
 
-  --text-main: #142417;
-  --text-secondary: #3e5043;
-  --text-muted: #5e7264;
-  --text-light: #8a9d90;
+  --bg-page: var(--bg-primary);
+  --text-main: var(--text-primary);
 
   --card-radius: 18px;
   --shadow-sm: 0 1px 3px 0 rgba(27, 77, 46, 0.04);
@@ -102,30 +125,85 @@
 }
 
 /* ==========================================================================
-   THEME 2 — NIGHT MONITOR / DARK PRO (High-Tech IoT Telemetry)
+   THEME 2 — LIGHT THEME (Clean Enterprise)
    ========================================================================== */
-[data-theme="night-monitor"],
-[data-theme="dark"] {
-  --primary: #10b981;
+[data-theme="light"] {
+  --bg-primary: #F7F8F5;
+  --bg-secondary: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F1F5F9;
+  --bg-subtle: #F1F5F9;
+
+  --text-primary: #172033;
+  --text-secondary: #607084;
+  --text-muted: #64748B;
+  --text-light: #94A3B8;
+
+  --border: #E2E8F0;
+  --border-light: #E2E8F0;
+  --border-color: #E2E8F0;
+  --border-focus: #166534;
+
+  --primary: #166534;
+  --primary-hover: #14532D;
+  --primary-active: #052E16;
+  --primary-light: #DCFCE7;
+  --primary-border: #86EFAC;
+  --primary-glow: rgba(22, 101, 52, 0.16);
+
+  --accent: #15803D;
+  --accent-color: #15803D;
+  --accent-hover: #166534;
+  --accent-light: #DCFCE7;
+  --accent-cyan: #0284C7;
+
+  --bg-page: var(--bg-primary);
+  --text-main: var(--text-primary);
+
+  --card-radius: 16px;
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 14px -2px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 24px -4px rgba(0, 0, 0, 0.1);
+}
+
+/* ==========================================================================
+   THEME 3 — NIGHT MONITOR / DARK THEME (High-Tech IoT Telemetry)
+   ========================================================================== */
+[data-theme="dark"],
+[data-theme="night-monitor"] {
+  color-scheme: dark;
+
+  --bg-primary: #0B1220;
+  --bg-secondary: #111827;
+  --bg-card: #172033;
+  --bg-card-hover: #1D2939;
+  --bg-subtle: #162232;
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #9BAFC2;
+  --text-muted: #64748B;
+  --text-light: #475569;
+
+  --border: #263548;
+  --border-light: #263548;
+  --border-color: #263548;
+  --border-focus: #22D3EE;
+
+  --primary: #10B981;
   --primary-hover: #059669;
   --primary-active: #047857;
   --primary-light: rgba(16, 185, 129, 0.14);
   --primary-border: rgba(16, 185, 129, 0.32);
   --primary-glow: rgba(16, 185, 129, 0.22);
 
-  --accent-cyan: #22d3ee;
-  --accent-color: #10b981;
+  --accent: #22D3EE;
+  --accent-color: #10B981;
+  --accent-hover: #059669;
+  --accent-light: rgba(16, 185, 129, 0.14);
+  --accent-cyan: #22D3EE;
 
-  --bg-page: #0b1118;
-  --bg-card: #111a26;
-  --bg-subtle: #162232;
-  --border-light: rgba(34, 211, 238, 0.14);
-  --border-focus: #22d3ee;
-
-  --text-main: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-light: #475569;
+  --bg-page: var(--bg-primary);
+  --text-main: var(--text-primary);
 
   --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.45);
   --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.55), 0 0 1px 1px rgba(34, 211, 238, 0.1);
@@ -241,11 +319,12 @@ html, body {
   position: relative;
   font-family: var(--font-family);
   font-size: var(--app-font-size);
-  background-color: var(--bg-page);
-  color: var(--text-main);
+  background-color: var(--bg-primary, var(--bg-page));
+  color: var(--text-primary, var(--text-main));
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
 #root {
@@ -253,6 +332,170 @@ html, body {
   max-width: 100%;
   overflow-x: hidden;
   min-height: 100vh;
+  background-color: var(--bg-primary, var(--bg-page));
+  color: var(--text-primary, var(--text-main));
+}
+
+/* Scrollbars support active theme */
+[data-theme="dark"] ::-webkit-scrollbar,
+[data-theme="night-monitor"] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+[data-theme="dark"] ::-webkit-scrollbar-track,
+[data-theme="night-monitor"] ::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb,
+[data-theme="night-monitor"] ::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover,
+[data-theme="night-monitor"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Dark Theme Global Surfaces & Components (Section 18-29) */
+[data-theme="dark"] .vegsense-card,
+[data-theme="night-monitor"] .vegsense-card,
+[data-theme="dark"] .settings-panel,
+[data-theme="night-monitor"] .settings-panel,
+[data-theme="dark"] .admin-card,
+[data-theme="night-monitor"] .admin-card,
+[data-theme="dark"] .admin-table-container,
+[data-theme="night-monitor"] .admin-table-container {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .admin-portal-shell,
+[data-theme="night-monitor"] .admin-portal-shell {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .admin-sidebar,
+[data-theme="night-monitor"] .admin-sidebar {
+  background-color: var(--bg-secondary) !important;
+  border-right: 1px solid var(--border) !important;
+}
+
+[data-theme="dark"] .admin-header,
+[data-theme="night-monitor"] .admin-header {
+  background-color: var(--bg-secondary) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+[data-theme="dark"] .admin-modal,
+[data-theme="night-monitor"] .admin-modal,
+[data-theme="dark"] .admin-modal-card,
+[data-theme="night-monitor"] .admin-modal-card,
+[data-theme="dark"] .admin-modal-content,
+[data-theme="night-monitor"] .admin-modal-content,
+[data-theme="dark"] .modal-card,
+[data-theme="night-monitor"] .modal-card {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .admin-modal-backdrop,
+[data-theme="night-monitor"] .admin-modal-backdrop,
+[data-theme="dark"] .admin-mobile-overlay,
+[data-theme="night-monitor"] .admin-mobile-overlay,
+[data-theme="dark"] .mobile-sidebar-overlay,
+[data-theme="night-monitor"] .mobile-sidebar-overlay {
+  background-color: rgba(0, 0, 0, 0.75) !important;
+}
+
+[data-theme="dark"] .admin-modal-header,
+[data-theme="night-monitor"] .admin-modal-header,
+[data-theme="dark"] .admin-modal-footer,
+[data-theme="night-monitor"] .admin-modal-footer {
+  border-color: var(--border) !important;
+}
+
+[data-theme="dark"] .admin-input,
+[data-theme="night-monitor"] .admin-input,
+[data-theme="dark"] .admin-select,
+[data-theme="night-monitor"] .admin-select,
+[data-theme="dark"] .form-input,
+[data-theme="night-monitor"] .form-input,
+[data-theme="dark"] .form-select,
+[data-theme="night-monitor"] .form-select,
+[data-theme="dark"] input[type="text"],
+[data-theme="night-monitor"] input[type="text"],
+[data-theme="dark"] input[type="password"],
+[data-theme="night-monitor"] input[type="password"],
+[data-theme="dark"] input[type="email"],
+[data-theme="night-monitor"] input[type="email"],
+[data-theme="dark"] select,
+[data-theme="night-monitor"] select,
+[data-theme="dark"] textarea,
+[data-theme="night-monitor"] textarea {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="night-monitor"] input::placeholder,
+[data-theme="dark"] textarea::placeholder,
+[data-theme="night-monitor"] textarea::placeholder {
+  color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] .admin-table th,
+[data-theme="night-monitor"] .admin-table th,
+[data-theme="dark"] table th,
+[data-theme="night-monitor"] table th {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-secondary) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+[data-theme="dark"] .admin-table td,
+[data-theme="night-monitor"] .admin-table td,
+[data-theme="dark"] table td,
+[data-theme="night-monitor"] table td {
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .admin-table tr:hover td,
+[data-theme="night-monitor"] .admin-table tr:hover td,
+[data-theme="dark"] table tbody tr:hover td,
+[data-theme="night-monitor"] table tbody tr:hover td {
+  background-color: var(--bg-card-hover) !important;
+}
+
+[data-theme="dark"] .notification-dropdown,
+[data-theme="night-monitor"] .notification-dropdown,
+[data-theme="dark"] .admin-popover-dropdown,
+[data-theme="night-monitor"] .admin-popover-dropdown,
+[data-theme="dark"] .quick-appearance-dropdown,
+[data-theme="night-monitor"] .quick-appearance-dropdown {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6) !important;
+}
+
+[data-theme="dark"] .notification-item,
+[data-theme="night-monitor"] .notification-item,
+[data-theme="dark"] .admin-notif-item,
+[data-theme="night-monitor"] .admin-notif-item {
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .notification-item:hover,
+[data-theme="night-monitor"] .notification-item:hover,
+[data-theme="dark"] .admin-notif-item:hover,
+[data-theme="night-monitor"] .admin-notif-item:hover {
+  background-color: var(--bg-card-hover) !important;
 }
 
 a {

@@ -5,6 +5,7 @@ import { AppearanceProvider } from './context/AppearanceContext';
 import { DeviceProvider, useDevice } from './context/DeviceContext';
 import { AlertProvider } from './context/AlertContext';
 import { RouterProvider, useLocation } from './router/Router';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Public Pages
 import { LoginPage } from './pages/LoginPage';
@@ -140,18 +141,20 @@ function AppContent() {
 
 export default function App() {
   return (
-    <ToastProvider>
-      <AuthProvider>
-        <AppearanceProvider>
-          <DeviceProvider>
-            <AlertProvider>
-              <RouterProvider>
-                <AppContent />
-              </RouterProvider>
-            </AlertProvider>
-          </DeviceProvider>
-        </AppearanceProvider>
-      </AuthProvider>
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <AuthProvider>
+          <AppearanceProvider>
+            <DeviceProvider>
+              <AlertProvider>
+                <RouterProvider>
+                  <AppContent />
+                </RouterProvider>
+              </AlertProvider>
+            </DeviceProvider>
+          </AppearanceProvider>
+        </AuthProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }
