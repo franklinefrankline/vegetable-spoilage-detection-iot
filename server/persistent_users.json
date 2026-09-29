@@ -64,51 +64,15 @@
     "updated_at": "2026-09-29T04:04:22.908Z"
   },
   {
-    "id": "usr_admin_6bba9fe4",
-    "name": "Test Eleanor",
-    "email": "testadmin_2894@example.com",
-    "username": "testadmin_2894",
-    "password_hash": "$2b$10$wKHDktDDZGEsnWhALZFwfOWhLPsDPiAvQCD/M8aeKJ9w5om.9k0ku",
-    "role": "ADMIN",
+    "id": "usr_main_admin_vegsense",
+    "name": "VegSense Main Administrator",
+    "email": "vegsense@gmail.com",
+    "username": "vegsense",
+    "password_hash": "$2b$10$DMghT2YetMBjF1cNx/QE9eslErZVGhkvyFid.Fk9SVL2WNLCC.dzG",
+    "role": "MAIN_ADMIN",
     "is_active": 1,
     "last_login_at": null,
-    "created_at": "2026-09-29T11:17:53.774Z",
-    "updated_at": "2026-09-29T11:17:53.797Z"
-  },
-  {
-    "id": "usr_admin_44f919b2",
-    "name": "Sarah Connor 6160",
-    "email": "sarah_6160@vegsense.org",
-    "username": "sarah_6160",
-    "password_hash": "$2b$10$qo33kxjfs6Zt58CcXIPkhOY/DhEmiHLEULII.eb/KIBe1eow/3Yk.",
-    "role": "ADMIN",
-    "is_active": 1,
-    "last_login_at": null,
-    "created_at": "2026-09-29T11:25:31.558Z",
-    "updated_at": "2026-09-29T11:25:31.622Z"
-  },
-  {
-    "id": "usr_admin_bcbd1392",
-    "name": "Sarah Connor 9693",
-    "email": "sarah_9693@vegsense.org",
-    "username": "sarah_9693",
-    "password_hash": "$2b$10$voXXCcBy1vprYole6NuDTujU1sp1i/UT9lnvkgLPfFjOodS3tqphq",
-    "role": "ADMIN",
-    "is_active": 1,
-    "last_login_at": null,
-    "created_at": "2026-09-29T11:26:53.152Z",
-    "updated_at": "2026-09-29T11:26:53.226Z"
-  },
-  {
-    "id": "usr_admin_a2dc7ca4",
-    "name": "Kyle Reese 4735",
-    "email": "kyle_4735@vegsense.org",
-    "username": "kyle_4735",
-    "password_hash": "$2b$10$0i//CPa1r9Q9z26H/Q31tOhKsLFEMeVZBbU4XvsF0940yeCU4Ho5u",
-    "role": "ADMIN",
-    "is_active": 1,
-    "last_login_at": null,
-    "created_at": "2026-09-29T11:26:57.390Z",
-    "updated_at": "2026-09-29T11:26:57.433Z"
+    "created_at": "2026-09-29T11:46:37.469Z",
+    "updated_at": "2026-09-29T11:46:37.469Z"
   }
 ]
