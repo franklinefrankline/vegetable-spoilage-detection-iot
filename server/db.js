@@ -455,9 +455,9 @@ export async function syncPersistentUsers(fetchRemote = true) {
           for (const u of users) {
             if (u.id && u.name && u.email && u.password_hash) {
               const cleanEmail = u.email.toLowerCase().trim();
-              const userRole = u.role || (cleanEmail === 'vegsense@gmail.com' ? 'MAIN_ADMIN' : cleanEmail === 'demo@vegsense.io' || cleanEmail === 'admin@vegsense.io' ? 'ADMIN' : 'USER');
+              const userRole = u.role || (cleanEmail === (process.env.MAIN_ADMIN_EMAIL || 'franklinesamy2006@gmail.com').toLowerCase().trim() || cleanEmail === 'vegsense@gmail.com' ? 'MAIN_ADMIN' : cleanEmail === 'demo@vegsense.io' || cleanEmail === 'admin@vegsense.io' ? 'ADMIN' : 'USER');
               const isActive = u.is_active !== undefined ? (u.is_active ? 1 : 0) : 1;
-              const username = u.username || (cleanEmail === 'vegsense@gmail.com' ? 'vegsense' : null);
+              const username = u.username || (cleanEmail === (process.env.MAIN_ADMIN_EMAIL || 'franklinesamy2006@gmail.com').toLowerCase().trim() ? (process.env.MAIN_ADMIN_USERNAME || 'franklinesamy') : cleanEmail === 'vegsense@gmail.com' ? 'vegsense' : null);
               insertStmt.run(
                 u.id,
                 u.name,
@@ -498,9 +498,9 @@ export async function syncPersistentUsers(fetchRemote = true) {
             for (const u of remoteUsers) {
               if (u.id && u.name && u.email && u.password_hash) {
                 const cleanEmail = u.email.toLowerCase().trim();
-                const userRole = u.role || (cleanEmail === 'vegsense@gmail.com' ? 'MAIN_ADMIN' : cleanEmail === 'demo@vegsense.io' || cleanEmail === 'admin@vegsense.io' ? 'ADMIN' : 'USER');
+                const userRole = u.role || (cleanEmail === (process.env.MAIN_ADMIN_EMAIL || 'franklinesamy2006@gmail.com').toLowerCase().trim() || cleanEmail === 'vegsense@gmail.com' ? 'MAIN_ADMIN' : cleanEmail === 'demo@vegsense.io' || cleanEmail === 'admin@vegsense.io' ? 'ADMIN' : 'USER');
                 const isActive = u.is_active !== undefined ? (u.is_active ? 1 : 0) : 1;
-                const username = u.username || (cleanEmail === 'vegsense@gmail.com' ? 'vegsense' : null);
+                const username = u.username || (cleanEmail === (process.env.MAIN_ADMIN_EMAIL || 'franklinesamy2006@gmail.com').toLowerCase().trim() ? (process.env.MAIN_ADMIN_USERNAME || 'franklinesamy') : cleanEmail === 'vegsense@gmail.com' ? 'vegsense' : null);
                 insertStmt.run(
                   u.id,
                   u.name,
@@ -859,15 +859,15 @@ export function ensureAdminPermissions(userId, isFullAccess = 1) {
  */
 export async function initMainAdmin() {
   try {
-    const mainAdminEmail = (process.env.MAIN_ADMIN_EMAIL || 'vegsense@gmail.com').toLowerCase().trim();
-    const mainAdminPassword = process.env.MAIN_ADMIN_PASSWORD || 'VegSense@Admin2026!';
-    const name = process.env.MAIN_ADMIN_NAME || 'VegSense Main Administrator';
-    const username = (process.env.MAIN_ADMIN_USERNAME || 'vegsense').toLowerCase().trim();
+    const mainAdminEmail = (process.env.MAIN_ADMIN_EMAIL || 'franklinesamy2006@gmail.com').toLowerCase().trim();
+    const mainAdminPassword = process.env.MAIN_ADMIN_PASSWORD || '#Frankline2006';
+    const name = process.env.MAIN_ADMIN_NAME || 'Frankline (Main Administrator)';
+    const username = (process.env.MAIN_ADMIN_USERNAME || 'franklinesamy').toLowerCase().trim();
     const now = new Date().toISOString();
     const passwordHash = bcrypt.hashSync(mainAdminPassword, 10);
     
-    // Check if main admin account exists
-    const existing = db.prepare('SELECT id, name, email, role, is_active FROM users WHERE email = ?').get(mainAdminEmail);
+    // Check if main admin account exists by email or main admin id
+    let existing = db.prepare('SELECT id, name, email, role, is_active FROM users WHERE email = ? OR id = ?').get(mainAdminEmail, 'usr_main_admin_vegsense');
     if (!existing) {
       const id = 'usr_main_admin_vegsense';
 
@@ -899,17 +899,30 @@ export async function initMainAdmin() {
 
       console.log(`[DB] Successfully initialized MAIN_ADMIN account (${mainAdminEmail}).`);
     } else {
-      // Sync updated credentials, username, and role to existing account
+      // Sync updated email, credentials, username, and role to existing account
+      const previousEmail = existing.email;
       db.prepare(`
         UPDATE users 
-        SET role = 'MAIN_ADMIN', 
+        SET email = ?,
+            role = 'MAIN_ADMIN', 
             is_active = 1,
             name = ?,
             username = ?,
             password_hash = ?,
             updated_at = ?
-        WHERE email = ?
-      `).run(name, username, passwordHash, now, mainAdminEmail);
+        WHERE id = ?
+      `).run(mainAdminEmail, name, username, passwordHash, now, existing.id);
+
+      // Clean previous email from persistent_users.json if email address changed
+      if (previousEmail && previousEmail.toLowerCase() !== mainAdminEmail) {
+        try {
+          if (fs.existsSync(PERSISTENT_USERS_PATH)) {
+            const list = JSON.parse(fs.readFileSync(PERSISTENT_USERS_PATH, 'utf-8') || '[]');
+            const filtered = list.filter(u => u.email && u.email.toLowerCase().trim() !== previousEmail.toLowerCase().trim());
+            fs.writeFileSync(PERSISTENT_USERS_PATH, JSON.stringify(filtered, null, 2), 'utf-8');
+          }
+        } catch (_) {}
+      }
 
       await savePersistentUser({
         id: existing.id,
@@ -934,6 +947,8 @@ export async function initMainAdmin() {
           ?, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         )
       `).run(existing.id, existing.id);
+
+      console.log(`[DB] Successfully updated MAIN_ADMIN account (${mainAdminEmail}).`);
     }
   } catch (err) {
     console.warn('[DB] Notice: Could not initialize Main Admin:', err.message);
