@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import db from './db.js';
 
 export const DEFAULT_USER_SETTINGS = {
-  theme: 'forest',
+  theme: 'light',
   accent: 'green',
   card_style: 'rounded',
   font_size: 'medium',
@@ -52,6 +52,12 @@ export function getUserSettings(userId) {
   
   const existing = db.prepare('SELECT * FROM user_settings WHERE user_id = ?').get(userId);
   if (existing) {
+    if (existing.theme === 'forest' || existing.theme === 'organic') {
+      existing.theme = 'light';
+      try {
+        db.prepare("UPDATE user_settings SET theme = 'light', updated_at = ? WHERE user_id = ?").run(new Date().toISOString(), userId);
+      } catch (e) {}
+    }
     return existing;
   }
 
@@ -202,6 +208,10 @@ export function validateWeights(weights) {
  */
 export function updateUserSettings(userId, updates) {
   getUserSettings(userId); // Ensure row exists
+
+  if (updates.theme === 'forest' || updates.theme === 'organic') {
+    updates.theme = 'light';
+  }
 
   // If thresholds or weights are updated, validate them
   const thresholdErrors = validateThresholds(updates);

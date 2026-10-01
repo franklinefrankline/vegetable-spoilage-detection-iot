@@ -4,6 +4,7 @@ import { useToast } from '../../context/ToastContext';
 import { AdminAuditTable } from '../../components/admin/AdminAuditTable';
 import { AdminTableSkeleton } from '../../components/admin/AdminSkeleton';
 import { AdminEmptyState } from '../../components/admin/AdminEmptyState';
+import { AdminFilterBar, FilterSelect } from '../../components/admin/AdminFilterBar';
 import {
   FileCheck2,
   Search,
@@ -78,56 +79,40 @@ export function AdminAuditLogs() {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="admin-toolbar-card">
-        <div className="toolbar-search-col">
-          <div className="search-input-wrapper">
-            <Search size={16} className="search-icon" />
-            <input
-              type="text"
-              className="admin-input-field toolbar-search-input"
-              placeholder="Search by admin email, target user or details..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-            {search && (
-              <button
-                type="button"
-                className="search-clear-btn"
-                onClick={() => setSearch('')}
-                title="Clear search"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="toolbar-filters-col">
-          <div className="filter-select-wrapper">
-            <Filter size={14} className="select-icon" />
-            <select
-              className="admin-select-field toolbar-select"
-              value={actionFilter}
-              onChange={(e) => {
-                setActionFilter(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="ALL">All Actions</option>
-              <option value="USER_ACTIVATED">Account Activated</option>
-              <option value="USER_DEACTIVATED">Account Deactivated</option>
-              <option value="USER_DELETED">Account Deleted</option>
-              <option value="BULK_USERS_DELETED">Bulk Deleted</option>
-              <option value="ROLE_CHANGED">Role Changed</option>
-              <option value="USER_UPDATED">Profile Updated</option>
-              <option value="USER_VIEWED">Account Viewed</option>
-            </select>
-          </div>
-        </div>
-      </div>
+      <AdminFilterBar
+        searchValue={search}
+        onSearchChange={(val) => {
+          setSearch(val);
+          setPage(1);
+        }}
+        onSearchClear={() => {
+          setSearch('');
+          setPage(1);
+        }}
+        searchPlaceholder="Search by admin email, target user or details..."
+        searchAriaLabel="Search audit logs"
+      >
+        <FilterSelect
+          icon={<Filter size={14} />}
+          value={actionFilter}
+          onChange={(e) => {
+            setActionFilter(e.target.value);
+            setPage(1);
+          }}
+          ariaLabel="Action Filter"
+          style={{ width: '180px' }}
+          title="Filter by action type"
+        >
+          <option value="ALL">All Actions</option>
+          <option value="USER_ACTIVATED">Account Activated</option>
+          <option value="USER_DEACTIVATED">Account Deactivated</option>
+          <option value="USER_DELETED">Account Deleted</option>
+          <option value="BULK_USERS_DELETED">Bulk Deleted</option>
+          <option value="ROLE_CHANGED">Role Changed</option>
+          <option value="USER_UPDATED">Profile Updated</option>
+          <option value="USER_VIEWED">Account Viewed</option>
+        </FilterSelect>
+      </AdminFilterBar>
 
       {/* Logs Table Area */}
       {loading ? (

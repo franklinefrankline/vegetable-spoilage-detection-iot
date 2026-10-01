@@ -8,6 +8,7 @@ import { useNavigate, useLocation, Link } from '../router/Router';
 import { VegSenseLogo } from './branding/VegSenseLogo';
 import markLogo from '../assets/vegsense-mark.png';
 import { NotificationBell } from './alerts/NotificationBell';
+import { ThemeToggle } from './ThemeToggle';
 import {
   LayoutDashboard,
   Radio,
@@ -290,98 +291,8 @@ export function AppShell({ children }) {
                 <span className={`pulse-led-indicator ${isConnected ? 'pulse-green' : 'pulse-amber'}`} />
               </div>
 
-              {/* Quick Appearance Palette Trigger */}
-              <button
-                type="button"
-                className={`header-action-btn ${isQuickAppearanceOpen ? 'active' : ''}`}
-                onClick={toggleQuickAppearance}
-                title="Customize Appearance & Theme"
-                aria-label="Quick Appearance"
-              >
-                <Palette size={18} />
-              </button>
-
-              {/* Quick Appearance Popover */}
-              {isQuickAppearanceOpen && (
-                <div className="quick-appearance-panel" role="dialog" aria-label="Theme settings">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, fontSize: '0.925rem', color: 'var(--text-main)' }}>
-                      <Palette size={16} color="var(--primary)" />
-                      <span>Appearance Studio</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={resetToDefault}
-                      style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '3px', background: 'none', border: 'none', cursor: 'pointer' }}
-                      title="Reset to Forest"
-                    >
-                      <RotateCcw size={12} /> Reset
-                    </button>
-                  </div>
-
-                  <div className="appearance-section-title">Visual Theme</div>
-                  <div className="quick-theme-toggle-row">
-                    {THEME_OPTIONS.map((t) => {
-                      const isSelected = settings.theme === t.id;
-                      return (
-                        <button
-                          key={t.id}
-                          type="button"
-                          className={`quick-theme-choice-btn ${isSelected ? 'active' : ''}`}
-                          onClick={() => setTheme(t.id)}
-                        >
-                          <span className="quick-swatch" style={{ background: t.primary }} />
-                          <div style={{ textAlign: 'left', lineHeight: 1.2 }}>
-                            <div style={{ fontWeight: 700, fontSize: '0.8rem' }}>{t.name}</div>
-                            <div style={{ fontSize: '0.675rem', opacity: 0.8 }}>{t.subtitle}</div>
-                          </div>
-                          {isSelected && <Check size={14} style={{ marginLeft: 'auto' }} />}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="appearance-section-title">Accent Color</div>
-                  <div className="accent-dots-row">
-                    {ACCENT_OPTIONS.map((a) => (
-                      <button
-                        key={a.id}
-                        type="button"
-                        className={`accent-dot-btn ${settings.accent === a.id ? 'active' : ''}`}
-                        style={{ backgroundColor: a.color }}
-                        onClick={() => setAccent(a.id)}
-                        title={a.name}
-                        aria-label={a.name}
-                      >
-                        {settings.accent === a.id && <Check size={12} color="#ffffff" />}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div style={{ paddingTop: '0.75rem', borderTop: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <button
-                      type="button"
-                      onClick={toggleMode}
-                      className="btn-secondary"
-                      style={{ height: '32px', fontSize: '0.775rem', padding: '0 0.75rem', display: 'flex', alignItems: 'center', gap: '5px' }}
-                    >
-                      {settings.theme === 'night-monitor' ? <Sun size={13} /> : <Moon size={13} />}
-                      <span>{settings.theme === 'night-monitor' ? 'Forest Light' : 'Night Pro'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsQuickAppearanceOpen(false);
-                        navigate('/settings');
-                      }}
-                      style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer' }}
-                    >
-                      Full Studio &rarr;
-                    </button>
-                  </div>
-                </div>
-              )}
+              {/* Global Theme Toggle Button */}
+              <ThemeToggle />
 
               {/* Notification Bell with live unread badge and dropdown */}
               <NotificationBell />

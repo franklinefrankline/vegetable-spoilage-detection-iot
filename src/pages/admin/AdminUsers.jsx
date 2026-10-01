@@ -12,6 +12,7 @@ import { RoleChangeModal } from '../../components/admin/RoleChangeModal';
 import { AddAdminModal } from '../../components/admin/AddAdminModal';
 import { AdminTableSkeleton } from '../../components/admin/AdminSkeleton';
 import { AdminEmptyState } from '../../components/admin/AdminEmptyState';
+import { AdminFilterBar, FilterSelect, FilterIconButton } from '../../components/admin/AdminFilterBar';
 import {
   canDeleteUser,
   canDeactivateUser,
@@ -339,102 +340,78 @@ export function AdminUsers() {
       </div>
 
       {/* Top Filter & Search Toolbar */}
-      <div className="admin-toolbar-card">
-        <div className="toolbar-search-col">
-          <div className="search-input-wrapper">
-            <Search size={16} className="search-icon" />
-            <input
-              type="text"
-              className="admin-input-field toolbar-search-input"
-              placeholder="Search users..."
-              aria-label="Search users"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-            {search && (
-              <button
-                type="button"
-                className="search-clear-btn"
-                onClick={() => setSearch('')}
-                title="Clear search"
-                aria-label="Clear search"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        </div>
+      <AdminFilterBar
+        searchValue={search}
+        onSearchChange={(val) => {
+          setSearch(val);
+          setPage(1);
+        }}
+        onSearchClear={() => {
+          setSearch('');
+          setPage(1);
+        }}
+        searchPlaceholder="Search users..."
+        searchAriaLabel="Search users"
+      >
+        {/* Role Filter (110–130px) */}
+        <FilterSelect
+          icon={<Shield size={14} />}
+          value={roleFilter}
+          onChange={(e) => {
+            setRoleFilter(e.target.value);
+            setPage(1);
+          }}
+          ariaLabel="Role Filter"
+          variant="role"
+          title="Filter by user role"
+        >
+          <option value="ALL">All Roles</option>
+          <option value="USER">USER</option>
+          <option value="ADMIN">ADMIN</option>
+        </FilterSelect>
 
-        <div className="toolbar-filters-col">
-          {/* Role Filter */}
-          <div className="filter-select-wrapper">
-            <Shield size={14} className="select-icon" />
-            <select
-              className="admin-select-field toolbar-select"
-              aria-label="Role Filter"
-              value={roleFilter}
-              onChange={(e) => {
-                setRoleFilter(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="ALL">All Roles</option>
-              <option value="USER">USER</option>
-              <option value="ADMIN">ADMIN</option>
-            </select>
-          </div>
+        {/* Status Filter (110–130px) */}
+        <FilterSelect
+          icon={<Filter size={14} />}
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
+          ariaLabel="Status Filter"
+          variant="status"
+          title="Filter by account status"
+        >
+          <option value="ALL">All Status</option>
+          <option value="ACTIVE">ACTIVE</option>
+          <option value="INACTIVE">INACTIVE</option>
+        </FilterSelect>
 
-          {/* Status Filter */}
-          <div className="filter-select-wrapper">
-            <Filter size={14} className="select-icon" />
-            <select
-              className="admin-select-field toolbar-select"
-              aria-label="Status Filter"
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="ALL">All Status</option>
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="INACTIVE">INACTIVE</option>
-            </select>
-          </div>
+        {/* Sort Order (130–150px) */}
+        <FilterSelect
+          icon={<ArrowUpDown size={14} />}
+          value={sortOption}
+          onChange={(e) => setSortOption(e.target.value)}
+          ariaLabel="Sort Users"
+          variant="sort"
+          title="Sort users list"
+        >
+          <option value="newest">Sort: Newest</option>
+          <option value="oldest">Sort: Oldest</option>
+          <option value="name_asc">Name (A–Z)</option>
+          <option value="name_desc">Name (Z–A)</option>
+          <option value="last_login">Recently Active</option>
+        </FilterSelect>
 
-          {/* Sort Order */}
-          <div className="filter-select-wrapper">
-            <ArrowUpDown size={14} className="select-icon" />
-            <select
-              className="admin-select-field toolbar-select"
-              aria-label="Sort Users"
-              value={sortOption}
-              onChange={(e) => setSortOption(e.target.value)}
-            >
-              <option value="newest">Sort: Newest</option>
-              <option value="oldest">Sort: Oldest</option>
-              <option value="name_asc">Name (A–Z)</option>
-              <option value="name_desc">Name (Z–A)</option>
-              <option value="last_login">Recently Active</option>
-            </select>
-          </div>
-
-          {/* Refresh Button */}
-          <button
-            type="button"
-            className="btn-secondary toolbar-icon-btn"
-            onClick={loadUsers}
-            disabled={loading}
-            title="Refresh Users"
-            aria-label="Refresh users list"
-          >
-            <RefreshCw size={15} className={loading ? 'spin-anim' : ''} />
-          </button>
-        </div>
-      </div>
+        {/* Refresh Button (42px × 42px) */}
+        <FilterIconButton
+          onClick={loadUsers}
+          disabled={loading}
+          loading={loading}
+          title="Refresh"
+          ariaLabel="Refresh users"
+        />
+      </AdminFilterBar>
 
       {/* Bulk Action Bar (Visible when users selected) */}
       {selectedIds.length > 0 && (

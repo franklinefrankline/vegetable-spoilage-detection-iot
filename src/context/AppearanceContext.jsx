@@ -7,18 +7,6 @@ const STORAGE_KEY = 'vegsense_appearance_settings';
 
 export const THEME_OPTIONS = [
   {
-    id: 'forest',
-    name: 'Forest / Organic',
-    subtitle: 'Organic',
-    description: 'Warm cream tones, deep forest & olive greens, soft mint accents, and natural agriculture-tech palette.',
-    primary: '#1b4d2e',
-    secondary: '#365314',
-    surface: '#ffffff',
-    bg: '#faf7f0',
-    badge: 'Organic',
-    mode: 'light'
-  },
-  {
     id: 'light',
     name: 'Light',
     subtitle: 'Enterprise Clean',
@@ -53,7 +41,7 @@ export const ACCENT_OPTIONS = [
 ];
 
 export const DEFAULT_SETTINGS = {
-  theme: 'forest',
+  theme: 'light',
   accent: 'green',
   layout: 'comfortable',
   sidebarMode: 'expanded',
@@ -63,7 +51,7 @@ export const DEFAULT_SETTINGS = {
 };
 
 export function normalizeTheme(th) {
-  if (!th) return 'forest';
+  if (!th) return 'light';
   const lower = String(th).toLowerCase().trim();
   if (lower === 'dark' || lower === 'night-monitor' || lower === 'night_monitor' || lower === 'night') {
     return 'dark';
@@ -71,10 +59,8 @@ export function normalizeTheme(th) {
   if (lower === 'light') {
     return 'light';
   }
-  if (lower === 'forest' || lower === 'organic') {
-    return 'forest';
-  }
-  return 'forest'; // Safe fallback for unknown theme values per Section 33 & 34
+  // Any legacy or unrecognized value (e.g. 'forest', 'organic') strictly migrates to 'light'
+  return 'light';
 }
 
 export function AppearanceProvider({ children }) {
@@ -215,7 +201,7 @@ export function AppearanceProvider({ children }) {
   const isDark = settings.theme === 'dark';
 
   const toggleMode = useCallback(() => {
-    setTheme(settings.theme === 'dark' ? 'forest' : 'dark');
+    setTheme(settings.theme === 'dark' ? 'light' : 'dark');
   }, [settings.theme, setTheme]);
 
   const value = {

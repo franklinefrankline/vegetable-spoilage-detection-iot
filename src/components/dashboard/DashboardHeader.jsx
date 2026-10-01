@@ -1,10 +1,8 @@
 import React from 'react';
-import { useAppearance } from '../../context/AppearanceContext';
 import { useNavigate } from '../../router/Router';
+import { ThemeToggle } from '../ThemeToggle';
 import {
   Bell,
-  Sun,
-  Moon,
   Cpu,
   Wifi,
   User,
@@ -19,10 +17,7 @@ export function DashboardHeader({
   isOffline,
   unreadAlertsCount = 0
 }) {
-  const { settings, toggleMode } = useAppearance();
   const navigate = useNavigate();
-
-  const isNight = settings.theme === 'night-monitor';
   const displayIp = device?.ipAddress || device?.ip || '192.168.1.105';
   const deviceName = device?.name || device?.id || 'ESP32-001';
 
@@ -79,17 +74,8 @@ export function DashboardHeader({
 
       {/* Right Controls: Notifications, Appearance, Profile */}
       <div className="dashboard-header-actions">
-        {/* Theme Quick Toggle */}
-        <button
-          type="button"
-          className="header-action-btn theme-quick-btn"
-          onClick={toggleMode}
-          title={isNight ? 'Switch to Forest (Organic)' : 'Switch to Night Monitor (Dark Pro)'}
-          aria-label="Toggle Theme"
-        >
-          {isNight ? <Sun size={17} color="#f59e0b" /> : <Moon size={17} color="var(--primary)" />}
-          <span className="theme-toggle-label">{isNight ? 'Forest' : 'Night Pro'}</span>
-        </button>
+        {/* Theme Toggle Button */}
+        <ThemeToggle id="dashboard-theme-toggle-btn" />
 
         {/* Notifications */}
         <button

@@ -3,6 +3,7 @@ import { adminService } from '../../services/adminService';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { AdminTableSkeleton } from '../../components/admin/AdminSkeleton';
+import { AdminFilterBar, FilterSelect } from '../../components/admin/AdminFilterBar';
 import {
   Cpu,
   Search,
@@ -89,45 +90,26 @@ export function AdminDevices() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="admin-toolbar-card">
-        <div className="toolbar-search-col">
-          <div className="admin-search-wrapper">
-            <Search size={16} className="search-icon" />
-            <input
-              type="text"
-              className="admin-search-input-styled"
-              placeholder="Search by device name, ID, or owner email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {search && (
-              <button
-                type="button"
-                className="search-clear-btn"
-                onClick={() => setSearch('')}
-                title="Clear search"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="toolbar-filters-col">
-          <div className="filter-select-wrapper">
-            <Filter size={14} className="select-icon" />
-            <select
-              className="admin-select-field toolbar-select"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="ALL">All Devices</option>
-              <option value="CONNECTED">Online / Connected</option>
-              <option value="DISCONNECTED">Offline / Disconnected</option>
-            </select>
-          </div>
-        </div>
-      </div>
+      <AdminFilterBar
+        searchValue={search}
+        onSearchChange={(val) => setSearch(val)}
+        onSearchClear={() => setSearch('')}
+        searchPlaceholder="Search by device name"
+        searchAriaLabel="Search by device name"
+      >
+        <FilterSelect
+          icon={<Filter size={14} />}
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          ariaLabel="Device Status Filter"
+          variant="device"
+          title="Filter devices by status"
+        >
+          <option value="ALL">All Devices</option>
+          <option value="CONNECTED">Online / Connected</option>
+          <option value="DISCONNECTED">Offline / Disconnected</option>
+        </FilterSelect>
+      </AdminFilterBar>
 
       {/* Devices Table */}
       {loading && devices.length === 0 ? (

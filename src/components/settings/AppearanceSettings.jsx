@@ -7,6 +7,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { THEME_OPTIONS, ACCENT_OPTIONS, normalizeTheme } from '../../context/AppearanceContext';
+import { ThemeToggle } from '../ThemeToggle';
 
 export function AppearanceSettings({
   currentTheme,
@@ -21,7 +22,7 @@ export function AppearanceSettings({
   onSave,
   isSaving
 }) {
-  const [selectedTheme, setSelectedTheme] = useState(() => normalizeTheme(currentTheme || 'forest'));
+  const [selectedTheme, setSelectedTheme] = useState(() => normalizeTheme(currentTheme || 'light'));
   const [selectedAccent, setSelectedAccent] = useState(currentAccent || 'green');
   const [selectedCardStyle, setSelectedCardStyle] = useState(cardStyle || 'rounded');
   const [selectedFontSize, setSelectedFontSize] = useState(fontSize || 'medium');
@@ -107,7 +108,7 @@ export function AppearanceSettings({
           type="button"
           onClick={() => {
             onResetDefaults();
-            setSelectedTheme('forest');
+            setSelectedTheme('light');
             setSelectedAccent('green');
             setSelectedCardStyle('rounded');
             setSelectedFontSize('medium');
@@ -128,7 +129,7 @@ export function AppearanceSettings({
       </div>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1.25rem' }}>
-        {/* Theme Cards */}
+        {/* Visual Theme Section with Single Compact Theme Toggle Button */}
         <div>
           <label
             style={{
@@ -136,138 +137,25 @@ export function AppearanceSettings({
               fontSize: '0.88rem',
               fontWeight: 700,
               color: 'var(--text-main)',
-              marginBottom: '0.75rem'
+              marginBottom: '0.4rem'
             }}
           >
-            Theme
+            Visual Theme
           </label>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-              gap: '1rem'
-            }}
-          >
-            {THEME_OPTIONS.map((theme) => {
-              const isSelected = selectedTheme === theme.id;
-              return (
-                <div
-                  key={theme.id}
-                  id={`theme-card-${theme.id}`}
-                  onClick={() => handleSelectTheme(theme.id)}
-                  style={{
-                    padding: '1.15rem',
-                    borderRadius: '12px',
-                    border: isSelected
-                      ? '2px solid var(--primary, #10b981)'
-                      : '1px solid var(--border-light, var(--border, #e2e8f0))',
-                    backgroundColor: isSelected
-                      ? 'var(--bg-card-hover, var(--bg-card))'
-                      : 'var(--bg-card)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.65rem',
-                    position: 'relative',
-                    transition: 'all 0.18s ease',
-                    boxShadow: isSelected
-                      ? '0 0 0 1px var(--primary, #10b981), 0 4px 14px rgba(0, 0, 0, 0.12)'
-                      : 'var(--shadow-sm)'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                      {/* Check / Radio indicator per Section 30 */}
-                      <div
-                        style={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: '50%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          border: isSelected
-                            ? '2px solid var(--primary, #10b981)'
-                            : '2px solid var(--text-secondary, #94a3b8)',
-                          backgroundColor: isSelected ? 'var(--primary, #10b981)' : 'transparent',
-                          color: '#ffffff',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        {isSelected && <Check size={13} strokeWidth={3} />}
-                      </div>
-
-                      <span
-                        style={{
-                          fontSize: '0.95rem',
-                          fontWeight: 700,
-                          color: 'var(--text-main, #ffffff)'
-                        }}
-                      >
-                        {theme.name}
-                      </span>
-                    </div>
-
-                    <span
-                      style={{
-                        fontSize: '0.72rem',
-                        fontWeight: 600,
-                        padding: '0.2rem 0.55rem',
-                        borderRadius: '999px',
-                        backgroundColor: isSelected
-                          ? 'var(--primary, #10b981)'
-                          : 'rgba(16, 185, 129, 0.14)',
-                        color: isSelected ? '#ffffff' : 'var(--primary, #10b981)'
-                      }}
-                    >
-                      {theme.badge}
-                    </span>
-                  </div>
-
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: '0.8rem',
-                      color: 'var(--text-secondary, #9bafc2)',
-                      lineHeight: 1.45
-                    }}
-                  >
-                    {theme.description}
-                  </p>
-
-                  <div style={{ display: 'flex', gap: '0.4rem', marginTop: 'auto', paddingTop: '0.5rem' }}>
-                    <div
-                      style={{
-                        height: 6,
-                        flex: 1,
-                        borderRadius: 3,
-                        backgroundColor: theme.primary
-                      }}
-                      title="Primary Brand Accent"
-                    />
-                    <div
-                      style={{
-                        height: 6,
-                        flex: 1,
-                        borderRadius: 3,
-                        backgroundColor: theme.secondary
-                      }}
-                      title="Secondary Accent"
-                    />
-                    <div
-                      style={{
-                        height: 6,
-                        flex: 1,
-                        borderRadius: 3,
-                        backgroundColor: theme.bg,
-                        border: '1px solid var(--border-light, #cbd5e1)'
-                      }}
-                      title="Canvas Background"
-                    />
-                  </div>
-                </div>
-              );
-            })}
+          <p style={{ margin: '0 0 0.85rem', color: 'var(--text-secondary)', fontSize: '0.825rem' }}>
+            Switch between Light and Night Monitor (Dark) telemetry modes.
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <ThemeToggle
+              onToggle={(newTheme) => {
+                setSelectedTheme(newTheme);
+                onThemeChange(newTheme);
+                setIsTouched(true);
+              }}
+            />
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              Current Theme: <strong style={{ color: 'var(--text-main)' }}>{selectedTheme === 'dark' ? 'Night Monitor / Dark' : 'Light'}</strong>
+            </span>
           </div>
         </div>
 

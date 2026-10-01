@@ -1,13 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { useAppearance } from '../../context/AppearanceContext';
 import { useNavigate, Link } from '../../router/Router';
+import { ThemeToggle } from '../ThemeToggle';
 import markLogo from '../../assets/vegsense-mark.png';
 import {
   Menu,
-  Sun,
-  Moon,
   ShieldCheck,
   User,
   Settings,
@@ -20,7 +18,6 @@ import {
 
 export function AdminHeader({ title, subtitle, onToggleMobile }) {
   const { currentUser, logout } = useAuth();
-  const { settings, toggleMode } = useAppearance();
   const { addToast } = useToast();
   const navigate = useNavigate();
 
@@ -102,15 +99,7 @@ export function AdminHeader({ title, subtitle, onToggleMobile }) {
         </div>
 
         {/* Theme Mode Switcher */}
-        <button
-          type="button"
-          className="admin-icon-btn"
-          onClick={toggleMode}
-          title={settings.theme === 'night-monitor' ? 'Switch to Forest Light' : 'Switch to Night Monitor Pro'}
-          aria-label="Toggle Theme"
-        >
-          {settings.theme === 'night-monitor' ? <Sun size={17} /> : <Moon size={17} />}
-        </button>
+        <ThemeToggle id="admin-theme-toggle-btn" />
 
         {/* Admin Notifications */}
         <div className="admin-popover-anchor" ref={notifRef}>

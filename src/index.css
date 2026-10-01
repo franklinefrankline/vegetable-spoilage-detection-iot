@@ -1,34 +1,33 @@
 /* ==========================================================================
    VEGSENSE DESIGN SYSTEM & THEME ENGINE
-   1. FOREST — Organic (Default Agriculture-Tech Cream & Forest Green)
-   2. LIGHT — Clean Enterprise (High-Clarity Light Slate & White)
-   3. NIGHT MONITOR / DARK — Professional IoT Telemetry (Deep Charcoal & Emerald)
+   1. LIGHT — Clean Enterprise (Default High-Clarity Light Slate & White)
+   2. NIGHT MONITOR / DARK — Professional IoT Telemetry (Deep Charcoal & Emerald)
    ========================================================================== */
 
 :root {
-  /* Default: Forest / Organic Theme */
-  --bg-primary: #FAF7F0;
+  /* Default: Clean Enterprise Light Theme */
+  --bg-primary: #F7F8F5;
   --bg-secondary: #FFFFFF;
   --bg-card: #FFFFFF;
-  --bg-card-hover: #F5F0E6;
-  --bg-subtle: #F4EFE4;
+  --bg-card-hover: #F1F5F9;
+  --bg-subtle: #F1F5F9;
 
-  --text-primary: #142417;
-  --text-secondary: #3E5043;
-  --text-muted: #5E7264;
-  --text-light: #8A9D90;
+  --text-primary: #172033;
+  --text-secondary: #607084;
+  --text-muted: #64748B;
+  --text-light: #94A3B8;
 
-  --border: #E3DBCB;
-  --border-light: #E3DBCB;
-  --border-color: #E3DBCB;
-  --border-focus: #1B4D2E;
+  --border: #E2E8F0;
+  --border-light: #E2E8F0;
+  --border-color: #E2E8F0;
+  --border-focus: #166534;
 
-  --primary: #1B4D2E;
-  --primary-hover: #143820;
-  --primary-active: #0C2314;
+  --primary: #166534;
+  --primary-hover: #14532D;
+  --primary-active: #052E16;
   --primary-light: #E8F5EC;
   --primary-border: #A9DCB8;
-  --primary-glow: rgba(27, 77, 46, 0.16);
+  --primary-glow: rgba(22, 101, 52, 0.16);
 
   --accent: #16A34A;
   --accent-color: #16A34A;
@@ -304,6 +303,101 @@
 }
 
 /* ==========================================================================
+   VEGSENSE THEME TOGGLE BUTTON COMPONENT
+   Strict two-state toggle: Light <--> Night Monitor / Dark
+   ========================================================================== */
+.vegsense-theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 9px;
+  font-family: var(--font-family, inherit);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  box-sizing: border-box;
+  text-decoration: none;
+  user-select: none;
+  flex-shrink: 0;
+  background-color: var(--bg-card, #ffffff);
+  color: var(--text-main, #172033);
+  border: 1px solid var(--border-light, #e2e8f0);
+  box-shadow: var(--shadow-sm);
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, transform 100ms ease, box-shadow 180ms ease;
+}
+
+/* Light Mode state */
+[data-theme="light"] .vegsense-theme-toggle-btn,
+:root:not([data-theme="dark"]):not([data-theme="night-monitor"]) .vegsense-theme-toggle-btn {
+  background-color: #ffffff;
+  color: #172033;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .vegsense-theme-toggle-btn:hover,
+:root:not([data-theme="dark"]):not([data-theme="night-monitor"]) .vegsense-theme-toggle-btn:hover {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+/* Dark Mode (Night Monitor) state */
+[data-theme="dark"] .vegsense-theme-toggle-btn,
+[data-theme="night-monitor"] .vegsense-theme-toggle-btn {
+  background-color: #172033;
+  color: #f8fafc;
+  border: 1px solid #263548;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .vegsense-theme-toggle-btn:hover,
+[data-theme="night-monitor"] .vegsense-theme-toggle-btn:hover {
+  background-color: #1e293b;
+  border-color: #334155;
+  color: #ffffff;
+}
+
+/* Pressed / Active State */
+.vegsense-theme-toggle-btn:active {
+  transform: scale(0.98);
+}
+
+/* Focus State */
+.vegsense-theme-toggle-btn:focus-visible {
+  outline: none;
+  border-color: var(--primary, #10b981);
+  box-shadow: 0 0 0 3px var(--primary-glow, rgba(16, 185, 129, 0.22));
+}
+
+.theme-toggle-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 200ms ease;
+}
+
+.theme-toggle-icon.sun {
+  color: #f59e0b;
+}
+
+.theme-toggle-icon.moon {
+  color: #38bdf8;
+}
+
+.theme-toggle-text {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* ==========================================================================
    RESET & GLOBAL BASE RULES (MANDATORY: NO HORIZONTAL SCROLL)
    ========================================================================== */
 *, *::before, *::after {
@@ -484,7 +578,9 @@ html, body {
 [data-theme="dark"] .admin-user-card,
 [data-theme="night-monitor"] .admin-user-card,
 [data-theme="dark"] .admin-toolbar-card,
-[data-theme="night-monitor"] .admin-toolbar-card {
+[data-theme="night-monitor"] .admin-toolbar-card,
+[data-theme="dark"] .admin-filter-bar,
+[data-theme="night-monitor"] .admin-filter-bar {
   background-color: var(--bg-card) !important;
   border: 1px solid var(--border) !important;
   color: var(--text-primary) !important;
@@ -1937,6 +2033,12 @@ input, select, textarea {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .user-name-text {
+    display: none !important;
+  }
 }
 
 /* Dedicated Mobile Subbar (Hidden on desktop, visible on mobile) */

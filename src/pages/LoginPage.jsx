@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { useAppearance } from '../context/AppearanceContext';
 import { useNavigate, useLocation, Link } from '../router/Router';
 import { VegSenseLogo } from '../components/branding/VegSenseLogo';
+import { ThemeToggle } from '../components/ThemeToggle';
 import {
   Mail,
   Lock,
@@ -17,15 +17,12 @@ import {
   Wifi,
   Gauge,
   Wind,
-  Cpu,
-  Sun,
-  Moon
+  Cpu
 } from 'lucide-react';
 
 export function LoginPage() {
   const { login, currentUser, isAuthenticated, logout } = useAuth();
   const { addToast } = useToast();
-  const { settings, toggleMode } = useAppearance();
   const navigate = useNavigate();
   const { searchParams } = useLocation();
 
@@ -248,25 +245,7 @@ export function LoginPage() {
       <div className="login-form-section">
         {/* Floating Quick Theme Toggle */}
         <div className="auth-top-toolbar">
-          <button
-            type="button"
-            className="auth-theme-toggle-btn"
-            onClick={toggleMode}
-            title={settings.theme === 'night-monitor' ? 'Switch to Forest (Organic)' : 'Switch to Night Monitor (Dark Pro)'}
-            aria-label="Toggle Theme"
-          >
-            {settings.theme === 'night-monitor' ? (
-              <>
-                <Sun size={14} color="#f59e0b" />
-                <span>Forest (Organic)</span>
-              </>
-            ) : (
-              <>
-                <Moon size={14} color="#10b981" />
-                <span>Night Monitor</span>
-              </>
-            )}
-          </button>
+          <ThemeToggle id="login-theme-toggle-btn" />
         </div>
 
         <div className="login-card-container">

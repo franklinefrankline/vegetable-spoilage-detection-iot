@@ -10,6 +10,7 @@ import { PermissionEditor } from '../../components/admin/PermissionEditor';
 import { DeleteAdminModal } from '../../components/admin/DeleteAdminModal';
 import { ResetPasswordModal } from '../../components/admin/ResetPasswordModal';
 import { AdminTableSkeleton } from '../../components/admin/AdminSkeleton';
+import { AdminFilterBar, FilterSelect } from '../../components/admin/AdminFilterBar';
 import {
   isMainAdmin,
   hasPermission,
@@ -245,45 +246,26 @@ export function AdminAdmins() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="admin-toolbar-card">
-        <div className="toolbar-search-col">
-          <div className="admin-search-wrapper">
-            <Search size={16} className="search-icon" />
-            <input
-              type="text"
-              className="admin-search-input-styled"
-              placeholder="Search by name, username, or email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {search && (
-              <button
-                type="button"
-                className="search-clear-btn"
-                onClick={() => setSearch('')}
-                title="Clear search"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="toolbar-filters-col">
-          <div className="filter-select-wrapper">
-            <Filter size={14} className="select-icon" />
-            <select
-              className="admin-select-field toolbar-select"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="ACTIVE">Active Accounts</option>
-              <option value="INACTIVE">Inactive Accounts</option>
-            </select>
-          </div>
-        </div>
-      </div>
+      <AdminFilterBar
+        searchValue={search}
+        onSearchChange={(val) => setSearch(val)}
+        onSearchClear={() => setSearch('')}
+        searchPlaceholder="Search by name, username, or email..."
+        searchAriaLabel="Search administrators"
+      >
+        <FilterSelect
+          icon={<Filter size={14} />}
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          ariaLabel="Status Filter"
+          style={{ width: '160px' }}
+          title="Filter administrators by status"
+        >
+          <option value="ALL">All Statuses</option>
+          <option value="ACTIVE">Active Accounts</option>
+          <option value="INACTIVE">Inactive Accounts</option>
+        </FilterSelect>
+      </AdminFilterBar>
 
       {/* Table Content */}
       {loading && admins.length === 0 ? (
