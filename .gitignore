@@ -25,6 +25,7 @@ dist-ssr
 
 # Vercel & Cache
 .vercel
+screenshots/
 
 # Ensure persistent user database files are permanently tracked across code updates
 !server/persistent_users.json

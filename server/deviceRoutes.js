@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import db from './db.js';
 import crypto from 'node:crypto';
 import { getJwtSecret } from './jwtConfig.js';
+import { requireAuthOrApiKey } from './apiKeyMiddleware.js';
 
 const router = express.Router();
 
@@ -366,49 +367,124 @@ router.get('/device/:userId', (req, res) => {
 
 /**
  * POST /api/readings
- * Records an actual sensor reading into history.
+ * Standard IoT Telemetry Ingestion Contract (Section 8)
+ * Accepts normalized telemetry from ESP32 hardware via API key or user session via JWT.
  */
-router.post('/readings', (req, res) => {
-  const {
-    deviceId,
-    temperature,
-    humidity,
-    gasLevel,
-    lightLevel,
-    light_level,
-    spoilageRisk,
-    spoilage_risk,
-    lightRisk,
-    light_risk,
-    lightClassification,
-    light_classification,
-    storageStatus,
-    storage_status
-  } = req.body;
+router.post(['/readings', '/sensors/ingest', '/sensors/record'], requireAuthOrApiKey, (req, res) => {
+  const body = req.body || {};
+  const deviceId = body.deviceId || body.device_id || body.device || 'ESP32-001';
 
-  if (!deviceId || temperature === undefined || humidity === undefined || gasLevel === undefined) {
-    return res.status(400).json({ success: false, error: 'Required sensor fields missing.' });
+  if (!deviceId || typeof deviceId !== 'string' || !deviceId.trim()) {
+    return res.status(400).json({ success: false, error: 'INVALID_PAYLOAD', message: 'Valid deviceId is required.' });
   }
 
+  const rawTemp = body.temperature ?? body.temp ?? body.t;
+  const rawHum = body.humidity ?? body.hum ?? body.h;
+  const rawGas = body.gasLevel ?? body.gas_level ?? body.gas ?? body.rawGas;
+  const rawLight = body.lightLevel ?? body.light_level ?? body.light ?? body.light_lux ?? body.lux;
+
+  // Numeric and range validations
+  let finalTemp = null;
+  if (rawTemp !== null && rawTemp !== undefined) {
+    const num = Number(rawTemp);
+    if (isNaN(num) || num < -40 || num > 80) {
+      return res.status(400).json({ success: false, error: 'INVALID_TEMPERATURE', message: 'Temperature must be between -40°C and 80°C or null.' });
+    }
+    finalTemp = Number(num.toFixed(1));
+  }
+
+  let finalHum = null;
+  if (rawHum !== null && rawHum !== undefined) {
+    const num = Number(rawHum);
+    if (isNaN(num) || num < 0 || num > 100) {
+      return res.status(400).json({ success: false, error: 'INVALID_HUMIDITY', message: 'Humidity must be between 0% and 100% or null.' });
+    }
+    finalHum = Number(num.toFixed(1));
+  }
+
+  let finalGas = 400;
+  if (rawGas !== null && rawGas !== undefined) {
+    const num = Number(rawGas);
+    if (isNaN(num) || num < 0 || num > 4095) {
+      return res.status(400).json({ success: false, error: 'INVALID_GAS_READING', message: 'Gas sensor reading must be between 0 and 4095.' });
+    }
+    finalGas = Math.round(num);
+  }
+
+  let finalLight = null;
+  let finalLightClass = 'NOT INSTALLED';
+  let finalLightRisk = 0;
+  if (rawLight !== null && rawLight !== undefined) {
+    const num = Number(rawLight);
+    if (!isNaN(num) && num >= 0 && num <= 65535) {
+      finalLight = Math.round(num);
+      if (finalLight < 100) {
+        finalLightClass = 'LOW LIGHT';
+        finalLightRisk = 30;
+      } else if (finalLight > 500) {
+        finalLightClass = 'HIGH LIGHT';
+        finalLightRisk = 40;
+      } else {
+        finalLightClass = 'NORMAL LIGHT';
+        finalLightRisk = 10;
+      }
+    }
+  }
+
+  // Calculate spoilage risk if not provided
+  let finalRisk = 18;
+  if (body.spoilageRisk !== undefined || body.spoilage_risk !== undefined) {
+    finalRisk = Math.max(0, Math.min(100, Math.round(Number(body.spoilageRisk ?? body.spoilage_risk))));
+  } else if (finalTemp !== null && finalHum !== null) {
+    let score = 10;
+    if (finalTemp > 24) score += (finalTemp - 24) * 3.5;
+    if (finalHum > 75) score += (finalHum - 75) * 1.8;
+    if (finalGas > 400) score += (finalGas - 400) * 0.12;
+    finalRisk = Math.max(0, Math.min(100, Math.round(score)));
+  }
+
+  const finalStatus = finalRisk > 60 ? 'SPOILAGE_RISK' : (finalRisk > 30 ? 'WARNING' : 'FRESH');
+  const now = new Date().toISOString();
+  const id = 'rd_' + crypto.randomUUID().slice(0, 10);
+  const userId = req.user?.id || body.userId || null;
+
   try {
-    const id = 'rd_' + crypto.randomUUID().slice(0, 10);
-    const now = new Date().toISOString();
-
-    const finalLight = lightLevel !== undefined ? Number(lightLevel) : (light_level !== undefined ? Number(light_level) : 420);
-    const finalLightRisk = lightRisk !== undefined ? Number(lightRisk) : (light_risk !== undefined ? Number(light_risk) : 10);
-    const finalLightClass = lightClassification || light_classification || 'NORMAL LIGHT';
-    const finalRisk = spoilageRisk !== undefined ? Number(spoilageRisk) : (spoilage_risk !== undefined ? Number(spoilage_risk) : 0);
-    const finalStatus = storageStatus || storage_status || 'FRESH';
-
     db.prepare(`
-      INSERT INTO sensor_readings (id, device_id, temperature, humidity, gas_level, light_level, spoilage_risk, light_risk, light_classification, storage_status, recorded_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, deviceId, temperature, humidity, gasLevel, finalLight, finalRisk, finalLightRisk, finalLightClass, finalStatus, now);
+      INSERT INTO sensor_readings (
+        id, user_id, device_id, temperature, humidity, gas_level, light_level,
+        spoilage_risk, light_risk, light_classification, storage_status, source, recorded_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'esp32', ?)
+    `).run(
+      id, userId, deviceId.trim(), finalTemp, finalHum, finalGas,
+      finalLight, finalRisk, finalLightRisk, finalLightClass, finalStatus, now
+    );
 
-    return res.json({ success: true, readingId: id });
+    // Update device last_seen and status in database
+    try {
+      db.prepare(`
+        UPDATE devices
+        SET last_seen = ?, status = 'connected', is_active = 1
+        WHERE id = ?
+      `).run(now, deviceId.trim());
+    } catch (_) {}
+
+    return res.status(201).json({
+      success: true,
+      readingId: id,
+      timestamp: now,
+      deviceId: deviceId.trim(),
+      metrics: {
+        temperature: finalTemp,
+        humidity: finalHum,
+        gas_level: finalGas,
+        light_level: finalLight,
+        spoilage_risk: finalRisk,
+        status: finalStatus
+      }
+    });
   } catch (err) {
     console.error('Error storing sensor reading:', err);
-    return res.status(500).json({ success: false, error: 'Database error storing reading.' });
+    return res.status(500).json({ success: false, error: 'DATABASE_ERROR', message: err.message });
   }
 });
 

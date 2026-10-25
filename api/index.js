@@ -44,6 +44,15 @@ app.use('/admin-api', adminRoutes);
 app.use('/api', deviceRoutes);
 app.use('/', deviceRoutes);
 
+// Root API endpoint (Requirement 3)
+app.get(['/api', '/'], (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'VegSense API',
+    health: '/api/health'
+  });
+});
+
 // Health check endpoint (public, unauthenticated)
 app.get(['/api/health', '/health'], (req, res) => {
   res.json({
@@ -137,6 +146,13 @@ app.get(['/api/esp32/data', '/esp32/data'], async (req, res) => {
   } catch (err) {
     return res.status(504).json({ success: false, error: 'ESP32 sensor endpoint unreachable' });
   }
+// Catch-all for undefined API routes
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'NOT_FOUND',
+    message: `API route ${req.method} ${req.originalUrl || req.url} not found.`
+  });
 });
 
 export default app;

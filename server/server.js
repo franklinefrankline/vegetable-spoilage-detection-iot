@@ -41,6 +41,15 @@ app.use('/api', deviceRoutes);
 
 import { requireApiKey } from './apiKeyMiddleware.js';
 
+// Root API endpoint (Requirement 3)
+app.get(['/api', '/'], (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'VegSense API',
+    health: '/api/health'
+  });
+});
+
 // Health check endpoint
 app.get(['/api/health', '/health'], (req, res) => {
   res.json({ status: 'ok', service: 'Intelligent Vegetable Storage Backend', timestamp: new Date() });

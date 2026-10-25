@@ -56,6 +56,8 @@
 
 #include <WiFi.h>
 #include <WebServer.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <DHT.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -67,6 +69,16 @@
 // =====================================================================================
 const char* WIFI_SSID = "YOUR_WIFI_SSID";
 const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
+
+// =====================================================================================
+// CLOUD API CONFIGURATION (Section 7)
+// Sends real-time telemetry to the VegSense Vercel Cloud API
+// =====================================================================================
+const char* DEVICE_ID             = "ESP32-001";
+const char* CLOUD_API_URL         = "https://vegitables.vercel.app/api/readings";
+const char* DEVICE_API_KEY        = "YOUR_VEGSENSE_API_KEY"; // Enter configured VEGSENSE_API_KEY
+const unsigned long CLOUD_PUSH_INTERVAL_MS = 15000;          // Send telemetry every 15s
+const int   HTTP_TIMEOUT_MS       = 8000;                    // 8-second HTTP timeout
 
 // =====================================================================================
 // PIN ASSIGNMENTS
@@ -123,6 +135,7 @@ bool dhtReadSuccess = false;
 
 unsigned long lastSensorRead = 0;
 const unsigned long SENSOR_INTERVAL_MS = 2000; // Read sensors every 2 seconds
+unsigned long lastCloudPush = 0;
 
 // =====================================================================================
 // SECTION 5: CORS HEADERS
@@ -355,6 +368,60 @@ void updateOLED() {
 }
 
 // =====================================================================================
+// SECTION 7 & 8: CLOUD TELEMETRY PUSH (HTTPS)
+// Automatically streams real-time sensor measurements to the VegSense Cloud API.
+// Uses x-api-key header authentication and non-blocking reconnect logic.
+// =====================================================================================
+void pushTelemetryToCloud() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[Cloud] Wi-Fi disconnected. Reconnecting...");
+    WiFi.reconnect();
+    return;
+  }
+
+  WiFiClientSecure client;
+  client.setInsecure(); // Connect securely over TLS to Vercel HTTPS endpoint
+  client.setTimeout(HTTP_TIMEOUT_MS / 1000);
+
+  HTTPClient https;
+  if (!https.begin(client, CLOUD_API_URL)) {
+    Serial.println("[Cloud] Failed to initialize HTTPS connection.");
+    return;
+  }
+
+  https.addHeader("Content-Type", "application/json");
+  https.addHeader("x-api-key", DEVICE_API_KEY);
+
+  // Build normalized telemetry JSON payload matching Section 8 ingestion contract
+  String payload = "{";
+  payload += "\"deviceId\":\"" + String(DEVICE_ID) + "\",";
+  if (dhtReadSuccess) {
+    payload += "\"temperature\":" + String(currentTemperature, 1) + ",";
+    payload += "\"humidity\":" + String(currentHumidity, 1) + ",";
+  } else {
+    payload += "\"temperature\":null,";
+    payload += "\"humidity\":null,";
+  }
+  payload += "\"gas\":" + String(currentGasLevel) + ",";
+  payload += "\"light\":" + String(currentLightLevel, 1) + ",";
+  payload += "\"spoilageRisk\":" + String(currentSpoilageRisk);
+  payload += "}";
+
+  int httpCode = https.POST(payload);
+  if (httpCode > 0) {
+    Serial.print("[Cloud Push] Response Code: ");
+    Serial.println(httpCode);
+    if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_CREATED) {
+      Serial.println("[Cloud Push] Telemetry persisted successfully.");
+    }
+  } else {
+    Serial.print("[Cloud Push] Ingestion failed: ");
+    Serial.println(https.errorToString(httpCode));
+  }
+  https.end();
+}
+
+// =====================================================================================
 // SETUP & INITIALIZATION
 // Serial monitor matches Section 2 format:
 // Connecting to WiFi...
@@ -430,9 +497,16 @@ void loop() {
   server.handleClient();
 
   unsigned long now = millis();
+  // 1. Read sensors on local interval
   if (now - lastSensorRead >= SENSOR_INTERVAL_MS) {
     lastSensorRead = now;
     readSensors();
     updateOLED();
+  }
+
+  // 2. Stream telemetry to cloud on cloud interval (Section 7 & 8)
+  if (now - lastCloudPush >= CLOUD_PUSH_INTERVAL_MS) {
+    lastCloudPush = now;
+    pushTelemetryToCloud();
   }
 }
