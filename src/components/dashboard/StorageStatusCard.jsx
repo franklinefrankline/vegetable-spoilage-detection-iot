@@ -1,6 +1,7 @@
 import React from 'react';
 import { ShieldCheck, AlertTriangle, AlertOctagon, CheckCircle2 } from 'lucide-react';
 import { getStatusDetails } from '../../utils/sensorFormatter';
+import { useDevice } from '../../context/DeviceContext';
 
 export function StorageStatusCard({
   status = 'FRESH',
@@ -10,8 +11,11 @@ export function StorageStatusCard({
   gasLevel = 420,
   lightLevel = 420,
   lightClassification = 'NORMAL LIGHT',
-  isOffline = false
+  isOffline = false,
+  isDemo: propIsDemo
 }) {
+  const { device } = useDevice();
+  const isDemo = propIsDemo !== undefined ? propIsDemo : Boolean(device?.isDemo || device?.status === 'Demo Connected');
   const details = getStatusDetails(status);
 
   // SVG Gauge Calculations for Spoilage Risk Gauge
@@ -109,7 +113,7 @@ export function StorageStatusCard({
             <div className="status-pillar-item">
               <span className="pillar-label">Status Link</span>
               <span className="pillar-value" style={{ color: isOffline ? 'var(--accent-red)' : 'var(--status-green)' }}>
-                {isOffline ? 'Offline' : 'Real ESP32 Telemetry'}
+                {isOffline ? 'Offline' : (isDemo ? 'Demo ESP32 Telemetry' : 'Real ESP32 Telemetry')}
               </span>
             </div>
           </div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { isMainAdmin, PERMISSION_LABELS } from '../../utils/adminPermissions';
+import { buildApiUrl } from '../../services/apiClient';
 import {
   User,
   ShieldCheck,
@@ -78,7 +79,7 @@ export function AdminSettings() {
     setIsSavingProfile(true);
     try {
       const token = localStorage.getItem('veg_storage_auth_token') || sessionStorage.getItem('veg_storage_auth_token');
-      const res = await fetch('/api/auth/profile', {
+      const res = await fetch(buildApiUrl('/auth/profile'), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -124,7 +125,7 @@ export function AdminSettings() {
     setIsChangingPassword(true);
     try {
       const token = localStorage.getItem('veg_storage_auth_token') || sessionStorage.getItem('veg_storage_auth_token');
-      const res = await fetch('/api/auth/change-password', {
+      const res = await fetch(buildApiUrl('/auth/change-password'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

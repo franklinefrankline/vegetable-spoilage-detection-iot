@@ -581,7 +581,8 @@ export async function savePersistentUser(user) {
       try {
         await vercelBlobPut('persistent_users.json', JSON.stringify(users, null, 2), {
           access: 'public',
-          addRandomSuffix: false
+          addRandomSuffix: false,
+          allowOverwrite: true
         });
       } catch (blobErr) {
         console.warn('[DB] Notice: Could not upload users to Vercel Blob:', blobErr.message);
@@ -623,7 +624,8 @@ export async function updatePersistentUserMeta(email, meta = {}) {
         try {
           await vercelBlobPut('persistent_users.json', JSON.stringify(users, null, 2), {
             access: 'public',
-            addRandomSuffix: false
+            addRandomSuffix: false,
+            allowOverwrite: true
           });
         } catch (blobErr) {
           console.warn('[DB] Notice: Could not upload updated user meta to Vercel Blob:', blobErr.message);
@@ -689,7 +691,8 @@ export async function updatePersistentPassword(email, newPasswordHash) {
         try {
           await vercelBlobPut('persistent_users.json', JSON.stringify(users, null, 2), {
             access: 'public',
-            addRandomSuffix: false
+            addRandomSuffix: false,
+            allowOverwrite: true
           });
         } catch (blobErr) {
           console.warn('[DB] Notice: Could not upload updated password to Vercel Blob:', blobErr.message);
@@ -728,7 +731,8 @@ export async function deletePersistentUser(email) {
         const users = JSON.parse(fs.readFileSync(PERSISTENT_USERS_PATH, 'utf-8') || '[]');
         await vercelBlobPut('persistent_users.json', JSON.stringify(users, null, 2), {
           access: 'public',
-          addRandomSuffix: false
+          addRandomSuffix: false,
+          allowOverwrite: true
         });
       } catch (blobErr) {}
     }
@@ -748,7 +752,7 @@ try {
       id: 'usr_demo_vegsense_001',
       name: 'Dr. Aris Thorne',
       email: 'demo@vegsense.io',
-      password_hash: '$2b$10$QbNx7WCTa9dv5lYaSPRJ9eS3tnCETvBDkOjyX5LAENSAYMVza8.7q', // Password123
+      password_hash: '$2b$10$47roGo6l.glxL3ZJo4.rxe9Q71hvMdL4XqWTFPotkQHbKcL3pUScy', // Password123
       role: 'ADMIN',
       is_active: 1,
       created_at: '2026-09-28 11:43:52',
@@ -769,8 +773,8 @@ try {
     );
     savePersistentUser(demoPayload);
   } else {
-    // Ensure demo account has ADMIN role and active status
-    db.prepare("UPDATE users SET role = 'ADMIN', is_active = 1 WHERE email = 'demo@vegsense.io'").run();
+    // Ensure demo account has ADMIN role, active status and valid password
+    db.prepare("UPDATE users SET role = 'ADMIN', is_active = 1, password_hash = '$2b$10$47roGo6l.glxL3ZJo4.rxe9Q71hvMdL4XqWTFPotkQHbKcL3pUScy' WHERE email = 'demo@vegsense.io'").run();
   }
   const currentDemo = db.prepare('SELECT id FROM users WHERE email = ?').get('demo@vegsense.io');
   if (currentDemo) ensureAdminPermissions(currentDemo.id, 1);
@@ -783,7 +787,7 @@ try {
       name: 'System Administrator',
       username: 'admin',
       email: 'admin@vegsense.io',
-      password_hash: '$2b$10$QbNx7WCTa9dv5lYaSPRJ9eS3tnCETvBDkOjyX5LAENSAYMVza8.7q', // Password123
+      password_hash: '$2b$10$47roGo6l.glxL3ZJo4.rxe9Q71hvMdL4XqWTFPotkQHbKcL3pUScy', // Password123
       role: 'ADMIN',
       is_active: 1,
       created_at: '2026-09-28 10:00:00',

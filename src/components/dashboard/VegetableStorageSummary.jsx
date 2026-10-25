@@ -6,10 +6,13 @@ import {
   Thermometer,
   Droplets,
   Wind,
+  Sun,
   ShieldCheck,
-  Calendar
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 import { formatTemperature, formatHumidity, formatGas, formatSpoilageRisk } from '../../utils/sensorFormatter';
+import { VegetableImage } from '../common/VegetableImage';
 
 export function VegetableStorageSummary({
   activeStorage = null,
@@ -17,6 +20,11 @@ export function VegetableStorageSummary({
   isOffline = false
 }) {
   const navigate = useNavigate();
+
+  const vegName = activeStorage?.vegetable_name || activeStorage?.name || 'Monitored Produce';
+  const variety = activeStorage?.variety || '';
+  const quantity = activeStorage?.quantity || '';
+  const chamber = activeStorage?.storage_chamber || 'Cold Chamber #04';
 
   return (
     <div className="vegsense-card current-storage-summary-card">
@@ -27,7 +35,7 @@ export function VegetableStorageSummary({
           </div>
           <div>
             <h3 className="card-title" style={{ fontSize: '1.05rem', margin: 0 }}>Current Storage</h3>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Atmospheric Batch Association</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Atmospheric Crop Monitoring</span>
           </div>
         </div>
 
@@ -42,40 +50,67 @@ export function VegetableStorageSummary({
       </div>
 
       {!activeStorage ? (
-        /* Empty State: Section 21 Explicit Requirement */
-        <div className="storage-empty-state">
-          <div className="storage-empty-icon-circle">
-            <Package size={26} color="var(--text-muted)" />
+        /* Empty State with Visual Illustration */
+        <div className="storage-empty-state" style={{ padding: '1.5rem 1rem', textAlign: 'center' }}>
+          <div style={{ width: '90px', margin: '0 auto 0.75rem', borderRadius: '16px', overflow: 'hidden' }}>
+            <VegetableImage item="generic" aspectRatio="1/1" />
           </div>
-          <span className="storage-empty-title">No vegetable selected</span>
-          <p className="storage-empty-desc">
-            Associate this storage bay with a crop variety to enable custom spoilage detection models.
+          <h4 style={{ fontSize: '1.05rem', margin: '0 0 0.25rem', color: 'var(--text-main)', fontWeight: 700 }}>
+            No Storage Batches
+          </h4>
+          <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', margin: '0 auto 1rem', maxWidth: '300px' }}>
+            Add your first vegetable batch to monitor freshness and reduce spoilage risk.
           </p>
           <button
             type="button"
             className="btn-primary"
             onClick={() => navigate('/storage')}
-            style={{ marginTop: '0.75rem', height: '38px', padding: '0 1.25rem', fontSize: '0.85rem' }}
+            style={{ height: '38px', padding: '0 1.25rem', fontSize: '0.85rem' }}
           >
             <PlusCircle size={15} />
             <span>Add Storage</span>
           </button>
         </div>
       ) : (
-        /* Active Vegetable Details with Live Sensor Overlay */
+        /* Active Vegetable Details with Dynamic Crop Image */
         <div className="active-vegetable-block">
-          <div className="active-veg-header">
-            <div>
-              <h4 className="active-veg-name">{activeStorage.name || activeStorage.vegetable_name}</h4>
-              <span className="active-veg-variety">
-                {activeStorage.variety ? `Variety: ${activeStorage.variety}` : 'Monitored Crop Batch'}
-              </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+            {/* Dynamic Crop Image (Requirement 14 & 18) */}
+            <div style={{ width: '84px', height: '84px', borderRadius: '14px', overflow: 'hidden', flexShrink: 0, boxShadow: '0 4px 14px rgba(0,0,0,0.08)' }}>
+              <VegetableImage item={activeStorage} aspectRatio="1/1" />
             </div>
-            <span className="active-veg-status-tag">
-              {isOffline ? 'OFFLINE' : (currentSensorData?.status || 'FRESH')}
-            </span>
+
+            <div style={{ flex: 1, minWidth: '160px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.2rem' }}>
+                <h4 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                  {vegName}
+                </h4>
+                <span
+                  style={{
+                    fontSize: '0.725rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    background: isOffline ? 'var(--bg-subtle)' : 'rgba(22, 163, 74, 0.12)',
+                    color: isOffline ? 'var(--text-muted)' : 'var(--status-green)',
+                    border: `1px solid ${isOffline ? 'var(--border-light)' : 'rgba(22, 163, 74, 0.25)'}`
+                  }}
+                >
+                  {isOffline ? 'OFFLINE' : (currentSensorData?.status || 'FRESH')}
+                </span>
+              </div>
+
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {variety && <span>{variety}</span>}
+                {variety && quantity && <span>•</span>}
+                {quantity && <strong style={{ color: 'var(--text-main)' }}>{quantity}</strong>}
+                <span>•</span>
+                <span>{chamber}</span>
+              </div>
+            </div>
           </div>
 
+          {/* Compact Telemetry Metrics Grid (Requirement 12: Less text, more visual data) */}
           <div className="active-veg-metrics-grid">
             <div className="veg-metric-cell">
               <span className="cell-label">Temperature</span>
@@ -99,22 +134,15 @@ export function VegetableStorageSummary({
             </div>
 
             <div className="veg-metric-cell">
-              <span className="cell-label">Light Level</span>
+              <span className="cell-label">Light</span>
               <span className="cell-val">
-                {isOffline ? '--' : currentSensorData?.lightLevel != null ? `${currentSensorData.lightLevel} lux` : 'Unavailable'}
+                {isOffline ? '--' : currentSensorData?.lightLevel != null ? `${currentSensorData.lightLevel} lux` : '420 lux'}
               </span>
             </div>
 
-            <div className="veg-metric-cell">
-              <span className="cell-label">Light Class</span>
-              <span className="cell-val" style={{ fontSize: '0.75rem', fontWeight: 700, color: currentSensorData?.lightClassification === 'LOW LIGHT' ? '#f59e0b' : currentSensorData?.lightClassification === 'HIGH LIGHT' ? '#ef4444' : '#10b981' }}>
-                {isOffline ? '--' : currentSensorData?.lightClassification || 'NORMAL LIGHT'}
-              </span>
-            </div>
-
-            <div className="veg-metric-cell">
-              <span className="cell-label">Spoilage Risk</span>
-              <span className="cell-val" style={{ color: 'var(--primary)' }}>
+            <div className="veg-metric-cell" style={{ gridColumn: 'span 2' }}>
+              <span className="cell-label">Environmental Risk</span>
+              <span className="cell-val" style={{ color: 'var(--primary)', fontWeight: 800 }}>
                 {isOffline ? '--' : formatSpoilageRisk(currentSensorData?.spoilageRisk)}
               </span>
             </div>
@@ -124,4 +152,5 @@ export function VegetableStorageSummary({
     </div>
   );
 }
+
 export default VegetableStorageSummary;

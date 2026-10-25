@@ -5,16 +5,16 @@
     "email": "frankline30999112@gmail.com",
     "password_hash": "$2b$10$9jBgRATYHz5pR.YPo.zipe/ZSz1WHpZq8lAaM0QzSZHYWclVQ1Xnu",
     "created_at": "2026-09-28 09:19:14",
-    "updated_at": "2026-10-01T04:44:10.029Z",
-    "last_login_at": "2026-10-01T04:44:10.014Z"
+    "updated_at": "2026-09-28 09:19:14"
   },
   {
     "id": "usr_demo_vegsense_001",
     "name": "Dr. Aris Thorne",
     "email": "demo@vegsense.io",
-    "password_hash": "$2b$10$p7J1xm5RnPLX66VEJu7F8Oy1AzvRSvYFxnNY3xG3oSUBFTItXkw/O",
+    "password_hash": "$2b$10$47roGo6l.glxL3ZJo4.rxe9Q71hvMdL4XqWTFPotkQHbKcL3pUScy",
     "created_at": "2026-09-28 11:43:52",
-    "updated_at": "2026-09-28 11:43:52"
+    "updated_at": "2026-10-25T08:34:44.508Z",
+    "last_login_at": "2026-10-25T08:34:44.507Z"
   },
   {
     "id": "5ac11cf1-84c4-46c2-93b0-0eb1e04d0888",
@@ -63,5 +63,53 @@
     "password_hash": "$2b$10$lh/nTQu5AxuY1a3E5b2s4Odu/7x4Z2zk8io3HpFkZS73hL.HjJsXW",
     "created_at": "2026-09-29T04:04:22.889Z",
     "updated_at": "2026-09-29T04:04:22.908Z"
+  },
+  {
+    "id": "9fcda871-8abe-4c5b-957c-719f84232d52",
+    "name": "Veggie Master",
+    "email": "veg_user_1791172880716@example.com",
+    "username": null,
+    "password_hash": "$2b$10$XfmZCC1oi10wpwQfsTVYb.GuK.yC26SWm3f0im7qYbHxIjkEcEpC.",
+    "role": "USER",
+    "is_active": 1,
+    "last_login_at": "2026-10-05T04:01:43.534Z",
+    "created_at": "2026-10-05T04:01:23.289Z",
+    "updated_at": "2026-10-05T04:01:43.546Z"
+  },
+  {
+    "id": "usr_main_admin_vegsense",
+    "name": "Frankline (Main Administrator)",
+    "email": "franklinesamy2006@gmail.com",
+    "username": "franklinesamy",
+    "password_hash": "$2b$10$xDTelqQ4PcTE.4mfNkxSh.kFhBO9iURjoIdnPeOPtPPCat7876M2q",
+    "role": "MAIN_ADMIN",
+    "is_active": 1,
+    "last_login_at": "2026-10-05T04:25:54.083Z",
+    "created_at": "2026-10-25T08:16:21.939Z",
+    "updated_at": "2026-10-25T08:16:21.939Z"
+  },
+  {
+    "id": "453182be-b3ea-43b5-8dd4-1b769443f256",
+    "name": "VegSense QA Engineer",
+    "email": "qa_user_1791176404297@vegsense.io",
+    "username": null,
+    "password_hash": "$2b$10$4cGSKT1D1jcS52YFwpQTHuSe5XCDQkgoBFYAu4p4sEAMOqAK3/V7a",
+    "role": "USER",
+    "is_active": 1,
+    "last_login_at": "2026-10-05T05:00:10.444Z",
+    "created_at": "2026-10-05T05:00:08.839Z",
+    "updated_at": "2026-10-05T05:00:10.458Z"
+  },
+  {
+    "id": "e44e2ad9-1453-44a5-93bb-24607d280a04",
+    "name": "Permanent Tester",
+    "email": "permperson_1792917142733@vegsense.io",
+    "username": null,
+    "password_hash": "$2b$10$Tci4zxmLuimSH3F60cfmcuqYcIDTRmcZBeAyoG79SqCC07xvlZ5aC",
+    "role": "USER",
+    "is_active": 1,
+    "last_login_at": null,
+    "created_at": "2026-10-25T08:32:22.679Z",
+    "updated_at": "2026-10-25T08:32:22.680Z"
   }
 ]

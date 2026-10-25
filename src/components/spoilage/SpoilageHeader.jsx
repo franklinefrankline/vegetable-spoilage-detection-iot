@@ -20,7 +20,7 @@ export function SpoilageHeader({
 }) {
   const [showSimMenu, setShowSimMenu] = useState(false);
   const deviceName = device?.name || device?.deviceName || (isDemo ? 'ESP32-DEMO-001' : 'ESP32-001');
-  const ipAddress = device?.ipAddress || device?.ip || '192.168.1.105';
+  const ipAddress = device?.ipAddress || device?.ip || '192.168.1.150';
   const vegName = selectedBatch?.name || selectedBatch?.vegetable_name || 'Tomato';
   const batchName = selectedBatch?.variety ? `${vegName} (${selectedBatch.variety})` : (selectedBatch?.batchName || 'Tomato Batch A');
 

@@ -8,6 +8,7 @@ import {
   Layers,
   ChevronDown
 } from 'lucide-react';
+import { VegetableImage } from '../common/VegetableImage';
 
 export function StorageContext({
   batches = [],
@@ -45,19 +46,14 @@ export function StorageContext({
         gap: '0.75rem',
         marginBottom: '1rem'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: 'rgba(56, 189, 248, 0.12)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#0284c7'
-          }}>
-            <Package size={18} />
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <VegetableImage
+            vegetableName={b.vegetable}
+            width="46px"
+            height="46px"
+            borderRadius="10px"
+            style={{ flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+          />
           <div>
             <h2 style={{
               fontSize: '1.1rem',

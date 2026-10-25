@@ -42,6 +42,7 @@ import {
   Clock,
   Check
 } from 'lucide-react';
+import { VegetableImage } from '../components/common/VegetableImage';
 
 export function VegetableStoragePage() {
   const { currentUser, token } = useAuth();
@@ -335,7 +336,7 @@ export function VegetableStoragePage() {
             {device?.isDemo ? (
               <>
                 <Zap size={15} color="#f59e0b" />
-                <span>Demo Connected: <strong>{device.id}</strong> (192.168.1.105)</span>
+                <span>Demo Connected: <strong>{device.id}</strong> (192.168.1.150)</span>
               </>
             ) : isConnected ? (
               <>
@@ -382,9 +383,13 @@ export function VegetableStoragePage() {
         <div className="active-batch-hero-card">
           <div className="active-batch-hero-top">
             <div className="active-crop-identity">
-              <div className="active-crop-icon-box">
-                <Boxes size={26} />
-              </div>
+              <VegetableImage
+                item={activeBatch}
+                width="72px"
+                height="72px"
+                borderRadius="12px"
+                style={{ flexShrink: 0, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+              />
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <h2 className="active-crop-title">{activeBatch.vegetable_name}</h2>
@@ -561,12 +566,18 @@ export function VegetableStoragePage() {
             gap: '1rem'
           }}
         >
-          <Boxes size={48} color="var(--text-muted)" />
-          <h3 style={{ fontSize: '1.25rem', color: 'var(--text-main)', margin: 0 }}>No Storage Batches Found</h3>
+          <VegetableImage
+            vegetableName="generic"
+            width="96px"
+            height="96px"
+            borderRadius="16px"
+            style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}
+          />
+          <h3 style={{ fontSize: '1.25rem', color: 'var(--text-main)', margin: 0 }}>No Storage Batches</h3>
           <p style={{ color: 'var(--text-secondary)', maxWidth: '420px', margin: 0, fontSize: '0.9rem' }}>
             {searchTerm || filterStatus !== 'ALL'
               ? 'No batches match your filter or search criteria.'
-              : 'You have not added any vegetable storage records yet. Create your first batch to start monitoring.'}
+              : 'Add your first vegetable batch to begin automated freshness tracking.'}
           </p>
           <button
             type="button"
@@ -575,7 +586,7 @@ export function VegetableStoragePage() {
             style={{ width: 'auto', padding: '0 1.5rem', marginTop: '0.5rem' }}
           >
             <Plus size={16} />
-            <span>Create First Batch</span>
+            <span>Add Storage Batch</span>
           </button>
         </div>
       ) : (
@@ -601,10 +612,14 @@ export function VegetableStoragePage() {
                 <div>
                   {/* Card Header */}
                   <div className="storage-card-header">
-                    <div className="crop-header-left">
-                      <div className="crop-card-avatar">
-                        <Boxes size={22} />
-                      </div>
+                    <div className="crop-header-left" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <VegetableImage
+                        item={batch}
+                        width="52px"
+                        height="52px"
+                        borderRadius="10px"
+                        style={{ flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
+                      />
                       <div>
                         <div className="crop-card-name">{batch.vegetable_name}</div>
                         <div className="crop-card-variety">{batch.variety} • <strong>{batch.quantity}</strong></div>
@@ -794,20 +809,29 @@ export function VegetableStoragePage() {
               </button>
             </div>
 
-            {/* Quick Agricultural Preset Pills */}
-            <div className="preset-selector-row">
-              <span className="preset-selector-label">Quick Agricultural Presets</span>
-              <div className="preset-pills-wrap">
-                {VEGETABLE_PRESETS.map((preset) => (
-                  <button
-                    key={preset.name}
-                    type="button"
-                    className={`preset-pill ${formData.vegetable_name === preset.name ? 'active' : ''}`}
-                    onClick={() => handleSelectPreset(preset)}
-                  >
-                    {preset.name}
-                  </button>
-                ))}
+            {/* Quick Agricultural Preset Pills & Dynamic Image Preview */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', background: 'var(--bg-subtle)', borderRadius: '10px', marginBottom: '1rem', border: '1px solid var(--border-light)' }}>
+              <VegetableImage
+                vegetableName={formData.vegetable_name}
+                width="48px"
+                height="48px"
+                borderRadius="8px"
+                style={{ flexShrink: 0, boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}
+              />
+              <div style={{ flex: 1 }}>
+                <span className="preset-selector-label" style={{ display: 'block', marginBottom: '0.35rem' }}>Select Vegetable Preset</span>
+                <div className="preset-pills-wrap">
+                  {VEGETABLE_PRESETS.map((preset) => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      className={`preset-pill ${formData.vegetable_name === preset.name ? 'active' : ''}`}
+                      onClick={() => handleSelectPreset(preset)}
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -997,6 +1021,32 @@ export function VegetableStoragePage() {
               </button>
             </div>
 
+            {/* Produce Type Selector & Dynamic Image Preview */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', background: 'var(--bg-subtle)', borderRadius: '10px', marginBottom: '1rem', border: '1px solid var(--border-light)' }}>
+              <VegetableImage
+                vegetableName={formData.vegetable_name}
+                width="48px"
+                height="48px"
+                borderRadius="8px"
+                style={{ flexShrink: 0, boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}
+              />
+              <div style={{ flex: 1 }}>
+                <span className="preset-selector-label" style={{ display: 'block', marginBottom: '0.35rem' }}>Change Produce Type</span>
+                <div className="preset-pills-wrap">
+                  {VEGETABLE_PRESETS.map((preset) => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      className={`preset-pill ${formData.vegetable_name === preset.name ? 'active' : ''}`}
+                      onClick={() => handleSelectPreset(preset)}
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <form onSubmit={handleSubmitEdit}>
               <div className="storage-form-grid">
                 <div className="storage-form-group">
@@ -1142,14 +1192,20 @@ export function VegetableStoragePage() {
       {isDetailModalOpen && selectedBatch && (
         <div className="storage-modal-overlay" onClick={() => setIsDetailModalOpen(false)}>
           <div className="storage-modal-card" style={{ maxWidth: '620px' }} onClick={(e) => e.stopPropagation()}>
-            <div className="storage-modal-header">
-              <div>
-                <h3 className="storage-modal-title">
-                  <Boxes size={22} color="var(--primary)" />
+            <div className="storage-modal-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <VegetableImage
+                item={selectedBatch}
+                width="56px"
+                height="56px"
+                borderRadius="10px"
+                style={{ flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+              />
+              <div style={{ flex: 1 }}>
+                <h3 className="storage-modal-title" style={{ margin: 0, fontSize: '1.2rem' }}>
                   <span>{selectedBatch.vegetable_name} Details</span>
                 </h3>
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  Batch #{selectedBatch.batch_number || selectedBatch.id} • {selectedBatch.storage_chamber}
+                  Batch #{selectedBatch.batch_number || selectedBatch.id.slice(0, 8)} • {selectedBatch.storage_chamber}
                 </span>
               </div>
               <button

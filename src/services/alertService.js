@@ -1,7 +1,4 @@
-/**
- * VegSense Centralized Alerts Service (Part 7)
- * Handles communication with /api/alerts endpoints, user isolation, and local fallback.
- */
+import { buildApiUrl } from './apiClient.js';
 
 const LOCAL_ALERTS_KEY = 'vegsense_persisted_alerts';
 
@@ -9,6 +6,8 @@ function getAuthHeaders(token) {
   const headers = { 'Content-Type': 'application/json' };
   const effectiveToken =
     token ||
+    localStorage.getItem('veg_storage_auth_token') ||
+    sessionStorage.getItem('veg_storage_auth_token') ||
     localStorage.getItem('vegsense_jwt_token') ||
     sessionStorage.getItem('vegsense_jwt_token');
   if (effectiveToken) {
@@ -40,7 +39,7 @@ export async function getAlerts({
   if (limit) params.append('limit', String(limit));
 
   try {
-    const res = await fetch(`/api/alerts?${params.toString()}`, {
+    const res = await fetch(buildApiUrl(`/alerts?${params.toString()}`), {
       method: 'GET',
       headers: getAuthHeaders(token)
     });
@@ -83,7 +82,7 @@ export async function getAlerts({
  */
 export async function getUnreadCount(token = null) {
   try {
-    const res = await fetch('/api/alerts/unread-count', {
+    const res = await fetch(buildApiUrl('/alerts/unread-count'), {
       method: 'GET',
       headers: getAuthHeaders(token)
     });
@@ -102,7 +101,7 @@ export async function getUnreadCount(token = null) {
  */
 export async function getAlertSummary(token = null) {
   try {
-    const res = await fetch('/api/alerts/summary', {
+    const res = await fetch(buildApiUrl('/alerts/summary'), {
       method: 'GET',
       headers: getAuthHeaders(token)
     });
@@ -120,7 +119,7 @@ export async function getAlertSummary(token = null) {
  */
 export async function getAlertById(id, token = null) {
   try {
-    const res = await fetch(`/api/alerts/${encodeURIComponent(id)}`, {
+    const res = await fetch(buildApiUrl(`/alerts/${encodeURIComponent(id)}`), {
       method: 'GET',
       headers: getAuthHeaders(token)
     });
@@ -139,7 +138,7 @@ export async function getAlertById(id, token = null) {
  */
 export async function markAlertRead(id, token = null) {
   try {
-    const res = await fetch(`/api/alerts/${encodeURIComponent(id)}/read`, {
+    const res = await fetch(buildApiUrl(`/alerts/${encodeURIComponent(id)}/read`), {
       method: 'PATCH',
       headers: getAuthHeaders(token)
     });
@@ -157,7 +156,7 @@ export async function markAlertRead(id, token = null) {
  */
 export async function markAllAlertsRead(token = null) {
   try {
-    const res = await fetch('/api/alerts/read-all', {
+    const res = await fetch(buildApiUrl('/alerts/read-all'), {
       method: 'PATCH',
       headers: getAuthHeaders(token)
     });
@@ -175,7 +174,7 @@ export async function markAllAlertsRead(token = null) {
  */
 export async function resolveAlert(id, token = null) {
   try {
-    const res = await fetch(`/api/alerts/${encodeURIComponent(id)}/resolve`, {
+    const res = await fetch(buildApiUrl(`/alerts/${encodeURIComponent(id)}/resolve`), {
       method: 'PATCH',
       headers: getAuthHeaders(token)
     });
@@ -218,7 +217,7 @@ export async function evaluateAlerts({
   token = null
 }) {
   try {
-    const res = await fetch('/api/alerts/evaluate', {
+    const res = await fetch(buildApiUrl('/alerts/evaluate'), {
       method: 'POST',
       headers: getAuthHeaders(token),
       body: JSON.stringify({

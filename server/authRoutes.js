@@ -11,9 +11,11 @@ import db, {
   recordAuditLog
 } from './db.js';
 
+import { getJwtSecret } from './jwtConfig.js';
+
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'veg-storage-smart-iot-secret-key-2026';
 const TOKEN_EXPIRY = '7d';
+
 
 // Helper to validate email format
 const isValidEmail = (email) => {
@@ -38,13 +40,18 @@ export const authenticateToken = (req, res, next) => {
     return res.status(401).json({ authenticated: false, message: 'No authentication token provided.' });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(401).json({ authenticated: false, message: 'Session expired or invalid token.' });
-    }
-    req.user = decoded;
-    next();
-  });
+  try {
+    const secret = getJwtSecret();
+    jwt.verify(token, secret, (err, decoded) => {
+      if (err) {
+        return res.status(401).json({ authenticated: false, message: 'Session expired or invalid token.' });
+      }
+      req.user = decoded;
+      next();
+    });
+  } catch (secretErr) {
+    return res.status(500).json({ authenticated: false, message: 'Authentication service configuration error.' });
+  }
 };
 
 export const requireAuth = authenticateToken;
@@ -149,6 +156,11 @@ router.post('/register', async (req, res) => {
       });
     }
 
+    const confirmPass = req.body.confirmPassword || req.body.password_confirmation || req.body.passwordConfirmation;
+    if (confirmPass && confirmPass !== password) {
+      return res.status(400).json({ success: false, message: 'Passwords do not match.' });
+    }
+
     // Check if user already exists
     const checkStmt = db.prepare('SELECT id FROM users WHERE email = ?');
     let existing = checkStmt.get(trimmedEmail);
@@ -204,7 +216,7 @@ router.post('/register', async (req, res) => {
 
     const token = jwt.sign(
       { id: userId, name: name.trim(), email: trimmedEmail, role: 'USER' },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: TOKEN_EXPIRY }
     );
 
@@ -350,7 +362,7 @@ router.post('/login', async (req, res) => {
 
     const token = jwt.sign(
       { id: user.id, name: user.name, email: user.email, role: user.role || 'USER' },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: TOKEN_EXPIRY }
     );
 
@@ -369,6 +381,92 @@ router.post('/login', async (req, res) => {
 // POST /api/auth/logout
 router.post('/logout', (req, res) => {
   return res.status(200).json({ success: true, message: 'Logged out successfully.' });
+});
+
+// GET /api/auth/me - Verify and return current authenticated user session
+router.get('/me', authenticateToken, async (req, res) => {
+  try {
+    let user = db.prepare(`
+      SELECT id, name, username, email, role, is_active, created_at, last_login_at 
+      FROM users 
+      WHERE id = ?
+    `).get(req.user.id);
+
+    if (!user) {
+      try {
+        await syncPersistentUsers(true);
+        user = db.prepare(`
+          SELECT id, name, username, email, role, is_active, created_at, last_login_at 
+          FROM users 
+          WHERE id = ?
+        `).get(req.user.id);
+      } catch (syncErr) {
+        console.warn('Sync error during /me:', syncErr.message);
+      }
+    }
+
+    // Fallback to verified cryptographically sound JWT token payload if serverless instance is fresh
+    if (!user && req.user && req.user.id && req.user.email) {
+      user = {
+        id: req.user.id,
+        name: req.user.name || 'User',
+        username: null,
+        email: req.user.email,
+        role: req.user.role || 'USER',
+        is_active: 1,
+        created_at: new Date().toISOString(),
+        last_login_at: new Date().toISOString()
+      };
+    }
+
+    if (!user) {
+      return res.status(401).json({ authenticated: false, message: 'User session not recognized.' });
+    }
+
+    if (user.is_active === 0) {
+      return res.status(403).json({ authenticated: false, error: 'ACCOUNT_DEACTIVATED', message: 'Account is deactivated.' });
+    }
+
+    let permissions = null;
+    if (user.role === 'MAIN_ADMIN') {
+      permissions = {
+        full_access: 1,
+        user_management: 1,
+        admin_management: 1,
+        device_management: 1,
+        storage_management: 1,
+        sensor_monitoring: 1,
+        spoilage_monitoring: 1,
+        alert_management: 1,
+        analytics: 1,
+        reports: 1,
+        system_settings: 1,
+        audit_logs: 1
+      };
+    } else if (user.role === 'ADMIN') {
+      try {
+        permissions = db.prepare('SELECT * FROM admin_permissions WHERE user_id = ?').get(user.id);
+      } catch (e) {}
+    }
+
+    return res.status(200).json({
+      authenticated: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        username: user.username || null,
+        email: user.email,
+        role: user.role || 'USER',
+        is_active: user.is_active !== undefined ? user.is_active : 1,
+        permissions,
+        created_at: user.created_at,
+        last_login_at: user.last_login_at
+      }
+    });
+  } catch (error) {
+    console.error('Session verify error:', error);
+    return res.status(500).json({ authenticated: false, message: 'Server error verifying session.' });
+  }
 });
 
 // POST /api/auth/forgot-password

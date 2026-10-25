@@ -52,8 +52,8 @@ export const DEMO_DEVICE = {
   id: 'ESP32-DEMO-001',
   deviceName: 'ESP32-DEMO-001',
   name: 'ESP32-DEMO-001',
-  ip: '192.168.1.105',
-  ipAddress: '192.168.1.105',
+  ip: '192.168.1.150',
+  ipAddress: '192.168.1.150',
   status: 'Demo Connected',
   network: 'Wi-Fi',
   signal: 'Strong',
@@ -188,8 +188,8 @@ export function DeviceProvider({ children }) {
             ...parsed,
             id: 'ESP32-DEMO-001',
             name: 'ESP32-DEMO-001',
-            ip: '192.168.1.105',
-            ipAddress: '192.168.1.105',
+            ip: '192.168.1.150',
+            ipAddress: '192.168.1.150',
             status: 'Demo Connected',
             isDemo: true,
             lastConnected: parsed.lastConnected || new Date().toISOString()
@@ -582,7 +582,7 @@ export function DeviceProvider({ children }) {
   );
 
   // Connect Demo ESP32 directly with user specifications:
-  // IP: 192.168.1.105 | Device: ESP32-DEMO-001 | Status: Demo Connected
+  // IP: 192.168.1.150 | Device: ESP32-DEMO-001 | Status: Demo Connected
   // Temp: 28.5°C | Humidity: 72% | Gas: 420 | Spoilage Risk: 18% | Status: FRESH
   const connectDemoDevice = useCallback(async () => {
     stopSensorPolling();

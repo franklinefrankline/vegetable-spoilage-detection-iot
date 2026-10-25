@@ -3,7 +3,7 @@ import { Terminal, ChevronDown, ChevronUp, ExternalLink, RefreshCw, CheckCircle2
 import { isHttpsContext } from '../../services/deviceService';
 
 export function DebugPanel({
-  targetIp = '192.168.1.105',
+  targetIp = '192.168.1.150',
   connectionStatus = 'Idle', // 'Connected' | 'Failed' | 'Checking...' | 'Idle'
   lastResponse = null,
   lastError = null,
@@ -13,7 +13,7 @@ export function DebugPanel({
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'response' | 'error'
   const isHttps = isHttpsContext();
 
-  const cleanIp = (targetIp || '192.168.1.105').trim();
+  const cleanIp = (targetIp || '192.168.1.150').trim();
   const statusUrl = `http://${cleanIp}/status`;
   const dataUrl = `http://${cleanIp}/api/data`;
 

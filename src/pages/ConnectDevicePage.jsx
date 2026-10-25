@@ -147,7 +147,7 @@ export function ConnectDevicePage() {
     }
   };
 
-  // Section: Quick Demo ESP32 Connection Handler (ESP32-DEMO-001 @ 192.168.1.105)
+  // Section: Quick Demo ESP32 Connection Handler (ESP32-DEMO-001 @ 192.168.1.150)
   const handleConnectDemo = async () => {
     setInputError('');
     setConnectionError(null);
@@ -194,7 +194,7 @@ export function ConnectDevicePage() {
 
   // Section 19: Manual Endpoint Prober for Debug Mode
   const handleTestEndpoint = async (type) => {
-    const cleanIp = (ipAddress || '192.168.1.105').trim();
+    const cleanIp = (ipAddress || '192.168.1.150').trim();
     try {
       if (type === 'status') {
         const res = await getDeviceStatus(cleanIp);
@@ -302,7 +302,7 @@ export function ConnectDevicePage() {
 
           {/* Compact Serial Monitor */}
           <SerialMonitorCompact
-            ip={ipAddress || '192.168.1.105'}
+            ip={ipAddress || '192.168.1.150'}
             onCopy={(copiedIp) => {
               setIpAddress(copiedIp);
               setInputError('');
@@ -400,7 +400,7 @@ export function ConnectDevicePage() {
                         id="esp32-ip-field"
                         type="text"
                         className={`refined-ip-input ${inputError ? 'error-border' : ''}`}
-                        placeholder="192.168.1.105"
+                        placeholder="192.168.1.150"
                         value={ipAddress}
                         onChange={(e) => {
                           setIpAddress(e.target.value);
@@ -442,7 +442,7 @@ export function ConnectDevicePage() {
                         </span>
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.65rem', lineHeight: '1.4' }}>
-                        IP: <strong style={{ color: 'var(--text-main)' }}>192.168.1.105</strong> • Temp: <strong>28.5 °C</strong> • Hum: <strong>72 %</strong> • VOC: <strong>420</strong> • Spoilage: <strong>18 %</strong> • Status: <strong>FRESH</strong>
+                        IP: <strong style={{ color: 'var(--text-main)' }}>192.168.1.150</strong> • Temp: <strong>28.5 °C</strong> • Hum: <strong>72 %</strong> • VOC: <strong>420</strong> • Spoilage: <strong>18 %</strong> • Status: <strong>FRESH</strong>
                       </div>
                       <button
                         type="button"
@@ -462,7 +462,7 @@ export function ConnectDevicePage() {
                         }}
                       >
                         <Zap size={14} color="#f59e0b" />
-                        <span>Connect Demo ESP32 (192.168.1.105)</span>
+                        <span>Connect Demo ESP32 (192.168.1.150)</span>
                       </button>
                     </div>
                   </div>
@@ -563,7 +563,7 @@ export function ConnectDevicePage() {
 
       {/* 5. Section 19: Developer Debug Mode Panel */}
       <DebugPanel
-        targetIp={ipAddress || '192.168.1.105'}
+        targetIp={ipAddress || '192.168.1.150'}
         connectionStatus={
           isConnected
             ? 'Connected'

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useDevice } from '../context/DeviceContext';
+import { useAlerts } from '../context/AlertContext';
 import { useNavigate } from '../router/Router';
 import { getActiveStorage, fetchActiveStorage } from '../services/storageService';
 
@@ -24,6 +25,7 @@ import { VegetableStorageSummary } from '../components/dashboard/VegetableStorag
 
 export function DashboardPage() {
   const { currentUser, isAuthenticated } = useAuth();
+  const { unreadCount } = useAlerts();
   const {
     isConnected,
     isCheckingReachability,
@@ -36,7 +38,6 @@ export function DashboardPage() {
     previousData,
     history,
     alerts,
-    unreadAlertsCount,
     reconnectDevice,
     loadingStage,
     thresholds
@@ -45,7 +46,7 @@ export function DashboardPage() {
   const navigate = useNavigate();
   const [activeStorage, setActiveStorage] = useState(null);
 
-  // Section 2: Access Rules Enforcement
+  // Access Rules Enforcement & Storage Initialization
   useEffect(() => {
     // 1. User must be authenticated
     if (!isAuthenticated) {
@@ -53,14 +54,7 @@ export function DashboardPage() {
       return;
     }
 
-    // 2. User must have a verified ESP32 device
-    // If authenticated but no verified ESP32 -> redirect to /connect-device
-    if (!hasSavedDevice && !savedDevice?.ipAddress) {
-      navigate('/connect-device');
-      return;
-    }
-
-    // 3. Load active vegetable storage selection from database
+    // 2. Load active vegetable storage selection from database
     const userId = currentUser?.id || currentUser?.email || 'default';
     fetchActiveStorage(userId)
       .then((item) => {
@@ -70,9 +64,9 @@ export function DashboardPage() {
         const fallback = getActiveStorage(userId);
         if (fallback) setActiveStorage(fallback);
       });
-  }, [isAuthenticated, hasSavedDevice, savedDevice, currentUser, navigate]);
+  }, [isAuthenticated, currentUser, navigate]);
 
-  const displayIp = device?.ipAddress || device?.ip || savedDevice?.ipAddress || '192.168.1.105';
+  const displayIp = device?.ipAddress || device?.ip || savedDevice?.ipAddress || '192.168.1.150';
   const isOffline = !isConnected || connectionLost;
 
   // Staged loading state during initial reachability test if no data is available yet
@@ -92,7 +86,7 @@ export function DashboardPage() {
         device={device}
         isConnected={isConnected}
         isOffline={isOffline}
-        unreadAlertsCount={unreadAlertsCount}
+        unreadAlertsCount={unreadCount ?? 0}
       />
 
       {/* 2. Device Offline Banner (Section 16 & 17) */}

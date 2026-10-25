@@ -4,7 +4,7 @@ import { VegSenseLogo } from '../branding/VegSenseLogo';
 
 export function LoadingState({
   stage = 'Connecting to ESP32...',
-  displayIp = '192.168.1.105'
+  displayIp = '192.168.1.150'
 }) {
   return (
     <div className="dashboard-loading-fullscreen">

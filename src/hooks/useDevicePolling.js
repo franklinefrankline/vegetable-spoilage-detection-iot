@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getDeviceStatus, getSensorData } from '../services/deviceService';
 import { checkReadingForAlerts, recordAlert } from '../services/alertService';
+import { buildApiUrl } from '../services/apiClient';
 
 export const POLLING_STATES = {
   INITIAL_LOADING: 'INITIAL_LOADING',
@@ -63,7 +64,7 @@ export function useDevicePolling(deviceIp, deviceId = 'ESP32-001', isEnabled = t
       }
 
       // Persist reading to database in background
-      fetch('/api/readings', {
+      fetch(buildApiUrl('/readings'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

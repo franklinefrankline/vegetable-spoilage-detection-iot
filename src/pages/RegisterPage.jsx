@@ -132,11 +132,25 @@ export function RegisterPage() {
 
           <div className="visual-title-block">
             <h1 className="visual-hero-title">
-              Join VegSense Intelligence.
+              Smart Vegetable Storage
             </h1>
             <p className="visual-hero-subtitle">
-              Intelligent vegetable storage monitoring and early spoilage detection for modern agriculture.
+              Monitor freshness. Reduce spoilage. Protect quality.
             </p>
+          </div>
+
+          {/* High-quality vegetable image showcase */}
+          <div style={{ margin: '1rem 0', borderRadius: '14px', overflow: 'hidden', height: '140px', position: 'relative', border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}>
+            <img
+              src="/images/vegetables/generic_vegetable.jpg"
+              alt="Fresh vegetables in smart monitored storage"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,18,32,0.85) 0%, transparent 60%)', display: 'flex', alignItems: 'flex-end', padding: '0.65rem 0.9rem' }}>
+              <span style={{ color: '#f0fdf4', fontSize: '0.785rem', fontWeight: 700, letterSpacing: '0.02em' }}>
+                Automated Chamber Telemetry · Agricultural SaaS
+              </span>
+            </div>
           </div>
 
           <div className="feature-indicators-row">

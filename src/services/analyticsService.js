@@ -1,9 +1,6 @@
-/**
- * Unified Analytics Service for VegSense Smart Storage Intelligence
- * Communicates with backend /api/analytics endpoints using authenticated JWT sessions.
- */
+import { buildApiUrl } from './apiClient.js';
 
-const API_BASE = '/api/analytics';
+const getApiBase = () => buildApiUrl('/analytics');
 
 function getAuthHeaders(token = null) {
   const headers = { 'Content-Type': 'application/json' };
@@ -34,7 +31,7 @@ function buildQueryString(params = {}) {
  */
 export async function getAnalyticsSummary(params = {}, token = null) {
   const qs = buildQueryString(params);
-  const res = await fetch(`${API_BASE}/summary${qs}`, {
+  const res = await fetch(`${getApiBase()}/summary${qs}`, {
     method: 'GET',
     headers: getAuthHeaders(token)
   });
@@ -49,7 +46,7 @@ export async function getAnalyticsSummary(params = {}, token = null) {
  */
 export async function getSensorTimeseries(params = {}, token = null) {
   const qs = buildQueryString(params);
-  const res = await fetch(`${API_BASE}/sensors${qs}`, {
+  const res = await fetch(`${getApiBase()}/sensors${qs}`, {
     method: 'GET',
     headers: getAuthHeaders(token)
   });
@@ -66,7 +63,7 @@ export const getSensorHistory = getSensorTimeseries;
  */
 export async function getTemperatureHistory(params = {}, token = null) {
   const qs = buildQueryString(params);
-  const res = await fetch(`${API_BASE}/temperature${qs}`, {
+  const res = await fetch(`${getApiBase()}/temperature${qs}`, {
     headers: getAuthHeaders(token)
   });
   if (!res.ok) throw new Error('Failed to fetch temperature history');
@@ -75,7 +72,7 @@ export async function getTemperatureHistory(params = {}, token = null) {
 
 export async function getHumidityHistory(params = {}, token = null) {
   const qs = buildQueryString(params);
-  const res = await fetch(`${API_BASE}/humidity${qs}`, {
+  const res = await fetch(`${getApiBase()}/humidity${qs}`, {
     headers: getAuthHeaders(token)
   });
   if (!res.ok) throw new Error('Failed to fetch humidity history');
@@ -84,7 +81,7 @@ export async function getHumidityHistory(params = {}, token = null) {
 
 export async function getGasHistory(params = {}, token = null) {
   const qs = buildQueryString(params);
-  const res = await fetch(`${API_BASE}/gas${qs}`, {
+  const res = await fetch(`${getApiBase()}/gas${qs}`, {
     headers: getAuthHeaders(token)
   });
   if (!res.ok) throw new Error('Failed to fetch Gas/VOC history');
@@ -93,7 +90,7 @@ export async function getGasHistory(params = {}, token = null) {
 
 export async function getLightHistory(params = {}, token = null) {
   const qs = buildQueryString(params);
-  const res = await fetch(`${API_BASE}/light${qs}`, {
+  const res = await fetch(`${getApiBase()}/light${qs}`, {
     headers: getAuthHeaders(token)
   });
   if (!res.ok) throw new Error('Failed to fetch light history');
@@ -102,7 +99,7 @@ export async function getLightHistory(params = {}, token = null) {
 
 export async function getSpoilageHistory(params = {}, token = null) {
   const qs = buildQueryString(params);
-  const res = await fetch(`${API_BASE}/spoilage${qs}`, {
+  const res = await fetch(`${getApiBase()}/spoilage${qs}`, {
     headers: getAuthHeaders(token)
   });
   if (!res.ok) throw new Error('Failed to fetch spoilage history');
@@ -114,7 +111,7 @@ export async function getSpoilageHistory(params = {}, token = null) {
  */
 export async function getAlertAnalytics(params = {}, token = null) {
   const qs = buildQueryString(params);
-  const res = await fetch(`${API_BASE}/alerts${qs}`, {
+  const res = await fetch(`${getApiBase()}/alerts${qs}`, {
     headers: getAuthHeaders(token)
   });
   if (!res.ok) throw new Error('Failed to fetch alert analytics');
@@ -125,7 +122,7 @@ export async function getAlertAnalytics(params = {}, token = null) {
  * 5. Fetches storage analytics (batches, vegetable counts, quantities, risk distribution)
  */
 export async function getStorageAnalytics(token = null) {
-  const res = await fetch(`${API_BASE}/storage`, {
+  const res = await fetch(`${getApiBase()}/storage`, {
     headers: getAuthHeaders(token)
   });
   if (!res.ok) throw new Error('Failed to fetch storage analytics');
@@ -136,7 +133,7 @@ export async function getStorageAnalytics(token = null) {
  * 6. Fetches specific batch history & risk timeline
  */
 export async function getBatchAnalytics(batchId, token = null) {
-  const res = await fetch(`${API_BASE}/batch/${encodeURIComponent(batchId)}`, {
+  const res = await fetch(`${getApiBase()}/batch/${encodeURIComponent(batchId)}`, {
     headers: getAuthHeaders(token)
   });
   if (!res.ok) throw new Error('Failed to fetch batch analytics');
@@ -148,7 +145,7 @@ export async function getBatchAnalytics(batchId, token = null) {
  */
 export async function getComparisonAnalytics(params = {}, token = null) {
   const qs = buildQueryString(params);
-  const res = await fetch(`${API_BASE}/comparison${qs}`, {
+  const res = await fetch(`${getApiBase()}/comparison${qs}`, {
     headers: getAuthHeaders(token)
   });
   if (!res.ok) throw new Error('Failed to fetch period comparison');
@@ -159,7 +156,7 @@ export async function getComparisonAnalytics(params = {}, token = null) {
  * 8. Resets demo history and seeds fresh baseline (demo mode only)
  */
 export async function resetDemoHistory(token = null) {
-  const res = await fetch(`${API_BASE}/reset-demo`, {
+  const res = await fetch(`${getApiBase()}/reset-demo`, {
     method: 'POST',
     headers: getAuthHeaders(token)
   });

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 
 export function LoginPage() {
-  const { login, currentUser, isAuthenticated, logout } = useAuth();
+  const { login, currentUser, isAuthenticated, logout, refreshAuthenticatedUser } = useAuth();
   const { addToast } = useToast();
   const navigate = useNavigate();
   const { searchParams } = useLocation();
@@ -31,7 +31,7 @@ export function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
 
   const [errors, setErrors] = useState({});
@@ -79,21 +79,36 @@ export function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const data = await login({
+      const response = await login({
         email: email.trim(),
         password,
         rememberMe
       });
 
-      addToast('Login successful.', 'success');
+      if (response && response.success) {
+        if (typeof refreshAuthenticatedUser === 'function') {
+          try {
+            await refreshAuthenticatedUser();
+          } catch (rErr) {
+            console.warn('refreshAuthenticatedUser error:', rErr);
+          }
+        }
 
-      // Section 5: Redirect based on authenticated role
-      const role = String(data?.user?.role || '').toUpperCase();
-      if (role === 'MAIN_ADMIN' || role === 'ADMIN') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
+        addToast('Login successful.', 'success');
+
+        // Redirect based on authenticated role
+        const role = String(response?.user?.role || '').toUpperCase();
+        if (role === 'MAIN_ADMIN' || role === 'ADMIN') {
+          navigate('/admin', { replace: true });
+        } else {
+          navigate('/dashboard', { replace: true });
+        }
+        return;
       }
+
+      const msg = response?.message || 'Invalid email or password.';
+      setGeneralError(msg);
+      addToast(msg, 'error');
     } catch (err) {
       const msg = err.message || 'Invalid email or password.';
       setGeneralError(msg);
@@ -135,11 +150,25 @@ export function LoginPage() {
 
           <div className="visual-title-block">
             <h1 className="visual-hero-title">
-              Protect Every Harvest.
+              Smart Vegetable Storage
             </h1>
             <p className="visual-hero-subtitle">
-              Monitor storage conditions and detect spoilage before it becomes waste.
+              Monitor freshness. Reduce spoilage. Protect quality.
             </p>
+          </div>
+
+          {/* High-quality vegetable image showcase */}
+          <div style={{ margin: '1rem 0', borderRadius: '14px', overflow: 'hidden', height: '140px', position: 'relative', border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}>
+            <img
+              src="/images/vegetables/generic_vegetable.jpg"
+              alt="Fresh vegetables in smart monitored storage"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,18,32,0.85) 0%, transparent 60%)', display: 'flex', alignItems: 'flex-end', padding: '0.65rem 0.9rem' }}>
+              <span style={{ color: '#f0fdf4', fontSize: '0.785rem', fontWeight: 700, letterSpacing: '0.02em' }}>
+                IoT Storage Intelligence · Real-Time Freshness
+              </span>
+            </div>
           </div>
 
           {/* Feature indicators */}
@@ -212,7 +241,7 @@ export function LoginPage() {
                 </div>
                 <div style={{ fontSize: '0.825rem' }}>
                   <span style={{ color: '#94a3b8' }}>ESP32 Connected: </span>
-                  <strong style={{ color: '#f0fdf4' }}>192.168.1.105 (Signal: Strong)</strong>
+                  <strong style={{ color: '#f0fdf4' }}>192.168.1.150 (Signal: Strong)</strong>
                 </div>
               </div>
               <span style={{ fontSize: '0.75rem', color: '#86efac', fontWeight: 600 }}>Active</span>

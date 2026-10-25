@@ -9,9 +9,9 @@ import {
   resetDemoHistory
 } from './analyticsService.js';
 import db from './db.js';
+import { getJwtSecret } from './jwtConfig.js';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'veg-storage-smart-iot-secret-key-2026';
 
 // Middleware: Authenticate user via JWT Bearer or fallback to demo account
 function requireAuth(req, res, next) {
@@ -20,11 +20,11 @@ function requireAuth(req, res, next) {
 
   if (token) {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, getJwtSecret());
       req.user = decoded;
       return next();
     } catch (err) {
-      // Invalid/expired token, proceed to fallback
+      return res.status(401).json({ error: 'INVALID_TOKEN', message: 'Authentication token is invalid or expired.' });
     }
   }
 

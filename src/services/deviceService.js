@@ -20,7 +20,7 @@ let activePollingTimer = null;
 
 /**
  * Validates whether the given string is a valid IPv4 address.
- * Valid examples: 192.168.1.105, 192.168.0.25, 10.0.0.15
+ * Valid examples: 192.168.1.150, 192.168.0.25, 10.0.0.15
  * Invalid examples: abc, 192.168.1, 999.999.999.999, 192.168.1.999, empty
  */
 export function validateIPAddress(ip) {
@@ -93,7 +93,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = CONNECTION_TIMEOU
  * {
  *   "device": "ESP32-001",
  *   "status": "connected",
- *   "ip": "192.168.1.105"
+ *   "ip": "192.168.1.150"
  * }
  */
 export async function getDeviceStatus(ip) {

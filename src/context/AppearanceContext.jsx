@@ -91,6 +91,11 @@ export function AppearanceProvider({ children }) {
     root.setAttribute('data-card-style', settings.cardStyle);
     root.setAttribute('data-font-size', settings.fontSize);
     root.setAttribute('data-animation', settings.animation);
+    if (settings.theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
 
     // Also keep localStorage updated
     try {

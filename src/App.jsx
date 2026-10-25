@@ -28,11 +28,12 @@ import { AdminPortal } from './pages/admin/AdminPortal';
 import { VegSenseLogo } from './components/branding/VegSenseLogo';
 
 function AppContent() {
-  const { loading, isAuthenticated } = useAuth();
-  const { isConnected, hasSavedDevice } = useDevice();
+  const { isInitializing, loading, isAuthenticated } = useAuth();
   const { pathname } = useLocation();
 
-  if (loading) {
+  const checking = isInitializing ?? loading;
+
+  if (checking) {
     return (
       <div
         style={{
@@ -81,30 +82,6 @@ function AppContent() {
   // Dedicated Enterprise Admin Portal Route (with its own SaaS layout)
   if (pathname.startsWith('/admin')) {
     return <AdminPortal />;
-  }
-
-  // Authenticated user without any device must connect first (except device-independent routes or demo/spoilage/sensors/storage)
-  if (
-    !hasSavedDevice &&
-    !isConnected &&
-    pathname !== '/connect-device' &&
-    pathname !== '/settings' &&
-    pathname !== '/storage' &&
-    pathname !== '/vegetable-storage' &&
-    pathname !== '/sensors' &&
-    pathname !== '/live-sensors' &&
-    pathname !== '/spoilage' &&
-    pathname !== '/spoilage-detection' &&
-    pathname !== '/alerts' &&
-    pathname !== '/analytics' &&
-    pathname !== '/history' &&
-    pathname !== '/reports'
-  ) {
-    return (
-      <AppShell>
-        <ConnectDevicePage />
-      </AppShell>
-    );
   }
 
   // Protected Pages wrapped in unified AppShell

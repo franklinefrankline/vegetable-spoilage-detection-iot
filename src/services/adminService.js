@@ -4,6 +4,8 @@
  * Part 11: Main Admin + Admin Management + Permissions + Devices + Audit Logs
  */
 
+import { buildApiUrl } from './apiClient.js';
+
 const TOKEN_KEY = 'veg_storage_auth_token';
 
 function getAuthHeaders() {
@@ -20,7 +22,9 @@ async function request(url, options = {}) {
     ...(options.headers || {})
   };
 
-  const response = await fetch(url, {
+  const finalUrl = buildApiUrl(url);
+
+  const response = await fetch(finalUrl, {
     ...options,
     headers
   });

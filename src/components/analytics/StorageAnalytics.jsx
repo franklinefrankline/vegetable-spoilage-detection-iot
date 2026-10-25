@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Clock
 } from 'lucide-react';
+import { VegetableImage } from '../common/VegetableImage';
 
 export function StorageAnalytics({ storageData, deviceData }) {
   const summary = storageData?.summary || {
@@ -113,7 +114,18 @@ export function StorageAnalytics({ storageData, deviceData }) {
                 <tbody>
                   {vegetableBreakdown.map((veg) => (
                     <tr key={veg.type} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                      <td style={{ padding: '0.6rem 0.75rem', fontWeight: 700, color: 'var(--text-main)' }}>{veg.type}</td>
+                      <td style={{ padding: '0.6rem 0.75rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                          <VegetableImage
+                            vegetableName={veg.type}
+                            width="28px"
+                            height="28px"
+                            borderRadius="6px"
+                            style={{ flexShrink: 0, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
+                          />
+                          <span>{veg.type}</span>
+                        </div>
+                      </td>
                       <td style={{ padding: '0.6rem 0.75rem', color: 'var(--text-secondary)' }}>{veg.batches}</td>
                       <td style={{ padding: '0.6rem 0.75rem' }}>
                         <span

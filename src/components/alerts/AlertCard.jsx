@@ -17,6 +17,7 @@ import {
   Info
 } from 'lucide-react';
 import { ALERT_SEVERITIES } from '../../utils/alertRules';
+import { VegetableImage } from '../common/VegetableImage';
 
 export function AlertCard({ alert, onMarkRead, onResolve, onViewDetails }) {
   if (!alert) return null;
@@ -41,6 +42,11 @@ export function AlertCard({ alert, onMarkRead, onResolve, onViewDetails }) {
   const Icon = getAlertIcon();
   const isUnread = !alert.is_read && !alert.read;
   const isResolved = alert.status === 'RESOLVED';
+
+  const detectedVeg = alert.vegetable_name || alert.metadata?.vegetable_name || alert.metadata?.batch_name ||
+    (['tomato', 'potato', 'onion', 'carrot', 'cabbage', 'pepper'].find((v) =>
+      `${alert.title || ''} ${alert.message || ''} ${alert.storage_batch_id || ''}`.toLowerCase().includes(v)
+    ));
 
   // Format relative time
   const formatTime = (isoString) => {
@@ -80,25 +86,35 @@ export function AlertCard({ alert, onMarkRead, onResolve, onViewDetails }) {
           flexWrap: 'wrap'
         }}
       >
-        {/* Left: Icon & Content */}
+        {/* Left: Icon / Vegetable Thumbnail & Content */}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.9rem', flex: 1, minWidth: '260px' }}>
-          <div
-            style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '8px',
-              backgroundColor: isResolved ? 'var(--bg-subtle)' : sev.bg,
-              color: isResolved ? 'var(--text-muted)' : sev.color,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              marginTop: '2px',
-              border: `1px solid ${isResolved ? 'var(--border-light)' : sev.border}`
-            }}
-          >
-            <Icon size={19} />
-          </div>
+          {detectedVeg ? (
+            <VegetableImage
+              vegetableName={detectedVeg}
+              width="38px"
+              height="38px"
+              borderRadius="8px"
+              style={{ flexShrink: 0, marginTop: '2px', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}
+            />
+          ) : (
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '8px',
+                backgroundColor: isResolved ? 'var(--bg-subtle)' : sev.bg,
+                color: isResolved ? 'var(--text-muted)' : sev.color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                marginTop: '2px',
+                border: `1px solid ${isResolved ? 'var(--border-light)' : sev.border}`
+              }}
+            >
+              <Icon size={19} />
+            </div>
+          )}
 
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>

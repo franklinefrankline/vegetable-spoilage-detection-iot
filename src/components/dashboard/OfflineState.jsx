@@ -23,7 +23,7 @@ export function OfflineState({
   const navigate = useNavigate();
   const [isReconnecting, setIsReconnecting] = useState(false);
 
-  const displayIp = device?.ipAddress || device?.ip || '192.168.1.105';
+  const displayIp = device?.ipAddress || device?.ip || '192.168.1.150';
   const deviceName = device?.name || device?.id || 'ESP32-001';
 
   const handleReconnect = async () => {

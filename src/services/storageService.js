@@ -5,8 +5,11 @@
  * =====================================================================================
  */
 
+import { buildApiUrl } from './apiClient.js';
+
 const STORAGE_KEY_PREFIX = 'vegsense_active_storage_';
 const CACHE_KEY_PREFIX = 'vegsense_storage_cache_';
+
 
 // Standard Agricultural Storage Reference Presets
 export const VEGETABLE_PRESETS = [
@@ -120,7 +123,12 @@ export const VEGETABLE_PRESETS = [
 
 function getAuthHeaders(token) {
   const headers = { 'Content-Type': 'application/json' };
-  const effectiveToken = token || localStorage.getItem('vegsense_jwt_token') || sessionStorage.getItem('vegsense_jwt_token');
+  const effectiveToken =
+    token ||
+    localStorage.getItem('veg_storage_auth_token') ||
+    sessionStorage.getItem('veg_storage_auth_token') ||
+    localStorage.getItem('vegsense_jwt_token') ||
+    sessionStorage.getItem('vegsense_jwt_token');
   if (effectiveToken) {
     headers['Authorization'] = `Bearer ${effectiveToken}`;
   }
@@ -132,7 +140,7 @@ function getAuthHeaders(token) {
  */
 export async function fetchStorageItems(userId, token) {
   try {
-    const res = await fetch(`/api/storage?userId=${encodeURIComponent(userId || '')}`, {
+    const res = await fetch(buildApiUrl(`/storage?userId=${encodeURIComponent(userId || '')}`), {
       method: 'GET',
       headers: getAuthHeaders(token)
     });
@@ -166,7 +174,7 @@ export async function fetchStorageItems(userId, token) {
  */
 export async function fetchActiveStorage(userId, token) {
   try {
-    const res = await fetch(`/api/storage/active?userId=${encodeURIComponent(userId || '')}`, {
+    const res = await fetch(buildApiUrl(`/storage/active?userId=${encodeURIComponent(userId || '')}`), {
       method: 'GET',
       headers: getAuthHeaders(token)
     });
@@ -189,7 +197,7 @@ export async function fetchActiveStorage(userId, token) {
  * Creates a new storage record in the database.
  */
 export async function createStorageItem(storageData, token) {
-  const res = await fetch('/api/storage', {
+  const res = await fetch(buildApiUrl('/storage'), {
     method: 'POST',
     headers: getAuthHeaders(token),
     body: JSON.stringify(storageData)
@@ -207,7 +215,7 @@ export async function createStorageItem(storageData, token) {
  * Updates an existing storage record in the database.
  */
 export async function updateStorageItem(id, storageData, token) {
-  const res = await fetch(`/api/storage/${encodeURIComponent(id)}`, {
+  const res = await fetch(buildApiUrl(`/storage/${encodeURIComponent(id)}`), {
     method: 'PUT',
     headers: getAuthHeaders(token),
     body: JSON.stringify(storageData)
@@ -225,7 +233,7 @@ export async function updateStorageItem(id, storageData, token) {
  * Deletes a storage record from the database.
  */
 export async function deleteStorageItem(id, userId, token) {
-  const res = await fetch(`/api/storage/${encodeURIComponent(id)}?userId=${encodeURIComponent(userId || '')}`, {
+  const res = await fetch(buildApiUrl(`/storage/${encodeURIComponent(id)}?userId=${encodeURIComponent(userId || '')}`), {
     method: 'DELETE',
     headers: getAuthHeaders(token),
     body: JSON.stringify({ userId })
@@ -243,7 +251,7 @@ export async function deleteStorageItem(id, userId, token) {
  * Activates a storage batch to connect it to live device monitoring.
  */
 export async function activateStorageBatch(id, userId, token) {
-  const res = await fetch(`/api/storage/${encodeURIComponent(id)}/activate`, {
+  const res = await fetch(buildApiUrl(`/storage/${encodeURIComponent(id)}/activate`), {
     method: 'POST',
     headers: getAuthHeaders(token),
     body: JSON.stringify({ userId })
@@ -266,7 +274,7 @@ export async function activateStorageBatch(id, userId, token) {
  */
 export async function syncBatchTelemetry(id, telemetry, token) {
   try {
-    const res = await fetch(`/api/storage/${encodeURIComponent(id)}/sync-telemetry`, {
+    const res = await fetch(buildApiUrl(`/storage/${encodeURIComponent(id)}/sync-telemetry`), {
       method: 'POST',
       headers: getAuthHeaders(token),
       body: JSON.stringify(telemetry)

@@ -3,6 +3,7 @@
  * Communicates with backend spoilage endpoints or utilizes the local engine for demo mode.
  */
 
+import { buildApiUrl } from './apiClient.js';
 import {
   calculateSpoilageRisk,
   getSpoilageClassification,
@@ -54,7 +55,7 @@ export async function getSpoilageStatus(batchId = 'v_tomato_a', deviceId = 'ESP3
 
   // Real backend call for live devices
   try {
-    const res = await fetch(`/api/spoilage/current?deviceId=${encodeURIComponent(deviceId)}&batchId=${encodeURIComponent(batchId)}`);
+    const res = await fetch(buildApiUrl(`/spoilage/current?deviceId=${encodeURIComponent(deviceId)}&batchId=${encodeURIComponent(batchId)}`));
     if (!res.ok) throw new Error(`Spoilage API error: ${res.status}`);
     const data = await res.json();
     return {
@@ -86,7 +87,7 @@ export async function getSpoilageStatus(batchId = 'v_tomato_a', deviceId = 'ESP3
  */
 export async function getSpoilageHistory(range = '24h', deviceId = 'ESP32-DEMO-001', isDemo = true) {
   try {
-    const res = await fetch(`/api/spoilage/history?deviceId=${encodeURIComponent(deviceId)}&range=${encodeURIComponent(range)}&isDemo=${isDemo}`);
+    const res = await fetch(buildApiUrl(`/spoilage/history?deviceId=${encodeURIComponent(deviceId)}&range=${encodeURIComponent(range)}&isDemo=${isDemo}`));
     if (res.ok) {
       const data = await res.json();
       if (data.history && data.history.length > 0) {

@@ -1,6 +1,6 @@
 /**
  * Dedicated Demo Sensor Service for VegSense Smart Storage Intelligence
- * Provides realistic, controlled environmental variations for ESP32-DEMO-001 (192.168.1.105)
+ * Provides realistic, controlled environmental variations for ESP32-DEMO-001 (192.168.1.150)
  * Without physical hardware dependencies.
  */
 
@@ -43,7 +43,7 @@ let currentDemoState = {
   environmentStatus: 'FRESH',
   isDemo: true,
   deviceId: 'ESP32-DEMO-001',
-  ipAddress: '192.168.1.105',
+  ipAddress: '192.168.1.150',
   lastUpdated: new Date()
 };
 
@@ -124,7 +124,7 @@ export function generateDemoReading() {
     gasStatus,
     isDemo: true,
     deviceId: 'ESP32-DEMO-001',
-    ipAddress: '192.168.1.105',
+    ipAddress: '192.168.1.150',
     lastUpdated: now,
     isOffline: false
   };

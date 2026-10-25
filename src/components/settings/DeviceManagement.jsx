@@ -24,7 +24,7 @@ export function DeviceManagement({
   const navigate = useNavigate();
   const [showAddForm, setShowAddForm] = useState(false);
   const [deviceName, setDeviceName] = useState('ESP32-001');
-  const [ipAddress, setIpAddress] = useState('192.168.1.105');
+  const [ipAddress, setIpAddress] = useState('192.168.1.150');
   const [formError, setFormError] = useState('');
   const [reconnectingId, setReconnectingId] = useState(null);
 
@@ -48,7 +48,7 @@ export function DeviceManagement({
     }
 
     if (!isValidIPv4(ipAddress.trim())) {
-      setFormError('Please enter a valid IPv4 address (e.g. 192.168.1.105).');
+      setFormError('Please enter a valid IPv4 address (e.g. 192.168.1.150).');
       return;
     }
 
@@ -249,7 +249,7 @@ export function DeviceManagement({
                 type="text"
                 value={ipAddress}
                 onChange={(e) => setIpAddress(e.target.value)}
-                placeholder="e.g. 192.168.1.105"
+                placeholder="e.g. 192.168.1.150"
                 style={{
                   width: '100%',
                   padding: '0.6rem 0.8rem',

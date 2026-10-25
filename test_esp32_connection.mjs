@@ -8,7 +8,7 @@ async function runTests() {
   console.log('\n--- STARTING ESP32 REAL CONNECTION TEST SUITE ---\n');
 
   // Test 1: validateIPAddress
-  const validIPs = ['192.168.1.105', '192.168.0.1', '10.0.0.5', '172.16.0.10'];
+  const validIPs = ['192.168.1.150', '192.168.0.1', '10.0.0.5', '172.16.0.10'];
   const invalidIPs = ['abc', '192.168.1', '999.999.999.999', '192.168.1.999', '', '   '];
 
   for (const ip of validIPs) {

@@ -39,21 +39,63 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', deviceRoutes);
 
+import { requireApiKey } from './apiKeyMiddleware.js';
+
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get(['/api/health', '/health'], (req, res) => {
   res.json({ status: 'ok', service: 'Intelligent Vegetable Storage Backend', timestamp: new Date() });
 });
 
+// Dedicated secure endpoint for API-key verification (requires valid VEGSENSE_API_KEY)
+app.get(['/api/secure/verify-key', '/secure/verify-key'], requireApiKey, (req, res) => {
+  res.json({
+    success: true,
+    message: 'API key verified successfully.',
+    timestamp: new Date().toISOString()
+  });
+});
+
+/**
+ * Validate IP address to protect backend from SSRF attacks against internal/metadata services
+ */
+function isSafeDeviceIp(ip) {
+  if (typeof ip !== 'string') return false;
+  const trimmed = ip.trim();
+  const parts = trimmed.split('.');
+  if (parts.length !== 4) return false;
+
+  for (const part of parts) {
+    if (!/^\d+$/.test(part)) return false;
+    const num = parseInt(part, 10);
+    if (num < 0 || num > 255 || String(num) !== part) return false;
+  }
+
+  const first = parseInt(parts[0], 10);
+  const second = parseInt(parts[1], 10);
+
+  // Block loopback (127.0.0.0/8), cloud metadata (169.254.0.0/16), zero (0.0.0.0/8), and multicast (224.0.0.0+)
+  if (first === 127 || (first === 169 && second === 254) || first === 0 || first >= 224) {
+    return false;
+  }
+
+  return true;
+}
+
 // ESP32 Microcontroller proxy endpoints
-app.get('/api/esp32/status', async (req, res) => {
+app.get(['/api/esp32/status', '/esp32/status'], async (req, res) => {
   const ip = req.query.ip;
   if (!ip) {
     return res.status(400).json({ success: false, error: 'IP address is required' });
   }
+
+  if (!isSafeDeviceIp(ip)) {
+    return res.status(400).json({ success: false, error: 'Invalid or disallowed IP address format' });
+  }
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4500);
-    const espRes = await fetch(`http://${ip}/status`, { signal: controller.signal });
+    const espRes = await fetch(`http://${ip.trim()}/status`, { signal: controller.signal });
     clearTimeout(timeout);
     if (!espRes.ok) {
       return res.status(502).json({ success: false, error: 'ESP32 returned error' });
@@ -65,15 +107,20 @@ app.get('/api/esp32/status', async (req, res) => {
   }
 });
 
-app.get('/api/esp32/data', async (req, res) => {
+app.get(['/api/esp32/data', '/esp32/data'], async (req, res) => {
   const ip = req.query.ip;
   if (!ip) {
     return res.status(400).json({ success: false, error: 'IP address is required' });
   }
+
+  if (!isSafeDeviceIp(ip)) {
+    return res.status(400).json({ success: false, error: 'Invalid or disallowed IP address format' });
+  }
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4500);
-    const espRes = await fetch(`http://${ip}/api/data`, { signal: controller.signal });
+    const espRes = await fetch(`http://${ip.trim()}/api/data`, { signal: controller.signal });
     clearTimeout(timeout);
     if (!espRes.ok) {
       return res.status(502).json({ success: false, error: 'ESP32 sensor data error' });

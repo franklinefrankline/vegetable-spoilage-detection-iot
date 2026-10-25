@@ -20,7 +20,7 @@ import { ALERT_SEVERITIES } from '../../utils/alertRules';
 
 export function RecentAlerts({
   isOffline = false,
-  displayIp = '192.168.1.105'
+  displayIp = '192.168.1.150'
 }) {
   const navigate = useNavigate();
   const { activeAlerts, summary, alerts } = useAlerts();

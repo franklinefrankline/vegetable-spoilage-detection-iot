@@ -3,6 +3,7 @@
  * Dispatches between Real ESP32 hardware and Demo Mode gracefully.
  */
 
+import { buildApiUrl } from './apiClient.js';
 import {
   getDemoSensorData,
   startDemoSensorPolling,
@@ -22,7 +23,7 @@ export async function getCurrentSensorData(deviceId = 'ESP32-DEMO-001', isDemo =
   }
 
   try {
-    const res = await fetch(`/api/sensors/current?deviceId=${encodeURIComponent(deviceId)}`);
+    const res = await fetch(buildApiUrl(`/sensors/current?deviceId=${encodeURIComponent(deviceId)}`));
     if (!res.ok) {
       throw new Error(`Sensor API error: ${res.status}`);
     }
@@ -43,7 +44,7 @@ export async function getSensorHistory(deviceId = 'ESP32-DEMO-001', range = '24h
   }
 
   try {
-    const res = await fetch(`/api/sensors/history?deviceId=${encodeURIComponent(deviceId)}&range=${encodeURIComponent(range)}`);
+    const res = await fetch(buildApiUrl(`/sensors/history?deviceId=${encodeURIComponent(deviceId)}&range=${encodeURIComponent(range)}`));
     if (!res.ok) {
       throw new Error(`Sensor history API error: ${res.status}`);
     }
@@ -74,7 +75,7 @@ export async function getSensorHistory(deviceId = 'ESP32-DEMO-001', range = '24h
  */
 export async function recordSensorReading(reading) {
   try {
-    const res = await fetch('/api/sensors/record', {
+    const res = await fetch(buildApiUrl('/sensors/record'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(reading)

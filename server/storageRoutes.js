@@ -3,8 +3,9 @@ import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import db from './db.js';
 
+import { getJwtSecret } from './jwtConfig.js';
+
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'veg-storage-smart-iot-secret-key-2026';
 
 // Middleware to extract user ID from JWT Bearer token or query/body
 function extractUser(req, res, next) {
@@ -13,11 +14,11 @@ function extractUser(req, res, next) {
 
   if (token) {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, getJwtSecret());
       req.user = decoded;
       return next();
     } catch (e) {
-      // Invalid token, fall through to query/body check
+      return res.status(401).json({ success: false, error: 'Session expired or invalid token.' });
     }
   }
 

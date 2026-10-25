@@ -71,7 +71,7 @@ export function DemoModeSettings({
               Simulated Virtual Node: ESP32-DEMO-001
             </h4>
             <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'block', marginTop: '0.2rem' }}>
-              Simulated Local Gateway IP: <code>192.168.1.105</code>
+              Simulated Local Gateway IP: <code>192.168.1.150</code>
             </span>
           </div>
 

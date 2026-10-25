@@ -1,9 +1,6 @@
-/**
- * Report Service for VegSense Smart Storage Intelligence
- * Communicates with backend /api/reports endpoints using authenticated JWT sessions.
- */
+import { buildApiUrl } from './apiClient.js';
 
-const API_BASE = '/api/reports';
+const getApiBase = () => buildApiUrl('/reports');
 
 function getAuthHeaders(token = null) {
   const headers = { 'Content-Type': 'application/json' };
@@ -22,7 +19,7 @@ function getAuthHeaders(token = null) {
  * 1. Fetch historical reports list
  */
 export async function getReports(token = null) {
-  const res = await fetch(API_BASE, {
+  const res = await fetch(getApiBase(), {
     method: 'GET',
     headers: getAuthHeaders(token)
   });
@@ -37,7 +34,7 @@ export async function getReports(token = null) {
  * 2. Fetch specific report details
  */
 export async function getReport(reportId, token = null) {
-  const res = await fetch(`${API_BASE}/${reportId}`, {
+  const res = await fetch(`${getApiBase()}/${reportId}`, {
     method: 'GET',
     headers: getAuthHeaders(token)
   });
@@ -52,7 +49,7 @@ export async function getReport(reportId, token = null) {
  * 3. Generate instant preview dataset without writing PDF
  */
 export async function previewReport(filters = {}, token = null) {
-  const res = await fetch(`${API_BASE}/preview`, {
+  const res = await fetch(`${getApiBase()}/preview`, {
     method: 'POST',
     headers: getAuthHeaders(token),
     body: JSON.stringify(filters)
@@ -69,7 +66,7 @@ export async function previewReport(filters = {}, token = null) {
  * 4. Generate authoritative PDF and persist metadata
  */
 export async function generateReport(filters = {}, token = null) {
-  const res = await fetch(`${API_BASE}/generate`, {
+  const res = await fetch(`${getApiBase()}/generate`, {
     method: 'POST',
     headers: getAuthHeaders(token),
     body: JSON.stringify(filters)
@@ -86,7 +83,7 @@ export async function generateReport(filters = {}, token = null) {
  * 5. Download generated report PDF file
  */
 export async function downloadReport(reportId, fileName = 'VegSense_Report.pdf', token = null) {
-  const res = await fetch(`${API_BASE}/${reportId}/download`, {
+  const res = await fetch(`${getApiBase()}/${reportId}/download`, {
     method: 'GET',
     headers: {
       Authorization: (getAuthHeaders(token))['Authorization'] || ''
@@ -114,7 +111,7 @@ export async function downloadReport(reportId, fileName = 'VegSense_Report.pdf',
  * 6. Delete report record
  */
 export async function deleteReport(reportId, token = null) {
-  const res = await fetch(`${API_BASE}/${reportId}`, {
+  const res = await fetch(`${getApiBase()}/${reportId}`, {
     method: 'DELETE',
     headers: getAuthHeaders(token)
   });

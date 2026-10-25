@@ -1,9 +1,6 @@
-/**
- * Settings Service for VegSense Smart Storage Intelligence
- * Communicates with backend /api/settings, /api/devices, and /api/auth endpoints.
- */
+import { buildApiUrl } from './apiClient.js';
 
-const API_BASE = '/api/settings';
+const getApiBase = () => buildApiUrl('/settings');
 
 function getAuthHeaders(token = null) {
   const headers = { 'Content-Type': 'application/json' };
@@ -22,7 +19,7 @@ function getAuthHeaders(token = null) {
  * 1. Fetch user settings
  */
 export async function getSettings(token = null) {
-  const res = await fetch(API_BASE, {
+  const res = await fetch(getApiBase(), {
     method: 'GET',
     headers: getAuthHeaders(token)
   });
@@ -37,7 +34,7 @@ export async function getSettings(token = null) {
  * 2. Update user settings
  */
 export async function updateSettings(updates, token = null) {
-  const res = await fetch(API_BASE, {
+  const res = await fetch(getApiBase(), {
     method: 'PATCH',
     headers: getAuthHeaders(token),
     body: JSON.stringify(updates)
@@ -53,7 +50,7 @@ export async function updateSettings(updates, token = null) {
  * 3. Fetch storage thresholds & risk weights
  */
 export async function getThresholds(token = null) {
-  const res = await fetch(`${API_BASE}/thresholds`, {
+  const res = await fetch(`${getApiBase()}/thresholds`, {
     method: 'GET',
     headers: getAuthHeaders(token)
   });
@@ -68,7 +65,7 @@ export async function getThresholds(token = null) {
  * 4. Update storage thresholds & risk weights
  */
 export async function updateThresholds(thresholds, token = null) {
-  const res = await fetch(`${API_BASE}/thresholds`, {
+  const res = await fetch(`${getApiBase()}/thresholds`, {
     method: 'PATCH',
     headers: getAuthHeaders(token),
     body: JSON.stringify(thresholds)
@@ -84,7 +81,7 @@ export async function updateThresholds(thresholds, token = null) {
  * 5. Fetch notification settings
  */
 export async function getNotificationSettings(token = null) {
-  const res = await fetch(`${API_BASE}/notifications`, {
+  const res = await fetch(`${getApiBase()}/notifications`, {
     method: 'GET',
     headers: getAuthHeaders(token)
   });
@@ -99,7 +96,7 @@ export async function getNotificationSettings(token = null) {
  * 6. Update notification settings
  */
 export async function updateNotificationSettings(notifSettings, token = null) {
-  const res = await fetch(`${API_BASE}/notifications`, {
+  const res = await fetch(`${getApiBase()}/notifications`, {
     method: 'PATCH',
     headers: getAuthHeaders(token),
     body: JSON.stringify(notifSettings)
@@ -115,7 +112,7 @@ export async function updateNotificationSettings(notifSettings, token = null) {
  * 7. Fetch appearance settings
  */
 export async function getAppearanceSettings(token = null) {
-  const res = await fetch(`${API_BASE}/appearance`, {
+  const res = await fetch(`${getApiBase()}/appearance`, {
     method: 'GET',
     headers: getAuthHeaders(token)
   });
@@ -130,7 +127,7 @@ export async function getAppearanceSettings(token = null) {
  * 8. Update appearance settings
  */
 export async function updateAppearanceSettings(appearance, token = null) {
-  const res = await fetch(`${API_BASE}/appearance`, {
+  const res = await fetch(`${getApiBase()}/appearance`, {
     method: 'PATCH',
     headers: getAuthHeaders(token),
     body: JSON.stringify(appearance)
@@ -146,7 +143,7 @@ export async function updateAppearanceSettings(appearance, token = null) {
  * 9. Reset settings to baseline defaults
  */
 export async function resetSettings(token = null) {
-  const res = await fetch(`${API_BASE}/reset`, {
+  const res = await fetch(`${getApiBase()}/reset`, {
     method: 'POST',
     headers: getAuthHeaders(token)
   });
@@ -161,7 +158,7 @@ export async function resetSettings(token = null) {
  * 10. Reset demo data without touching real records
  */
 export async function resetDemoData(token = null) {
-  const res = await fetch(`${API_BASE}/reset-demo`, {
+  const res = await fetch(`${getApiBase()}/reset-demo`, {
     method: 'POST',
     headers: getAuthHeaders(token)
   });
@@ -176,7 +173,7 @@ export async function resetDemoData(token = null) {
  * 11. Export all user data as JSON file
  */
 export async function exportUserData(token = null) {
-  const res = await fetch(`${API_BASE}/export`, {
+  const res = await fetch(`${getApiBase()}/export`, {
     method: 'GET',
     headers: getAuthHeaders(token)
   });
@@ -200,7 +197,7 @@ export async function exportUserData(token = null) {
  * 12. Update profile name
  */
 export async function updateProfile({ name }, token = null) {
-  const res = await fetch('/api/auth/profile', {
+  const res = await fetch(buildApiUrl('/auth/profile'), {
     method: 'PATCH',
     headers: getAuthHeaders(token),
     body: JSON.stringify({ name })
@@ -216,7 +213,7 @@ export async function updateProfile({ name }, token = null) {
  * 13. Change account password
  */
 export async function changePassword({ currentPassword, newPassword, confirmPassword }, token = null) {
-  const res = await fetch('/api/auth/change-password', {
+  const res = await fetch(buildApiUrl('/auth/change-password'), {
     method: 'POST',
     headers: getAuthHeaders(token),
     body: JSON.stringify({ currentPassword, newPassword, confirmPassword })
@@ -232,7 +229,7 @@ export async function changePassword({ currentPassword, newPassword, confirmPass
  * 14. Delete user account permanently
  */
 export async function deleteAccount({ password, confirmationText }, token = null) {
-  const res = await fetch('/api/auth/account', {
+  const res = await fetch(buildApiUrl('/auth/account'), {
     method: 'DELETE',
     headers: getAuthHeaders(token),
     body: JSON.stringify({ password, confirmationText })
@@ -248,7 +245,7 @@ export async function deleteAccount({ password, confirmationText }, token = null
  * 15. Device endpoints
  */
 export async function getDevices(token = null) {
-  const res = await fetch('/api/devices', {
+  const res = await fetch(buildApiUrl('/devices'), {
     method: 'GET',
     headers: getAuthHeaders(token)
   });
@@ -259,7 +256,7 @@ export async function getDevices(token = null) {
 }
 
 export async function addDevice({ deviceName, ipAddress, mode = 'REAL' }, token = null) {
-  const res = await fetch('/api/devices', {
+  const res = await fetch(buildApiUrl('/devices'), {
     method: 'POST',
     headers: getAuthHeaders(token),
     body: JSON.stringify({ deviceName, ipAddress, mode })
@@ -272,7 +269,7 @@ export async function addDevice({ deviceName, ipAddress, mode = 'REAL' }, token 
 }
 
 export async function updateDevice(id, updates, token = null) {
-  const res = await fetch(`/api/devices/${id}`, {
+  const res = await fetch(buildApiUrl(`/devices/${id}`), {
     method: 'PATCH',
     headers: getAuthHeaders(token),
     body: JSON.stringify(updates)
@@ -285,7 +282,7 @@ export async function updateDevice(id, updates, token = null) {
 }
 
 export async function removeDevice(id, token = null) {
-  const res = await fetch(`/api/devices/${id}`, {
+  const res = await fetch(buildApiUrl(`/devices/${id}`), {
     method: 'DELETE',
     headers: getAuthHeaders(token)
   });
@@ -297,7 +294,7 @@ export async function removeDevice(id, token = null) {
 }
 
 export async function reconnectDevice(id, token = null) {
-  const res = await fetch(`/api/devices/${id}/reconnect`, {
+  const res = await fetch(buildApiUrl(`/devices/${id}/reconnect`), {
     method: 'POST',
     headers: getAuthHeaders(token)
   });

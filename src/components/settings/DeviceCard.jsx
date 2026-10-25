@@ -142,7 +142,7 @@ export function DeviceCard({
             IP ADDRESS
           </span>
           <span style={{ fontWeight: 600, color: 'var(--text-main)', fontFamily: 'monospace' }}>
-            {device.ip_address || device.ipAddress || device.ip || '192.168.1.105'}
+            {device.ip_address || device.ipAddress || device.ip || '192.168.1.150'}
           </span>
         </div>
 

@@ -16,7 +16,7 @@ export function SensorOffline({
   onReconnect,
   isDemo = true,
   deviceName = 'ESP32-DEMO-001',
-  ipAddress = '192.168.1.105'
+  ipAddress = '192.168.1.150'
 }) {
   const [reconnectingStep, setReconnectingStep] = useState(null);
 

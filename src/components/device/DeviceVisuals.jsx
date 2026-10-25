@@ -336,7 +336,7 @@ export function VisualThreeStepGuide({ onOpenHelp }) {
 /* =============================================================================
    5. COMPACT SERIAL MONITOR CARD (With 1-click Copy)
 ============================================================================= */
-export function SerialMonitorCompact({ ip = '192.168.1.105', onCopy }) {
+export function SerialMonitorCompact({ ip = '192.168.1.150', onCopy }) {
   const [copied, setCopied] = React.useState(false);
 
   const handleCopy = () => {
@@ -379,12 +379,12 @@ export function SerialMonitorCompact({ ip = '192.168.1.105', onCopy }) {
    │        ESP32-001             │
    │       [ ESP32 IMAGE ]        │
    │       ● Ready to Connect     │
-   │       192.168.1.105          │
+   │       192.168.1.150          │
    └─────────────────────────────┘
 ============================================================================= */
 export function DevicePreviewCard({
   deviceName = 'ESP32-001',
-  ipAddress = '192.168.1.105',
+  ipAddress = '192.168.1.150',
   isConnected = false,
   isConnecting = false
 }) {
@@ -401,7 +401,7 @@ export function DevicePreviewCard({
         <span>{isConnected ? 'Connected' : isConnecting ? 'Connecting...' : 'Ready to Connect'}</span>
       </div>
 
-      <div className="preview-ip-mono">{ipAddress || '192.168.1.105'}</div>
+      <div className="preview-ip-mono">{ipAddress || '192.168.1.150'}</div>
     </div>
   );
 }
@@ -432,7 +432,7 @@ export function ConnectedStateView({
             {device?.isDemo || device?.status === 'Demo Connected' ? 'Demo Connected' : 'Connected'}
           </h2>
           <div className="connected-device-subtitle">
-            {device?.name || (device?.isDemo ? 'ESP32-DEMO-001' : 'ESP32-001')} · <span className="mono-ip">{device?.ip || device?.ipAddress || '192.168.1.105'}</span>
+            {device?.name || (device?.isDemo ? 'ESP32-DEMO-001' : 'ESP32-001')} · <span className="mono-ip">{device?.ip || device?.ipAddress || '192.168.1.150'}</span>
           </div>
         </div>
       </div>
@@ -494,7 +494,7 @@ export function ConnectedStateView({
 /* =============================================================================
    8. COMPACT ERROR STATE VIEW
 ============================================================================= */
-export function ConnectionFailedView({ onRetry, onChangeIp, ip = '192.168.1.105' }) {
+export function ConnectionFailedView({ onRetry, onChangeIp, ip = '192.168.1.150' }) {
   return (
     <div className="compact-error-card">
       <div className="error-icon-circle">
@@ -555,7 +555,7 @@ export function SetupHelpModal({ isOpen, onClose }) {
             <span className="step-num">3</span>
             <div>
               <strong>Local IP</strong>
-              <p>Look for: <code>IP Address: 192.168.1.105</code></p>
+              <p>Look for: <code>IP Address: 192.168.1.150</code></p>
             </div>
           </div>
 

@@ -7,9 +7,9 @@ import {
   resetUserDemoData,
   exportUserData
 } from './settingsService.js';
+import { getJwtSecret } from './jwtConfig.js';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'veg-storage-smart-iot-secret-key-2026';
 
 function requireAuth(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -17,7 +17,7 @@ function requireAuth(req, res, next) {
 
   if (token) {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, getJwtSecret());
       req.user = decoded;
       return next();
     } catch (err) {

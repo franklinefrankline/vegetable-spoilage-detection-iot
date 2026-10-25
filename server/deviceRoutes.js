@@ -2,16 +2,16 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import db from './db.js';
 import crypto from 'node:crypto';
+import { getJwtSecret } from './jwtConfig.js';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'veg-storage-smart-iot-secret-key-2026';
 
 router.use((req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
   if (token) {
     try {
-      req.user = jwt.verify(token, JWT_SECRET);
+      req.user = jwt.verify(token, getJwtSecret());
     } catch (e) {}
   }
   next();
@@ -51,7 +51,7 @@ router.get('/devices', (req, res) => {
           id: 'ESP32-DEMO-001',
           user_id: userId,
           device_name: 'ESP32-DEMO-001',
-          ip_address: '192.168.1.105',
+          ip_address: '192.168.1.150',
           mode: 'DEMO',
           status: 'connected',
           is_active: 1,
@@ -80,7 +80,7 @@ router.post('/devices', async (req, res) => {
 
   const cleanIp = ipAddress.trim();
   if (mode !== 'DEMO' && !isValidIPv4(cleanIp)) {
-    return res.status(400).json({ success: false, message: 'Invalid IPv4 address format (e.g. 192.168.1.105).' });
+    return res.status(400).json({ success: false, message: 'Invalid IPv4 address format (e.g. 192.168.1.150).' });
   }
 
   const name = deviceName?.trim() || (mode === 'DEMO' ? 'ESP32-DEMO-001' : 'ESP32-001');

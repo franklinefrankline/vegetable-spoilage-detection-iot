@@ -6,9 +6,9 @@ const RouterContext = createContext(null);
 export function RouterProvider({ children }) {
   const [currentPath, setCurrentPath] = useState(window.location.pathname || '/login');
   const [searchParams, setSearchParams] = useState(new URLSearchParams(window.location.search));
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, isInitializing, loading, getStoredToken } = useAuth();
 
-  const navigate = useCallback((to) => {
+  const navigate = useCallback((to, options = {}) => {
     let path = to;
     let search = '';
     if (to.includes('?')) {
@@ -17,9 +17,12 @@ export function RouterProvider({ children }) {
       search = '?' + parts[1];
     }
 
-    if (window.location.pathname !== path || window.location.search !== search) {
+    if (options && options.replace) {
+      window.history.replaceState({}, '', to);
+    } else if (window.location.pathname !== path || window.location.search !== search) {
       window.history.pushState({}, '', to);
     }
+
     setCurrentPath(path);
     setSearchParams(new URLSearchParams(search));
     window.scrollTo(0, 0);
@@ -35,9 +38,11 @@ export function RouterProvider({ children }) {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Protected and Public Route Guards
+  // Protected and Public Route Guards (Requirement 3 & 18)
   useEffect(() => {
-    if (loading) return;
+    const checking = isInitializing ?? loading;
+    // 1. Wait until authentication state is initialized before evaluating protected routes
+    if (checking) return;
 
     const protectedRoutes = [
       '/dashboard',
@@ -58,14 +63,18 @@ export function RouterProvider({ children }) {
 
     const isProtected = protectedRoutes.some((route) => currentPath === route || currentPath.startsWith(route + '/'));
 
-    if (!isAuthenticated && isProtected) {
-      navigate('/login');
-    } else if (!isAuthenticated && currentPath === '/') {
-      navigate('/login');
-    } else if (isAuthenticated && currentPath === '/') {
-      navigate('/dashboard');
+    // Check stored token to guard against race condition during immediate navigation
+    const hasToken = Boolean(getStoredToken && getStoredToken());
+    const isAuthed = isAuthenticated || hasToken;
+
+    if (!isAuthed && isProtected) {
+      navigate('/login', { replace: true });
+    } else if (!isAuthed && currentPath === '/') {
+      navigate('/login', { replace: true });
+    } else if (isAuthed && currentPath === '/') {
+      navigate('/dashboard', { replace: true });
     }
-  }, [currentPath, isAuthenticated, loading, navigate]);
+  }, [currentPath, isAuthenticated, isInitializing, loading, navigate, getStoredToken]);
 
   return (
     <RouterContext.Provider value={{ currentPath, searchParams, navigate }}>

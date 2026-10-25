@@ -50,14 +50,31 @@ export function calculateTimeRange(range = '24h', fromCustom = null, toCustom = 
  */
 export function seedDemoHistoryIfEmpty(userId = 'usr_demo_vegsense_001', deviceId = 'ESP32-DEMO-001') {
   try {
+    const cutoff24h = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
     const countRow = db.prepare(`
       SELECT COUNT(*) as count FROM sensor_readings
-      WHERE (user_id = ? OR user_id IS NULL) AND device_id = ?
-    `).get(userId, deviceId);
+      WHERE (user_id = ? OR user_id = 'usr_demo_vegsense_001' OR user_id IS NULL)
+        AND device_id = ?
+        AND recorded_at >= ?
+    `).get(userId, deviceId, cutoff24h);
 
-    if (countRow && countRow.count >= 20) {
-      return; // Already has history
+    if (countRow && countRow.count >= 10) {
+      return; // Already has recent history
     }
+
+    // Clean up stale demo records for this device before reseeding
+    try {
+      db.prepare(`
+        DELETE FROM sensor_readings
+        WHERE (source_mode = 'DEMO' OR source = 'demo' OR device_id LIKE '%DEMO%')
+          AND (user_id = ? OR user_id = 'usr_demo_vegsense_001' OR user_id IS NULL)
+      `).run(userId);
+      db.prepare(`
+        DELETE FROM spoilage_history
+        WHERE (source_mode = 'DEMO' OR device_id LIKE '%DEMO%')
+          AND (user_id = ? OR user_id = 'usr_demo_vegsense_001' OR user_id IS NULL)
+      `).run(userId);
+    } catch (_) {}
 
     const now = Date.now();
     const insertReading = db.prepare(`

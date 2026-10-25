@@ -54,7 +54,7 @@ export function AppShell({ children }) {
 
   const { isConnected, device, unreadAlertsCount, reconnectDevice } = useDevice();
   const { unreadCount } = useAlerts();
-  const effectiveUnread = unreadCount ?? unreadAlertsCount ?? 0;
+  const effectiveUnread = typeof unreadCount === 'number' ? unreadCount : 0;
   const dropdownRef = useRef(null);
   const devicePopoverRef = useRef(null);
   const [isDeviceStatusOpen, setIsDeviceStatusOpen] = useState(false);
@@ -239,7 +239,7 @@ export function AppShell({ children }) {
                       <div className="status-popover-row">
                         <span className="popover-k">IP:</span>
                         <span className="popover-v" style={{ fontFamily: 'monospace' }}>
-                          {device.ip || device.ipAddress || '192.168.1.105'}
+                          {device.ip || device.ipAddress || '192.168.1.150'}
                         </span>
                       </div>
                       <div className="status-popover-row">

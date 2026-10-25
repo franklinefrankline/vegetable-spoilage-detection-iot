@@ -23,7 +23,7 @@ export function SensorHeader({
 }) {
   const isDemo = device?.isDemo ?? true;
   const deviceName = device?.name || device?.deviceName || (isDemo ? 'ESP32-DEMO-001' : 'ESP32-001');
-  const ipAddress = device?.ipAddress || device?.ip || '192.168.1.105';
+  const ipAddress = device?.ipAddress || device?.ip || '192.168.1.150';
   const [showSimMenu, setShowSimMenu] = useState(false);
 
   return (
