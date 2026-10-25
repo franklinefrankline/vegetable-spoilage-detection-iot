@@ -146,6 +146,8 @@ app.get(['/api/esp32/data', '/esp32/data'], async (req, res) => {
   } catch (err) {
     return res.status(504).json({ success: false, error: 'ESP32 sensor endpoint unreachable' });
   }
+});
+
 // Catch-all for undefined API routes
 app.use((req, res) => {
   res.status(404).json({
