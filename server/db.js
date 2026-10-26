@@ -11,6 +11,8 @@ const __dirname = path.dirname(__filename);
 
 const isVercel = Boolean(process.env.VERCEL);
 export const VERCEL_BLOB_USERS_URL = 'https://qt2vvaxz4l6gzvby.public.blob.vercel-storage.com/persistent_users.json';
+export const VERCEL_BLOB_READINGS_URL = 'https://qt2vvaxz4l6gzvby.public.blob.vercel-storage.com/persistent_sensor_readings.json';
+export const VERCEL_BLOB_DEVICES_URL = 'https://qt2vvaxz4l6gzvby.public.blob.vercel-storage.com/persistent_devices.json';
 
 // Persistent JSON backup locations
 export const BUNDLED_USERS_PATH = path.join(__dirname, 'persistent_users.json');
@@ -18,13 +20,23 @@ export const PERSISTENT_USERS_PATH = isVercel
   ? path.join('/tmp', 'persistent_users.json')
   : BUNDLED_USERS_PATH;
 
+export const BUNDLED_READINGS_PATH = path.join(__dirname, 'persistent_sensor_readings.json');
+export const PERSISTENT_READINGS_PATH = isVercel
+  ? path.join('/tmp', 'persistent_sensor_readings.json')
+  : BUNDLED_READINGS_PATH;
+
+export const BUNDLED_DEVICES_PATH = path.join(__dirname, 'persistent_devices.json');
+export const PERSISTENT_DEVICES_PATH = isVercel
+  ? path.join('/tmp', 'persistent_devices.json')
+  : BUNDLED_DEVICES_PATH;
+
 // Local SQLite database location
 const localDbPath = path.join(__dirname, 'database.sqlite');
 const dbPath = isVercel
   ? path.join('/tmp', 'database.sqlite')
   : localDbPath;
 
-// On Vercel, copy the local SQLite database and persistent users to /tmp if they don't exist yet
+// On Vercel, copy the local SQLite database and persistent users/readings/devices to /tmp if they don't exist yet
 if (isVercel) {
   try {
     if (!fs.existsSync('/tmp/database.sqlite') && fs.existsSync(localDbPath)) {
@@ -42,6 +54,24 @@ if (isVercel) {
     }
   } catch (copyErr) {
     console.warn('[DB] Could not copy persistent users to /tmp:', copyErr.message);
+  }
+
+  try {
+    if (!fs.existsSync(PERSISTENT_READINGS_PATH) && fs.existsSync(BUNDLED_READINGS_PATH)) {
+      fs.copyFileSync(BUNDLED_READINGS_PATH, PERSISTENT_READINGS_PATH);
+      console.log('[DB] Seeded /tmp/persistent_sensor_readings.json from bundled package.');
+    }
+  } catch (copyErr) {
+    console.warn('[DB] Could not copy persistent readings to /tmp:', copyErr.message);
+  }
+
+  try {
+    if (!fs.existsSync(PERSISTENT_DEVICES_PATH) && fs.existsSync(BUNDLED_DEVICES_PATH)) {
+      fs.copyFileSync(BUNDLED_DEVICES_PATH, PERSISTENT_DEVICES_PATH);
+      console.log('[DB] Seeded /tmp/persistent_devices.json from bundled package.');
+    }
+  } catch (copyErr) {
+    console.warn('[DB] Could not copy persistent devices to /tmp:', copyErr.message);
   }
 }
 
@@ -282,12 +312,14 @@ try {
   // Safe to ignore if already exists
 }
 
-// Migration: Ensure devices has Part 10 production fields
+// Migration: Ensure devices has Part 10 production fields & device credentials
 const deviceColumns = [
   { name: 'device_identifier', type: 'TEXT' },
   { name: 'mode', type: "TEXT DEFAULT 'REAL'" },
   { name: 'last_seen', type: 'DATETIME' },
-  { name: 'is_active', type: 'INTEGER DEFAULT 1' }
+  { name: 'is_active', type: 'INTEGER DEFAULT 1' },
+  { name: 'device_token', type: 'TEXT' },
+  { name: 'api_key', type: 'TEXT' }
 ];
 
 for (const col of deviceColumns) {
@@ -297,6 +329,10 @@ for (const col of deviceColumns) {
     // Column already exists or error, safe to ignore
   }
 }
+
+try {
+  db.exec('CREATE INDEX IF NOT EXISTS idx_devices_token ON devices(device_token);');
+} catch (e) {}
 
 // Migration: Ensure user_settings table exists with all Part 10 settings & thresholds
 try {
@@ -536,6 +572,375 @@ export async function syncPersistentUsers(fetchRemote = true) {
 }
 
 /**
+ * Reads sensor readings from persistent_sensor_readings.json (and Vercel Blob) and inserts into sensor_readings table.
+ */
+export async function syncPersistentReadings(fetchRemote = true) {
+  try {
+    const pathsToSync = [BUNDLED_READINGS_PATH];
+    if (PERSISTENT_READINGS_PATH !== BUNDLED_READINGS_PATH && fs.existsSync(PERSISTENT_READINGS_PATH)) {
+      pathsToSync.push(PERSISTENT_READINGS_PATH);
+    }
+
+    const insertStmt = db.prepare(`
+      INSERT OR IGNORE INTO sensor_readings (
+        id, user_id, device_id, temperature, humidity, gas_level, light_level,
+        spoilage_risk, light_risk, light_classification, storage_status, source,
+        is_temp_unavailable, is_hum_unavailable, is_gas_unavailable, is_light_unavailable,
+        recorded_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    let totalSynced = 0;
+    const seenIds = new Set();
+
+    for (const p of pathsToSync) {
+      if (fs.existsSync(p)) {
+        try {
+          const content = fs.readFileSync(p, 'utf-8');
+          const readings = JSON.parse(content || '[]');
+          for (const r of readings) {
+            if (r.id && r.device_id && !seenIds.has(r.id)) {
+              seenIds.add(r.id);
+              insertStmt.run(
+                r.id,
+                r.user_id || 'usr_demo_vegsense_001',
+                r.device_id,
+                r.temperature,
+                r.humidity,
+                r.gas_level ?? 400,
+                r.light_level ?? null,
+                r.spoilage_risk ?? 18,
+                r.light_risk ?? 10,
+                r.light_classification || 'NORMAL LIGHT',
+                r.storage_status || 'FRESH',
+                r.source || 'esp32',
+                r.is_temp_unavailable ?? (r.temperature === null ? 1 : 0),
+                r.is_hum_unavailable ?? (r.humidity === null ? 1 : 0),
+                r.is_gas_unavailable ?? 0,
+                r.is_light_unavailable ?? (r.light_level === null ? 1 : 0),
+                r.recorded_at || new Date().toISOString()
+              );
+              totalSynced++;
+            }
+          }
+        } catch (readErr) {
+          console.warn(`[DB] Notice reading ${p}:`, readErr.message);
+        }
+      }
+    }
+
+    if (fetchRemote) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3500);
+        const res = await fetch(`${VERCEL_BLOB_READINGS_URL}?t=${Date.now()}`, {
+          signal: controller.signal,
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        clearTimeout(timeout);
+        if (res.ok) {
+          const remoteReadings = await res.json();
+          if (Array.isArray(remoteReadings)) {
+            for (const r of remoteReadings) {
+              if (r.id && r.device_id && !seenIds.has(r.id)) {
+                seenIds.add(r.id);
+                insertStmt.run(
+                  r.id,
+                  r.user_id || 'usr_demo_vegsense_001',
+                  r.device_id,
+                  r.temperature,
+                  r.humidity,
+                  r.gas_level ?? 400,
+                  r.light_level ?? null,
+                  r.spoilage_risk ?? 18,
+                  r.light_risk ?? 10,
+                  r.light_classification || 'NORMAL LIGHT',
+                  r.storage_status || 'FRESH',
+                  r.source || 'esp32',
+                  r.is_temp_unavailable ?? (r.temperature === null ? 1 : 0),
+                  r.is_hum_unavailable ?? (r.humidity === null ? 1 : 0),
+                  r.is_gas_unavailable ?? 0,
+                  r.is_light_unavailable ?? (r.light_level === null ? 1 : 0),
+                  r.recorded_at || new Date().toISOString()
+                );
+                totalSynced++;
+              }
+            }
+            try {
+              fs.writeFileSync(PERSISTENT_READINGS_PATH, JSON.stringify(remoteReadings.slice(-500), null, 2), 'utf-8');
+            } catch (_) {}
+          }
+        }
+      } catch (remoteErr) {
+        // Safe to ignore if offline or not yet uploaded
+      }
+    }
+
+    console.log(`[DB] Successfully synced ${totalSynced} persistent sensor readings.`);
+  } catch (err) {
+    console.warn('[DB] Notice: Could not sync persistent readings:', err.message);
+  }
+}
+
+/**
+ * Persists a sensor reading into SQLite and durable Vercel Blob store permanently.
+ */
+export async function savePersistentReading(reading) {
+  try {
+    // 1. Insert into SQLite table with NOT NULL guards
+    const isTempUnavail = Boolean(reading.is_temp_unavailable || reading.temperature === null || reading.temperature === undefined || isNaN(Number(reading.temperature)));
+    const isHumUnavail = Boolean(reading.is_hum_unavailable || reading.humidity === null || reading.humidity === undefined || isNaN(Number(reading.humidity)));
+    const safeTemp = isTempUnavail ? -999.0 : Number(reading.temperature);
+    const safeHum = isHumUnavail ? -999.0 : Number(reading.humidity);
+    const safeGas = reading.gas_level !== null && reading.gas_level !== undefined && !isNaN(Number(reading.gas_level)) ? Math.round(Number(reading.gas_level)) : 400;
+
+    db.prepare(`
+      INSERT OR REPLACE INTO sensor_readings (
+        id, user_id, device_id, temperature, humidity, gas_level, light_level,
+        spoilage_risk, light_risk, light_classification, storage_status, source,
+        is_temp_unavailable, is_hum_unavailable, is_gas_unavailable, is_light_unavailable,
+        recorded_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      reading.id,
+      reading.user_id || null,
+      reading.device_id,
+      safeTemp,
+      safeHum,
+      safeGas,
+      reading.light_level ?? null,
+      reading.spoilage_risk ?? 18,
+      reading.light_risk ?? 0,
+      reading.light_classification || (reading.light_level === null ? 'NOT INSTALLED' : 'NORMAL LIGHT'),
+      reading.storage_status || 'FRESH',
+      reading.source || 'esp32',
+      isTempUnavail ? 1 : 0,
+      isHumUnavail ? 1 : 0,
+      reading.is_gas_unavailable ? 1 : 0,
+      reading.is_light_unavailable ? 1 : 0,
+      reading.recorded_at
+    );
+
+    // 2. Append to persistent JSON backup (keep last 500 readings for optimal performance)
+    let readings = [];
+    if (fs.existsSync(PERSISTENT_READINGS_PATH)) {
+      try {
+        readings = JSON.parse(fs.readFileSync(PERSISTENT_READINGS_PATH, 'utf-8') || '[]');
+      } catch (_) {
+        readings = [];
+      }
+    }
+    readings.push(reading);
+    if (readings.length > 500) {
+      readings = readings.slice(-500);
+    }
+    try {
+      fs.writeFileSync(PERSISTENT_READINGS_PATH, JSON.stringify(readings, null, 2), 'utf-8');
+    } catch (_) {}
+
+    // 3. Upload to Vercel Blob cloud store permanently
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      vercelBlobPut('persistent_sensor_readings.json', JSON.stringify(readings, null, 2), {
+        access: 'public',
+        addRandomSuffix: false,
+        allowOverwrite: true
+      }).catch((blobErr) => {
+        console.warn('[DB] Notice: Could not upload readings to Vercel Blob:', blobErr.message);
+      });
+    }
+  } catch (err) {
+    console.warn('[DB] Error saving persistent reading:', err.message);
+    throw err;
+  }
+}
+
+/**
+ * Reads devices from persistent_devices.json (and Vercel Blob) and inserts into devices table.
+ */
+export async function syncPersistentDevices(fetchRemote = true) {
+  try {
+    const pathsToSync = [BUNDLED_DEVICES_PATH];
+    if (PERSISTENT_DEVICES_PATH !== BUNDLED_DEVICES_PATH && fs.existsSync(PERSISTENT_DEVICES_PATH)) {
+      pathsToSync.push(PERSISTENT_DEVICES_PATH);
+    }
+
+    const insertStmt = db.prepare(`
+      INSERT INTO devices (id, user_id, device_name, device_identifier, ip_address, mode, status, is_active, device_token, api_key, last_connected, last_seen, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        device_name = excluded.device_name,
+        ip_address = excluded.ip_address,
+        status = excluded.status,
+        last_seen = COALESCE(excluded.last_seen, devices.last_seen),
+        last_connected = COALESCE(excluded.last_connected, devices.last_connected),
+        device_token = COALESCE(excluded.device_token, devices.device_token),
+        api_key = COALESCE(excluded.api_key, devices.api_key),
+        updated_at = excluded.updated_at
+    `);
+
+    let totalSynced = 0;
+    const seenIds = new Set();
+
+    for (const p of pathsToSync) {
+      if (fs.existsSync(p)) {
+        try {
+          const content = fs.readFileSync(p, 'utf-8');
+          const devices = JSON.parse(content || '[]');
+          for (const d of devices) {
+            if (d.id && !seenIds.has(d.id)) {
+              seenIds.add(d.id);
+              insertStmt.run(
+                d.id,
+                d.user_id || 'usr_demo_vegsense_001',
+                d.device_name || d.id,
+                d.device_identifier || d.device_name || d.id,
+                d.ip_address || '192.168.1.150',
+                d.mode || 'REAL',
+                d.status || 'connected',
+                d.is_active !== undefined ? d.is_active : 1,
+                d.device_token || null,
+                d.api_key || null,
+                d.last_connected || new Date().toISOString(),
+                d.last_seen || new Date().toISOString(),
+                d.created_at || new Date().toISOString(),
+                d.updated_at || new Date().toISOString()
+              );
+              totalSynced++;
+            }
+          }
+        } catch (readErr) {
+          console.warn(`[DB] Notice reading ${p}:`, readErr.message);
+        }
+      }
+    }
+
+    if (fetchRemote) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3500);
+        const res = await fetch(`${VERCEL_BLOB_DEVICES_URL}?t=${Date.now()}`, {
+          signal: controller.signal,
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        clearTimeout(timeout);
+        if (res.ok) {
+          const remoteDevices = await res.json();
+          if (Array.isArray(remoteDevices)) {
+            for (const d of remoteDevices) {
+              if (d.id && !seenIds.has(d.id)) {
+                seenIds.add(d.id);
+                insertStmt.run(
+                  d.id,
+                  d.user_id || 'usr_demo_vegsense_001',
+                  d.device_name || d.id,
+                  d.device_identifier || d.device_name || d.id,
+                  d.ip_address || '192.168.1.150',
+                  d.mode || 'REAL',
+                  d.status || 'connected',
+                  d.is_active !== undefined ? d.is_active : 1,
+                  d.device_token || null,
+                  d.api_key || null,
+                  d.last_connected || new Date().toISOString(),
+                  d.last_seen || new Date().toISOString(),
+                  d.created_at || new Date().toISOString(),
+                  d.updated_at || new Date().toISOString()
+                );
+                totalSynced++;
+              }
+            }
+            try {
+              fs.writeFileSync(PERSISTENT_DEVICES_PATH, JSON.stringify(remoteDevices, null, 2), 'utf-8');
+            } catch (_) {}
+          }
+        }
+      } catch (remoteErr) {
+        // Safe to ignore if offline or not yet uploaded
+      }
+    }
+
+    console.log(`[DB] Successfully synced ${totalSynced} persistent devices.`);
+  } catch (err) {
+    console.warn('[DB] Notice: Could not sync persistent devices:', err.message);
+  }
+}
+
+/**
+ * Persists a device into SQLite and durable Vercel Blob store permanently.
+ */
+export async function savePersistentDevice(device) {
+  try {
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO devices (id, user_id, device_name, device_identifier, ip_address, mode, status, is_active, device_token, api_key, last_connected, last_seen, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        device_name = excluded.device_name,
+        ip_address = excluded.ip_address,
+        status = excluded.status,
+        is_active = excluded.is_active,
+        device_token = COALESCE(excluded.device_token, devices.device_token),
+        api_key = COALESCE(excluded.api_key, devices.api_key),
+        last_seen = excluded.last_seen,
+        last_connected = COALESCE(excluded.last_connected, devices.last_connected),
+        updated_at = excluded.updated_at
+    `).run(
+      device.id,
+      device.user_id || 'usr_demo_vegsense_001',
+      device.device_name || device.id,
+      device.device_identifier || device.device_name || device.id,
+      device.ip_address || '192.168.1.150',
+      device.mode || 'REAL',
+      device.status || 'connected',
+      device.is_active !== undefined ? (device.is_active ? 1 : 0) : 1,
+      device.device_token || null,
+      device.api_key || null,
+      device.last_connected || now,
+      device.last_seen || now,
+      device.created_at || now,
+      now
+    );
+
+    let devices = [];
+    if (fs.existsSync(PERSISTENT_DEVICES_PATH)) {
+      try {
+        devices = JSON.parse(fs.readFileSync(PERSISTENT_DEVICES_PATH, 'utf-8') || '[]');
+      } catch (_) {
+        devices = [];
+      }
+    }
+
+    const idx = devices.findIndex((d) => d.id === device.id);
+    const updatedRecord = {
+      ...device,
+      last_seen: now,
+      updated_at: now
+    };
+    if (idx >= 0) {
+      devices[idx] = { ...devices[idx], ...updatedRecord };
+    } else {
+      devices.push(updatedRecord);
+    }
+
+    try {
+      fs.writeFileSync(PERSISTENT_DEVICES_PATH, JSON.stringify(devices, null, 2), 'utf-8');
+    } catch (_) {}
+
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      vercelBlobPut('persistent_devices.json', JSON.stringify(devices, null, 2), {
+        access: 'public',
+        addRandomSuffix: false,
+        allowOverwrite: true
+      }).catch((blobErr) => {
+        console.warn('[DB] Notice: Could not upload devices to Vercel Blob:', blobErr.message);
+      });
+    }
+  } catch (err) {
+    console.warn('[DB] Error saving persistent device:', err.message);
+    throw err;
+  }
+}
+
+/**
  * Persists a user account into persistent_users.json and Vercel Blob permanently.
  */
 export async function savePersistentUser(user) {
@@ -743,6 +1148,8 @@ export async function deletePersistentUser(email) {
 
 // Initial sync on module load
 syncPersistentUsers();
+syncPersistentDevices();
+syncPersistentReadings();
 
 // Auto-seed demo and administrator accounts if not already present
 try {

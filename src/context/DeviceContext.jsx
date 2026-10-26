@@ -6,7 +6,11 @@ import {
   getSensorData,
   startSensorPolling,
   stopSensorPolling,
-  validateIPAddress
+  validateIPAddress,
+  getCloudDeviceStatus,
+  getCloudSensorData,
+  fetchCloudHistory,
+  connectToCloudDevice
 } from '../services/deviceService';
 import {
   classifyLight,
@@ -98,9 +102,10 @@ export function DeviceProvider({ children }) {
     ipAddress: '',
     status: 'Not Connected',
     signal: 'None',
-    network: 'Wi-Fi',
+    network: 'Cloud Ingestion (HTTPS)',
     controller: 'ESP32 DevKit V1',
-    firmware: '1.0.0',
+    firmware: 'v2.6.0',
+    mode: 'cloud',
     lastConnected: null
   });
 
@@ -168,7 +173,8 @@ export function DeviceProvider({ children }) {
         status: 'Not Connected',
         ip: '',
         ipAddress: '',
-        signal: 'None'
+        signal: 'None',
+        mode: 'cloud'
       }));
       return;
     }
@@ -208,16 +214,14 @@ export function DeviceProvider({ children }) {
           return;
         }
 
-        // Auto-check reachability of previously connected device
-        // Do not falsely show Connected based only on saved data
-        if (parsed.ipAddress && validateIPAddress(parsed.ipAddress)) {
+        // Auto-check reachability of previously connected local LAN device
+        if (parsed.mode === 'local' && parsed.ipAddress && validateIPAddress(parsed.ipAddress)) {
           setIsCheckingReachability(true);
           setLoadingStage('Connecting to ESP32...');
           getDeviceStatus(parsed.ipAddress)
             .then(async (res) => {
               if (res.success) {
                 setLoadingStage('Reading sensor data...');
-                // Fetch real sensor data as well
                 try {
                   const sData = await getSensorData(parsed.ipAddress);
                   setSensorData(sData);
@@ -234,10 +238,10 @@ export function DeviceProvider({ children }) {
                     status: 'connected',
                     signal: 'Strong',
                     network: 'Wi-Fi',
+                    mode: 'local',
                     lastConnected: parsed.lastConnected || new Date().toISOString()
                   }));
                 } catch (sErr) {
-                  // Device status ok but sensor read failed
                   setIsConnected(false);
                   setConnectionLost(true);
                   setDevice((prev) => ({
@@ -245,7 +249,8 @@ export function DeviceProvider({ children }) {
                     ip: parsed.ipAddress,
                     ipAddress: parsed.ipAddress,
                     status: 'Offline',
-                    signal: 'None'
+                    signal: 'None',
+                    mode: 'local'
                   }));
                 }
               } else {
@@ -256,7 +261,8 @@ export function DeviceProvider({ children }) {
                   ip: parsed.ipAddress,
                   ipAddress: parsed.ipAddress,
                   status: 'Offline',
-                  signal: 'None'
+                  signal: 'None',
+                  mode: 'local'
                 }));
               }
             })
@@ -268,20 +274,46 @@ export function DeviceProvider({ children }) {
                 ip: parsed.ipAddress,
                 ipAddress: parsed.ipAddress,
                 status: 'Offline',
-                signal: 'None'
+                signal: 'None',
+                mode: 'local'
               }));
             })
             .finally(() => {
               setIsCheckingReachability(false);
             });
+          return;
         }
       } catch (e) {
         console.warn('Failed to parse saved device info:', e);
       }
-    } else {
-      setIsConnected(false);
-      setSavedDevice(null);
     }
+
+    // Default / Cloud Mode (Production Cloud Website):
+    // Retrieve latest cloud readings & history from /api/sensors/current?deviceId=ESP32-001
+    setIsCheckingReachability(true);
+    setLoadingStage('Connecting to Cloud Gateway...');
+
+    connectToCloudDevice('ESP32-001')
+      .then((res) => {
+        setDevice(res.device);
+        setSensorData(res.sensorData);
+        setLastKnownData(res.sensorData);
+        if (res.history && res.history.length > 0) {
+          setHistory(res.history);
+        }
+        setIsConnected(!res.sensorData.isOffline);
+        setConnectionLost(res.sensorData.isOffline);
+        setLoadingStage('Live monitoring active');
+      })
+      .catch((err) => {
+        console.warn('Initial cloud sensor retrieval:', err.message);
+        setConnectionLost(true);
+        setIsConnected(false);
+        setLoadingStage('Live monitoring active');
+      })
+      .finally(() => {
+        setIsCheckingReachability(false);
+      });
   }, [isAuthenticated, currentUser]);
 
   // Real-time Sensor Polling (every 5 seconds)
@@ -416,7 +448,123 @@ export function DeviceProvider({ children }) {
       };
     }
 
-    if (!device.ipAddress) {
+    // 2. Cloud Mode Polling (Every 5 seconds, outbound ESP32 HTTPS upload ingestion)
+    if (device.mode === 'cloud' || (!device.ipAddress && !device.isDemo)) {
+      const cloudPollInterval = setInterval(async () => {
+        try {
+          const targetDeviceId = device.id || 'ESP32-001';
+          const cloudData = await getCloudSensorData(targetDeviceId);
+
+          setSensorData((prev) => {
+            if (prev && prev.temperature !== undefined) {
+              setPreviousData(prev);
+            }
+            return cloudData;
+          });
+
+          if (!cloudData.isTempUnavailable && cloudData.temperature !== null) {
+            setLastKnownData(cloudData);
+          }
+
+          if (cloudData.isOffline) {
+            setConnectionLost(true);
+            setIsConnected(false);
+            setDevice((prev) => ({
+              ...prev,
+              status: 'Offline',
+              signal: 'None',
+              mode: 'cloud',
+              lastConnected: cloudData.recordedAt || prev.lastConnected
+            }));
+          } else {
+            setConnectionLost(false);
+            setIsConnected(true);
+            setDevice((prev) => ({
+              ...prev,
+              status: 'connected',
+              signal: 'Strong',
+              mode: 'cloud',
+              network: 'Cloud Ingestion (HTTPS)',
+              lastConnected: cloudData.recordedAt
+            }));
+          }
+
+          // Real Light Alert generation on state change
+          if (thresholds.lightMonitoringEnabled !== false && !cloudData.isLightUnavailable && cloudData.lightLevel !== null) {
+            const lEval = classifyLight(cloudData.lightLevel, thresholds.minLight, thresholds.maxLight);
+            if (lEval.classification !== lastLightAlertClassRef.current) {
+              lastLightAlertClassRef.current = lEval.classification;
+              if (lEval.classification === 'LOW LIGHT' && thresholds.alertLowLight !== false) {
+                setAlerts((prev) => [
+                  {
+                    id: 'alert_light_' + Date.now(),
+                    title: 'Low Light Detected',
+                    message: `Current: ${cloudData.lightLevel} lux is below configured minimum (${thresholds.minLight || 100} lux).`,
+                    category: 'warning',
+                    time: 'Just now',
+                    read: false
+                  },
+                  ...prev.slice(0, 19)
+                ]);
+              } else if (lEval.classification === 'HIGH LIGHT' && thresholds.alertHighLight !== false) {
+                setAlerts((prev) => [
+                  {
+                    id: 'alert_light_' + Date.now(),
+                    title: 'High Light Level Detected',
+                    message: `⚠ Light Level High: Current: ${cloudData.lightLevel} lux. Recommended range: ${thresholds.minLight || 100}–${thresholds.maxLight || 500} lux.`,
+                    category: 'warning',
+                    time: 'Just now',
+                    read: false
+                  },
+                  ...prev.slice(0, 19)
+                ]);
+              }
+            }
+          }
+
+          // Dynamically update history chart if reading is fresh
+          if (!cloudData.isOffline && cloudData.recordedAt) {
+            const timeStr = new Date(cloudData.recordedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            setHistory((prev) => {
+              const lastPt = prev[prev.length - 1];
+              if (lastPt && lastPt.time === timeStr) return prev;
+              const newPoint = {
+                time: timeStr,
+                temp: cloudData.temperature,
+                temperature: cloudData.temperature,
+                humidity: cloudData.humidity,
+                gas: cloudData.gasLevel,
+                light: cloudData.lightLevel,
+                lightLevel: cloudData.lightLevel,
+                risk: cloudData.spoilageRisk,
+                spoilageRisk: cloudData.spoilageRisk
+              };
+              return [...prev.slice(-29), newPoint];
+            });
+          }
+
+          evaluateAlerts({
+            deviceId: targetDeviceId,
+            sensorData: cloudData,
+            spoilageData: {
+              spoilageRisk: cloudData.spoilageRisk,
+              classification: cloudData.status || 'FRESH'
+            },
+            deviceStatus: cloudData.isOffline ? 'OFFLINE' : 'connected',
+            storageBatches: vegetables
+          }).catch(() => {});
+        } catch (err) {
+          // Silent catch for intermittent connection drops
+        }
+      }, 5000);
+
+      return () => {
+        clearInterval(cloudPollInterval);
+      };
+    }
+
+    // 3. Local LAN Mode Polling
+    if (!isConnected || !device.ipAddress) {
       stopSensorPolling();
       return;
     }
@@ -534,7 +682,7 @@ export function DeviceProvider({ children }) {
     return () => {
       stop();
     };
-  }, [isConnected, device.ipAddress, device.isDemo]);
+  }, [isConnected, device.ipAddress, device.isDemo, device.mode, device.id, thresholds, vegetables, lastKnownData]);
 
   // Connect to ESP32: validates IP, checks status, tests real sensors, and persists user device
   const connectDevice = useCallback(
@@ -551,8 +699,9 @@ export function DeviceProvider({ children }) {
         status: 'connected',
         network: 'Wi-Fi',
         signal: 'Strong',
+        mode: 'local',
         controller: 'ESP32 DevKit V1',
-        firmware: result.device.firmware || '1.0.0',
+        firmware: result.device.firmware || 'v2.6.0',
         lastConnected: result.device.lastConnected
       };
 
@@ -568,7 +717,6 @@ export function DeviceProvider({ children }) {
         localStorage.setItem(storageKey, JSON.stringify(deviceData));
       }
 
-      // Part 7: Emits reconnected event / evaluates recovered device state
       evaluateAlerts({
         deviceId: result.device.id,
         sensorData: result.sensorData,
@@ -578,7 +726,49 @@ export function DeviceProvider({ children }) {
 
       return result;
     },
-    [currentUser]
+    [currentUser, vegetables]
+  );
+
+  // Connect to dedicated Cloud IoT Node (ESP32-001)
+  const connectCloudDeviceHandler = useCallback(
+    async (deviceId = 'ESP32-001') => {
+      stopSensorPolling();
+      setIsCheckingReachability(true);
+      setLoadingStage('Connecting to Cloud Gateway...');
+
+      try {
+        const res = await connectToCloudDevice(deviceId);
+
+        setDevice(res.device);
+        setSensorData(res.sensorData);
+        setLastKnownData(res.sensorData);
+        if (res.history && res.history.length > 0) {
+          setHistory(res.history);
+        }
+
+        setIsConnected(!res.sensorData.isOffline);
+        setConnectionLost(res.sensorData.isOffline);
+        setSavedDevice(res.device);
+
+        if (currentUser) {
+          const storageKey = getDeviceStorageKey(currentUser);
+          localStorage.setItem(storageKey, JSON.stringify(res.device));
+        }
+
+        evaluateAlerts({
+          deviceId: res.device.id,
+          sensorData: res.sensorData,
+          deviceStatus: res.sensorData.isOffline ? 'OFFLINE' : 'connected',
+          storageBatches: vegetables
+        }).catch(() => {});
+
+        return res;
+      } finally {
+        setIsCheckingReachability(false);
+        setLoadingStage('Live monitoring active');
+      }
+    },
+    [currentUser, vegetables]
   );
 
   // Connect Demo ESP32 directly with user specifications:
@@ -628,17 +818,16 @@ export function DeviceProvider({ children }) {
     }));
   }, []);
 
-  // Reconnect previously saved device
+  // Reconnect previously saved device (cloud by default, or local if explicit)
   const reconnectDevice = useCallback(async () => {
     if (savedDevice?.isDemo || device?.isDemo || savedDevice?.id === 'ESP32-DEMO-001') {
       return connectDemoDevice();
     }
-    const targetIp = savedDevice?.ipAddress || device?.ipAddress;
-    if (!targetIp) {
-      throw new Error('No previously connected IP address found.');
+    if (savedDevice?.mode === 'local' && savedDevice?.ipAddress) {
+      return connectDevice(savedDevice.ipAddress);
     }
-    return connectDevice(targetIp);
-  }, [savedDevice, device, connectDevice, connectDemoDevice]);
+    return connectCloudDeviceHandler(savedDevice?.id || device?.id || 'ESP32-001');
+  }, [savedDevice, device, connectDevice, connectDemoDevice, connectCloudDeviceHandler]);
 
   // Clear saved device preferences
   const clearSavedDevice = useCallback(() => {
@@ -868,7 +1057,7 @@ export function DeviceProvider({ children }) {
     isConnected,
     isCheckingReachability,
     connectionLost,
-    hasSavedDevice: Boolean(savedDevice?.ipAddress),
+    hasSavedDevice: Boolean(savedDevice?.ipAddress || savedDevice?.id || savedDevice?.deviceId),
     savedDevice,
     device,
     sensorData,
@@ -878,6 +1067,7 @@ export function DeviceProvider({ children }) {
     thresholds,
     unreadAlertsCount,
     connectDevice,
+    connectCloudDevice: connectCloudDeviceHandler,
     connectDemoDevice,
     disconnectDevice,
     reconnectDevice,

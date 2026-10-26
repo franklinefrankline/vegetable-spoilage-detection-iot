@@ -82,8 +82,8 @@ export function LiveSensorsPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
             <div>
               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>TEMPERATURE</span>
-              <div style={{ fontSize: '2.1rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', marginTop: '0.2rem' }}>
-                {sensorData.temperature}°C
+              <div style={{ fontSize: sensorData?.isTempUnavailable || sensorData?.temperature === null ? '1.5rem' : '2.1rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', marginTop: '0.2rem' }}>
+                {sensorData?.isTempUnavailable || sensorData?.temperature === null ? 'Unavailable' : `${sensorData?.temperature}°C`}
               </div>
             </div>
             <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(234, 88, 12, 0.12)', color: '#ea580c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -113,8 +113,8 @@ export function LiveSensorsPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
             <div>
               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>HUMIDITY</span>
-              <div style={{ fontSize: '2.1rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', marginTop: '0.2rem' }}>
-                {sensorData.humidity}%
+              <div style={{ fontSize: sensorData?.isHumUnavailable || sensorData?.humidity === null ? '1.5rem' : '2.1rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', marginTop: '0.2rem' }}>
+                {sensorData?.isHumUnavailable || sensorData?.humidity === null ? 'Unavailable' : `${sensorData?.humidity}%`}
               </div>
             </div>
             <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(2, 132, 199, 0.12)', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -144,8 +144,8 @@ export function LiveSensorsPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
             <div>
               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>GAS / VOC</span>
-              <div style={{ fontSize: '2.1rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', marginTop: '0.2rem' }}>
-                {sensorData.gasVOC}
+              <div style={{ fontSize: sensorData?.isGasUnavailable || (sensorData?.gasVOC === null && sensorData?.gasLevel === null) ? '1.5rem' : '2.1rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', marginTop: '0.2rem' }}>
+                {sensorData?.isGasUnavailable || (sensorData?.gasVOC === null && sensorData?.gasLevel === null) ? 'Unavailable' : (sensorData?.gasVOC ?? sensorData?.gasLevel)}
               </div>
             </div>
             <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

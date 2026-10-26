@@ -1,5 +1,5 @@
 import express from 'express';
-import db from './db.js';
+import db, { savePersistentReading, savePersistentDevice } from './db.js';
 import crypto from 'node:crypto';
 
 const router = express.Router();
@@ -115,23 +115,42 @@ router.get('/current', (req, res) => {
     `).get(deviceId);
 
     if (latest) {
+      const recordedMs = new Date(latest.recorded_at).getTime();
+      const ageSeconds = isNaN(recordedMs) ? 0 : Math.max(0, Math.round((Date.now() - recordedMs) / 1000));
+      const isStale = ageSeconds > 90; // If no telemetry received in last 90s, mark stale/offline
+      const deviceStatus = isStale ? 'offline' : 'connected';
+
+      const isTempUnavailable = Boolean(latest.is_temp_unavailable || latest.temperature === null);
+      const isHumUnavailable = Boolean(latest.is_hum_unavailable || latest.humidity === null);
+      const isGasUnavailable = Boolean(latest.is_gas_unavailable || latest.gas_level === null);
+      const isLightUnavailable = Boolean(latest.is_light_unavailable || latest.light_level === null);
+
       return res.json({
         success: true,
         data: {
+          deviceId: latest.device_id,
           temperature: latest.temperature,
           humidity: latest.humidity,
           gas_level: latest.gas_level,
           gasVOC: latest.gas_level,
-          light_level: latest.light_level ?? 420,
-          lightLevel: latest.light_level ?? 420,
+          light_level: latest.light_level,
+          lightLevel: latest.light_level,
           status: latest.storage_status || 'FRESH',
           spoilage_risk: latest.spoilage_risk || 18,
           spoilageRisk: latest.spoilage_risk || 18,
-          light_classification: latest.light_classification || 'NORMAL LIGHT',
-          lightClassification: latest.light_classification || 'NORMAL LIGHT',
-          light_risk: latest.light_risk ?? 10,
-          lightRisk: latest.light_risk ?? 10,
+          light_classification: latest.light_classification || (isLightUnavailable ? 'NOT INSTALLED' : 'NORMAL LIGHT'),
+          lightClassification: latest.light_classification || (isLightUnavailable ? 'NOT INSTALLED' : 'NORMAL LIGHT'),
+          light_risk: latest.light_risk ?? 0,
+          lightRisk: latest.light_risk ?? 0,
           recorded_at: latest.recorded_at,
+          recordedAt: latest.recorded_at,
+          ageSeconds,
+          is_stale: isStale,
+          device_status: deviceStatus,
+          is_temp_unavailable: isTempUnavailable,
+          is_hum_unavailable: isHumUnavailable,
+          is_gas_unavailable: isGasUnavailable,
+          is_light_unavailable: isLightUnavailable,
           source: latest.source || (isDemo ? 'demo' : 'esp32')
         }
       });
@@ -140,10 +159,44 @@ router.get('/current', (req, res) => {
     console.warn('[API] /sensors/current DB error:', err.message);
   }
 
-  // Fallback to official baseline demo frame
+  // If real hardware device was requested but no cloud readings received yet:
+  if (!isDemo && !deviceId.includes('DEMO')) {
+    return res.json({
+      success: true,
+      data: {
+        deviceId,
+        temperature: null,
+        humidity: null,
+        gas_level: null,
+        gasVOC: null,
+        light_level: null,
+        lightLevel: null,
+        status: 'AWAITING_DATA',
+        spoilage_risk: 0,
+        spoilageRisk: 0,
+        light_classification: 'NOT INSTALLED',
+        lightClassification: 'NOT INSTALLED',
+        light_risk: 0,
+        lightRisk: 0,
+        recorded_at: null,
+        recordedAt: null,
+        is_stale: true,
+        device_status: 'offline',
+        is_temp_unavailable: true,
+        is_hum_unavailable: true,
+        is_gas_unavailable: true,
+        is_light_unavailable: true,
+        source: 'esp32',
+        message: 'Awaiting first telemetry upload from ESP32.'
+      }
+    });
+  }
+
+  // Fallback for demo device
   return res.json({
     success: true,
     data: {
+      deviceId: 'ESP32-DEMO-001',
       temperature: 28.5,
       humidity: 72,
       gas_level: 420,
@@ -158,7 +211,15 @@ router.get('/current', (req, res) => {
       light_risk: 10,
       lightRisk: 10,
       recorded_at: new Date().toISOString(),
-      source: isDemo ? 'demo' : 'esp32'
+      recordedAt: new Date().toISOString(),
+      ageSeconds: 0,
+      is_stale: false,
+      device_status: 'connected',
+      is_temp_unavailable: false,
+      is_hum_unavailable: false,
+      is_gas_unavailable: false,
+      is_light_unavailable: false,
+      source: 'demo'
     }
   });
 });
@@ -192,11 +253,18 @@ router.get('/history', (req, res) => {
     `).all(deviceId, cutoffIso);
 
     if (rows && rows.length > 0) {
+      const sanitized = rows.map((r) => ({
+        ...r,
+        temperature: (r.is_temp_unavailable || r.temperature === -999.0) ? null : r.temperature,
+        humidity: (r.is_hum_unavailable || r.humidity === -999.0) ? null : r.humidity
+      }));
       return res.json({
         success: true,
         range,
         isDemo,
-        readings: rows
+        data: sanitized,
+        readings: sanitized,
+        total: sanitized.length
       });
     }
   } catch (err) {
@@ -210,6 +278,7 @@ router.get('/history', (req, res) => {
       success: true,
       range,
       isDemo: true,
+      data: demoData,
       readings: demoData
     });
   }
@@ -218,89 +287,120 @@ router.get('/history', (req, res) => {
     success: true,
     range,
     isDemo: false,
+    data: [],
     readings: []
   });
 });
 
 /**
- * POST /api/sensors/record
- * Persists a validated sensor reading to the database
+ * POST /api/sensors/record, /api/sensors/ingest, /api/sensors/readings
+ * Persists a validated sensor reading to the durable database
  */
-router.post('/record', (req, res) => {
+router.post(['/record', '/ingest', '/readings'], async (req, res) => {
+  const body = req.body || {};
   const {
-    deviceId,
+    deviceId = 'ESP32-001',
     userId,
     temperature,
+    temp,
     humidity,
+    hum,
+    rawMQ135,
     gasLevel,
     gas_level,
+    light,
     lightLevel,
     light_level,
     spoilageRisk,
     spoilage_risk,
-    lightRisk,
-    light_risk,
-    lightClassification,
-    light_classification,
-    storageStatus,
-    storage_status,
-    source,
-    mode
-  } = req.body;
+    error
+  } = body;
 
-  // Validate mandatory fields
-  const finalTemp = Number(temperature);
-  const finalHum = Number(humidity);
-  const finalGas = Number(gasLevel !== undefined ? gasLevel : gas_level);
+  const rawTemp = temperature ?? temp;
+  const isTempUnavail = Boolean(error === 'DHT22_READ_FAILED' || rawTemp === null || rawTemp === undefined || isNaN(Number(rawTemp)));
+  const finalTemp = isTempUnavail ? null : Number(Number(rawTemp).toFixed(1));
 
-  if (isNaN(finalTemp) || isNaN(finalHum) || isNaN(finalGas)) {
-    return res.status(400).json({
-      success: false,
-      error: 'Invalid payload: temperature, humidity, and gasLevel must be valid numeric values.'
-    });
+  const rawHum = humidity ?? hum;
+  const isHumUnavail = Boolean(error === 'DHT22_READ_FAILED' || rawHum === null || rawHum === undefined || isNaN(Number(rawHum)));
+  const finalHum = isHumUnavail ? null : Math.round(Number(rawHum));
+
+  const rawGas = rawMQ135 ?? gasLevel ?? gas_level;
+  let finalGas = 400;
+  if (rawGas !== null && rawGas !== undefined && !isNaN(Number(rawGas))) {
+    finalGas = Math.round(Number(rawGas));
   }
 
-  const finalLight = Number(lightLevel !== undefined ? lightLevel : (light_level !== undefined ? light_level : 420));
-  const finalSpoilage = Number(spoilageRisk !== undefined ? spoilageRisk : (spoilage_risk !== undefined ? spoilage_risk : 18));
-  const finalLightRisk = Number(lightRisk !== undefined ? lightRisk : (light_risk !== undefined ? light_risk : 10));
-  const finalLightClass = lightClassification || light_classification || 'NORMAL LIGHT';
-  const finalStatus = storageStatus || storage_status || 'FRESH';
-  const finalSource = source || mode || (deviceId && deviceId.includes('DEMO') ? 'demo' : 'esp32');
-  const finalDeviceId = deviceId || 'ESP32-DEMO-001';
+  const rawLight = light ?? lightLevel ?? light_level;
+  const isLightUnavail = rawLight === null || rawLight === undefined || isNaN(Number(rawLight));
+  const finalLight = isLightUnavail ? null : Math.round(Number(rawLight));
+
+  let finalRisk = 18;
+  if (spoilageRisk !== undefined || spoilage_risk !== undefined) {
+    finalRisk = Math.max(0, Math.min(100, Math.round(Number(spoilageRisk ?? spoilage_risk))));
+  }
+
+  const finalStatus = finalRisk > 60 ? 'SPOILAGE_RISK' : (finalRisk > 30 ? 'WARNING' : 'FRESH');
+  const recordedAt = new Date().toISOString();
+  const id = 'rd_' + crypto.randomUUID().slice(0, 10);
+  const finalDeviceId = String(deviceId || 'ESP32-001').trim();
 
   try {
-    const id = 'rd_' + crypto.randomUUID().slice(0, 10);
-    const recordedAt = new Date().toISOString();
-
-    db.prepare(`
-      INSERT INTO sensor_readings (
-        id, user_id, device_id, temperature, humidity, gas_level, light_level,
-        spoilage_risk, light_risk, light_classification, storage_status, source, recorded_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    await savePersistentReading({
       id,
-      userId || null,
-      finalDeviceId,
-      finalTemp,
-      finalHum,
-      finalGas,
-      isNaN(finalLight) ? 420 : finalLight,
-      finalSpoilage,
-      finalLightRisk,
-      finalLightClass,
-      finalStatus,
-      finalSource,
-      recordedAt
-    );
+      user_id: userId || null,
+      device_id: finalDeviceId,
+      temperature: finalTemp,
+      humidity: finalHum,
+      gas_level: finalGas,
+      light_level: finalLight,
+      spoilage_risk: finalRisk,
+      light_risk: isLightUnavail ? 0 : 10,
+      light_classification: isLightUnavail ? 'NOT INSTALLED' : 'NORMAL LIGHT',
+      storage_status: finalStatus,
+      source: 'esp32',
+      is_temp_unavailable: isTempUnavail ? 1 : 0,
+      is_hum_unavailable: isHumUnavail ? 1 : 0,
+      is_gas_unavailable: 0,
+      is_light_unavailable: isLightUnavail ? 1 : 0,
+      recorded_at: recordedAt
+    });
 
-    return res.json({
+    await savePersistentDevice({
+      id: finalDeviceId,
+      user_id: userId || 'usr_demo_vegsense_001',
+      device_name: finalDeviceId,
+      device_identifier: finalDeviceId,
+      status: 'connected',
+      is_active: 1,
+      last_seen: recordedAt,
+      last_connected: recordedAt
+    });
+
+    const readingObj = {
+      id,
+      deviceId: finalDeviceId,
+      temperature: finalTemp,
+      humidity: finalHum,
+      gas_level: finalGas,
+      light_level: finalLight,
+      spoilage_risk: finalRisk,
+      status: finalStatus,
+      is_temp_unavailable: isTempUnavail ? 1 : 0,
+      is_hum_unavailable: isHumUnavail ? 1 : 0,
+      is_light_unavailable: isLightUnavail ? 1 : 0,
+      recorded_at: recordedAt
+    };
+
+    return res.status(201).json({
       success: true,
+      id,
       readingId: id,
-      recordedAt
+      reading: readingObj,
+      timestamp: recordedAt,
+      deviceId: finalDeviceId
     });
   } catch (err) {
-    console.error('Error persisting sensor reading:', err);
-    return res.status(500).json({ success: false, error: 'Database error saving reading.' });
+    return res.status(500).json({ success: false, error: 'DATABASE_ERROR', message: err.message });
   }
 });
 

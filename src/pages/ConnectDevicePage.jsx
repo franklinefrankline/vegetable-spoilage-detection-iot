@@ -6,7 +6,9 @@ import {
   validateIPAddress,
   isHttpsContext,
   getDeviceStatus,
-  getSensorData
+  getSensorData,
+  getCloudSensorData,
+  connectToCloudDevice
 } from '../services/deviceService';
 import {
   Esp32BoardVisual,
@@ -30,7 +32,10 @@ import {
   Info,
   Server,
   Activity,
-  Zap
+  Zap,
+  Cloud,
+  Globe,
+  ShieldCheck
 } from 'lucide-react';
 
 export function ConnectDevicePage() {
@@ -42,6 +47,7 @@ export function ConnectDevicePage() {
     device,
     sensorData,
     connectDevice,
+    connectCloudDevice,
     connectDemoDevice,
     disconnectDevice,
     reconnectDevice
@@ -63,6 +69,7 @@ export function ConnectDevicePage() {
   const [lastDebugError, setLastDebugError] = useState(null);
 
   const isHttps = isHttpsContext();
+  const [activeTab, setActiveTab] = useState('cloud');
 
   // Sync saved IP on mount
   useEffect(() => {
@@ -71,7 +78,46 @@ export function ConnectDevicePage() {
     }
   }, [savedDevice, ipAddress]);
 
-  // Section 12 & 13: Sequential Connection Handler
+  // Cloud IoT Gateway Connection Handler
+  const handleConnectCloud = async () => {
+    setInputError('');
+    setConnectionError(null);
+    setLastDebugError(null);
+    setIsConnecting(true);
+
+    try {
+      setConnectionStage('Connecting to Cloud Gateway...');
+      await new Promise((r) => setTimeout(r, 200));
+
+      setConnectionStage('Verifying Cloud Ingestion endpoint...');
+      await new Promise((r) => setTimeout(r, 200));
+
+      setConnectionStage('Reading cloud sensor data...');
+      const res = await connectCloudDevice('ESP32-001');
+      setLastDebugResponse(res?.sensorData || res);
+
+      setConnectionStage('Connected');
+      addToast('ESP32-001 Connected via Cloud Gateway.', 'success');
+
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 500);
+    } catch (err) {
+      console.warn('Cloud connection error:', err);
+      const errorMsg = err.message || 'Could not connect to Cloud Gateway.';
+      setConnectionError({
+        message: errorMsg,
+        ip: 'Cloud (HTTPS)'
+      });
+      setLastDebugError(errorMsg);
+      addToast(errorMsg, 'error');
+    } finally {
+      setIsConnecting(false);
+      setConnectionStage('');
+    }
+  };
+
+  // Local Sequential Connection Handler (Direct LAN IP)
   const handleConnect = async (targetIp) => {
     const cleanIp = (targetIp || ipAddress).trim();
 
@@ -79,7 +125,6 @@ export function ConnectDevicePage() {
     setConnectionError(null);
     setLastDebugError(null);
 
-    // Section 8 & 21: Strict IP format check
     if (!cleanIp) {
       setInputError('Enter a valid ESP32 IP address.');
       return;
@@ -93,31 +138,25 @@ export function ConnectDevicePage() {
     setIsConnecting(true);
 
     try {
-      // Stage 1: Checking ESP32...
       setConnectionStage('Checking ESP32...');
       await new Promise((r) => setTimeout(r, 250));
 
-      // Stage 2: Checking Wi-Fi...
       setConnectionStage('Checking Wi-Fi...');
       await new Promise((r) => setTimeout(r, 250));
 
-      // Stage 3: Checking HTTP server... (GET /status)
       setConnectionStage('Checking HTTP server...');
       const statusRes = await getDeviceStatus(cleanIp);
       setLastDebugResponse(statusRes.rawResponse || statusRes.data);
 
-      // Stage 4: Reading sensor data... (GET /api/data)
       setConnectionStage('Reading sensor data...');
       const sensorRes = await getSensorData(cleanIp);
       setLastDebugResponse(sensorRes);
 
-      // Stage 5: Connected (Section 12 & 21)
       setConnectionStage('Connected');
       await connectDevice(cleanIp);
 
       addToast('ESP32-001 Connected successfully.', 'success');
 
-      // Section 13: Automatically navigate to /dashboard
       setTimeout(() => {
         navigate('/dashboard');
       }, 600);
@@ -232,44 +271,83 @@ export function ConnectDevicePage() {
         <VisualHeroConnection isConnected={isConnected} />
       </div>
 
-      {/* 2. Section 9: Visible Local ESP32 Connection Notice */}
-      <div className="local-connection-banner">
-        <div className="local-connection-title">
-          <Wifi size={16} color="var(--primary)" />
-          <span>LOCAL ESP32 CONNECTION</span>
-        </div>
-        <p style={{ margin: '0 0 0.35rem', fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-main)' }}>
-          For direct ESP32 monitoring:
-        </p>
-        <ul className="local-connection-list">
-          <li>Connect this computer to the same Wi-Fi as the ESP32.</li>
-          <li>Use the ESP32 IP shown in Serial Monitor.</li>
-          <li>The ESP32 must be running its HTTP server.</li>
-        </ul>
+      {/* 2. Mode Selector Tabs: Cloud Gateway vs Local LAN */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+        <button
+          type="button"
+          onClick={() => setActiveTab('cloud')}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.45rem',
+            padding: '0.65rem 1.25rem',
+            borderRadius: '12px',
+            fontWeight: 700,
+            fontSize: '0.875rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            border: activeTab === 'cloud' ? '2px solid var(--primary)' : '1px solid var(--border-light)',
+            background: activeTab === 'cloud' ? 'var(--primary-light)' : 'var(--card-bg)',
+            color: activeTab === 'cloud' ? 'var(--primary)' : 'var(--text-muted)'
+          }}
+        >
+          <Cloud size={16} />
+          <span>Cloud IoT Gateway (Recommended)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('local')}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.45rem',
+            padding: '0.65rem 1.25rem',
+            borderRadius: '12px',
+            fontWeight: 700,
+            fontSize: '0.875rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            border: activeTab === 'local' ? '2px solid var(--primary)' : '1px solid var(--border-light)',
+            background: activeTab === 'local' ? 'var(--primary-light)' : 'var(--card-bg)',
+            color: activeTab === 'local' ? 'var(--text-muted)' : 'var(--text-muted)'
+          }}
+        >
+          <Wifi size={16} />
+          <span>Local Wi-Fi IP (Direct LAN)</span>
+        </button>
       </div>
 
-      {/* 3. Section 1, 9 & 11: HTTPS / Vercel Detection Banner */}
-      {isHttps && (
-        <div className="https-cloud-notice">
-          <AlertTriangle size={18} color="#ea580c" style={{ flexShrink: 0, marginTop: '2px' }} />
-          <div>
-            <strong style={{ color: '#ea580c', display: 'block', marginBottom: '2px' }}>
-              HTTPS Cloud Context Detected (Mixed Content Notice)
-            </strong>
-            <p style={{ margin: 0 }}>
-              Web browsers enforce strict security boundaries that prevent HTTPS websites (e.g.{' '}
-              <code>https://veg-system.vercel.app</code>) from directly accessing private LAN IP
-              addresses (<code>http://192.168.x.x</code>).
-            </p>
-            <p style={{ margin: '0.35rem 0 0' }}>
-              <strong>For direct local ESP32 testing:</strong> Run the frontend locally over HTTP:{' '}
-              <code>npm run dev</code> and open <code>http://localhost:5173/connect-device</code> on
-              the same Wi-Fi.
-            </p>
-            <p style={{ margin: '0.35rem 0 0', color: 'var(--text-muted)' }}>
-              <em>Production Cloud Mode: Cloud connection not configured.</em>
-            </p>
+      {/* 3. Architecture Notice Banner */}
+      {activeTab === 'cloud' ? (
+        <div className="local-connection-banner" style={{ background: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+          <div className="local-connection-title" style={{ color: '#10b981' }}>
+            <Cloud size={16} color="#10b981" />
+            <span>CLOUD IOT GATEWAY ACTIVE</span>
           </div>
+          <p style={{ margin: '0 0 0.35rem', fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-main)' }}>
+            Outbound HTTPS Ingestion: Works globally on any network or mobile device!
+          </p>
+          <ul className="local-connection-list">
+            <li>ESP32 initiates outbound HTTPS requests directly to <code>https://vegitables.vercel.app/api/readings</code>.</li>
+            <li>Browser never depends on private IP addresses (no Mixed Content or LAN firewall restrictions).</li>
+            <li>Secured via dedicated device credentials &amp; server validation.</li>
+          </ul>
+        </div>
+      ) : (
+        <div className="local-connection-banner">
+          <div className="local-connection-title">
+            <Wifi size={16} color="var(--primary)" />
+            <span>LOCAL ESP32 CONNECTION (LAN)</span>
+          </div>
+          <p style={{ margin: '0 0 0.35rem', fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-main)' }}>
+            For direct local ESP32 monitoring:
+          </p>
+          <ul className="local-connection-list">
+            <li>Connect this computer to the same Wi-Fi as the ESP32.</li>
+            <li>Use the ESP32 IP shown in Serial Monitor.</li>
+            <li>If running on HTTPS cloud, browsers block private HTTP IPs (use local <code>npm run dev</code> or Cloud Gateway tab).</li>
+          </ul>
         </div>
       )}
 
@@ -380,8 +458,131 @@ export function ConnectDevicePage() {
                     </button>
                   </div>
                 </div>
+              ) : activeTab === 'cloud' ? (
+                /* CLOUD IOT GATEWAY MODE */
+                <div className="refined-connect-form">
+                  <div className="refined-input-group">
+                    <div style={{ marginBottom: '1rem', padding: '1.1rem', background: 'rgba(16, 185, 129, 0.07)', borderRadius: '14px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
+                        <span style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Cloud size={18} color="var(--primary)" />
+                          Cloud Telemetry Ingestion (ESP32-001)
+                        </span>
+                        <span className={`status-pill ${!sensorData?.isOffline ? 'active' : ''}`} style={{ fontSize: '0.72rem' }}>
+                          <span className={`status-indicator-dot ${!sensorData?.isOffline ? 'dot-green' : 'dot-amber'}`} />
+                          <span>{!sensorData?.isOffline ? 'Connected (Live)' : 'Awaiting Upload / Offline'}</span>
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.65rem', marginBottom: '0.85rem', fontSize: '0.775rem' }}>
+                        <div style={{ padding: '0.55rem 0.75rem', background: 'var(--card-bg)', borderRadius: '10px', border: '1px solid var(--border-light)' }}>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700 }}>DHT22 TEMP</div>
+                          <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)', marginTop: '2px' }}>
+                            {sensorData?.isTempUnavailable || sensorData?.temperature === null ? 'Unavailable' : `${sensorData?.temperature}°C`}
+                          </div>
+                        </div>
+                        <div style={{ padding: '0.55rem 0.75rem', background: 'var(--card-bg)', borderRadius: '10px', border: '1px solid var(--border-light)' }}>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700 }}>DHT22 HUMIDITY</div>
+                          <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)', marginTop: '2px' }}>
+                            {sensorData?.isHumUnavailable || sensorData?.humidity === null ? 'Unavailable' : `${sensorData?.humidity}%`}
+                          </div>
+                        </div>
+                        <div style={{ padding: '0.55rem 0.75rem', background: 'var(--card-bg)', borderRadius: '10px', border: '1px solid var(--border-light)' }}>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700 }}>MQ-135 GAS / VOC</div>
+                          <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)', marginTop: '2px' }}>
+                            {sensorData?.isGasUnavailable || sensorData?.gasVOC === null ? 'Unavailable' : `${sensorData?.gasVOC} ppm`}
+                          </div>
+                        </div>
+                        <div style={{ padding: '0.55rem 0.75rem', background: 'var(--card-bg)', borderRadius: '10px', border: '1px solid var(--border-light)' }}>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700 }}>BH1750 LIGHT</div>
+                          <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)', marginTop: '2px' }}>
+                            {sensorData?.isLightUnavailable ? 'Optional / Not Installed' : `${sensorData?.lightLevel} lux`}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(16, 185, 129, 0.15)', paddingTop: '0.5rem' }}>
+                        <span>Endpoint: <code>/api/readings</code></span>
+                        <span>Auth: <code>x-api-key</code></span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={handleConnectCloud}
+                      disabled={isConnecting}
+                      style={{
+                        width: '100%',
+                        padding: '0.85rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        fontWeight: 700,
+                        fontSize: '0.925rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {isConnecting ? (
+                        <>
+                          <span className="spinner" />
+                          <span>{connectionStage || 'Connecting to Cloud...'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Cloud size={18} />
+                          <span>Connect Cloud ESP32 (ESP32-001)</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div
+                      className="demo-connection-quick-box"
+                      style={{
+                        marginTop: '0.85rem',
+                        padding: '0.85rem 1rem',
+                        background: 'rgba(16, 185, 129, 0.08)',
+                        borderRadius: '12px',
+                        border: '1px dashed rgba(16, 185, 129, 0.35)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                        <span style={{ fontSize: '0.785rem', fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <Zap size={14} color="#f59e0b" /> DEMO ESP32 GATEWAY
+                        </span>
+                        <span style={{ fontSize: '0.7rem', padding: '0.15rem 0.5rem', background: 'rgba(16, 185, 129, 0.18)', color: '#10b981', borderRadius: '20px', fontWeight: 700 }}>
+                          ESP32-DEMO-001
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.65rem', lineHeight: '1.4' }}>
+                        IP: <strong style={{ color: 'var(--text-main)' }}>192.168.1.150</strong> • Temp: <strong>28.5 °C</strong> • Hum: <strong>72 %</strong> • VOC: <strong>420</strong> • Spoilage: <strong>18 %</strong> • Status: <strong>FRESH</strong>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={handleConnectDemo}
+                        disabled={isConnecting}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.5rem',
+                          fontWeight: 700,
+                          fontSize: '0.825rem',
+                          borderColor: 'rgba(16, 185, 129, 0.4)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Zap size={14} color="#f59e0b" />
+                        <span>Connect Demo ESP32 (Simulation)</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               ) : (
-                /* Connection Form */
+                /* LOCAL IP CONNECTION FORM */
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();

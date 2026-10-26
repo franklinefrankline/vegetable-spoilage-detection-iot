@@ -30,8 +30,22 @@ export async function getCurrentSensorData(deviceId = 'ESP32-DEMO-001', isDemo =
     const json = await res.json();
     return json.data;
   } catch (err) {
-    console.warn('[SensorService] Fallback to demo sensor data:', err.message);
-    return getDemoSensorData();
+    console.warn('[SensorService] Cloud sensor read notice:', err.message);
+    return {
+      deviceId,
+      temperature: null,
+      humidity: null,
+      gas_level: null,
+      gasVOC: null,
+      light_level: null,
+      lightLevel: null,
+      status: 'OFFLINE',
+      spoilageRisk: 0,
+      isOffline: true,
+      is_stale: true,
+      is_temp_unavailable: true,
+      is_light_unavailable: true
+    };
   }
 }
 
@@ -49,24 +63,25 @@ export async function getSensorHistory(deviceId = 'ESP32-DEMO-001', range = '24h
       throw new Error(`Sensor history API error: ${res.status}`);
     }
     const json = await res.json();
-    if (json.readings && json.readings.length > 0) {
-      return json.readings.map((r) => ({
-        time: new Date(r.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        timestamp: r.recorded_at,
+    const rawList = json.data || json.readings || [];
+    if (rawList && rawList.length > 0) {
+      return rawList.map((r) => ({
+        time: new Date(r.recorded_at || r.recordedAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: r.recorded_at || r.recordedAt,
         temperature: r.temperature,
         humidity: r.humidity,
-        gasLevel: r.gas_level,
-        gasVOC: r.gas_level,
-        lightLevel: r.light_level ?? 420,
-        lightClassification: r.light_classification || 'NORMAL LIGHT',
+        gasLevel: r.gas_level ?? r.gas,
+        gasVOC: r.gas_level ?? r.gas,
+        lightLevel: r.light_level ?? r.light,
+        lightClassification: r.light_classification || (r.light_level === null ? 'NOT INSTALLED' : 'NORMAL LIGHT'),
         spoilageRisk: r.spoilage_risk || 18,
         source: r.source || 'esp32'
       }));
     }
-    return getDemoHistory(range);
+    return [];
   } catch (err) {
-    console.warn('[SensorService] Fallback to demo history:', err.message);
-    return getDemoHistory(range);
+    console.warn('[SensorService] Failed to load real hardware history:', err.message);
+    return [];
   }
 }
 

@@ -30,5 +30,8 @@ screenshots/
 # Ensure persistent user database files are permanently tracked across code updates
 !server/persistent_users.json
 !server/database.sqlite
+!server/persistent_devices.json
+!server/persistent_sensor_readings.json
+scratch/
 
 .env*

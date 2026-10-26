@@ -1,6 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import db from './db.js';
+import db, { savePersistentReading, savePersistentDevice } from './db.js';
 import crypto from 'node:crypto';
 import { getJwtSecret } from './jwtConfig.js';
 import { requireAuthOrApiKey } from './apiKeyMiddleware.js';
@@ -348,6 +348,70 @@ router.post('/device/save', (req, res) => {
 });
 
 /**
+ * GET /api/device/provision-info
+ * Returns cloud ingestion endpoint and authentication configuration
+ */
+router.get('/device/provision-info', (req, res) => {
+  const hasKey = Boolean(process.env.VEGSENSE_API_KEY && process.env.VEGSENSE_API_KEY.trim().length > 0);
+  return res.json({
+    success: true,
+    cloudIngestionUrl: 'https://vegitables.vercel.app/api/readings',
+    cloudApiBase: 'https://vegitables.vercel.app/api',
+    endpoints: {
+      ingest: '/api/readings',
+      current: '/api/sensors/current',
+      history: '/api/sensors/history',
+      health: '/api/health'
+    },
+    authHeader: 'x-api-key',
+    hasApiKeyConfigured: hasKey,
+    instructions: hasKey
+      ? 'Set CLOUD_API_URL to https://vegitables.vercel.app/api/readings and DEVICE_API_KEY to your configured VEGSENSE_API_KEY.'
+      : 'Set VEGSENSE_API_KEY in your cloud environment variables or provision a dedicated device token.'
+  });
+});
+
+/**
+ * POST /api/device/provision-token
+ * Generates a dedicated device credential for authenticated users
+ */
+router.post('/device/provision-token', async (req, res) => {
+  const userId = req.user?.id || req.body?.userId || 'usr_demo_vegsense_001';
+  const { deviceId = 'ESP32-001' } = req.body || {};
+
+  const cleanDeviceId = String(deviceId).trim() || 'ESP32-001';
+  const token = 'vgs_' + crypto.randomBytes(20).toString('hex');
+  const now = new Date().toISOString();
+
+  try {
+    await savePersistentDevice({
+      id: cleanDeviceId,
+      user_id: userId,
+      device_name: cleanDeviceId,
+      device_identifier: cleanDeviceId,
+      device_token: token,
+      api_key: token,
+      mode: 'REAL',
+      status: 'provisioned',
+      is_active: 1,
+      last_connected: now,
+      last_seen: now
+    });
+
+    return res.status(201).json({
+      success: true,
+      deviceId: cleanDeviceId,
+      deviceToken: token,
+      cloudIngestionUrl: 'https://vegitables.vercel.app/api/readings',
+      authHeader: 'x-api-key',
+      message: 'Dedicated device credential provisioned successfully.'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
  * GET /api/device/:userId
  * Retrieves the saved device for a specific user.
  */
@@ -367,10 +431,13 @@ router.get('/device/:userId', (req, res) => {
 
 /**
  * POST /api/readings
- * Standard IoT Telemetry Ingestion Contract (Section 8)
- * Accepts normalized telemetry from ESP32 hardware via API key or user session via JWT.
+/**
+ * POST /api/readings, /api/sensors/ingest, /api/ingest
+ * Dedicated Cloud Ingestion Endpoint for ESP32 Hardware & IoT Gateways
+ * Accepts real telemetry via header x-api-key, x-device-token, or Bearer JWT session.
+ * Stores readings in durable production storage (SQLite + Vercel Blob permanent backup).
  */
-router.post(['/readings', '/sensors/ingest', '/sensors/record'], requireAuthOrApiKey, (req, res) => {
+router.post(['/readings', '/sensors/ingest', '/sensor/ingest', '/sensors/record', '/ingest'], requireAuthOrApiKey, async (req, res) => {
   const body = req.body || {};
   const deviceId = body.deviceId || body.device_id || body.device || 'ESP32-001';
 
@@ -385,21 +452,33 @@ router.post(['/readings', '/sensors/ingest', '/sensors/record'], requireAuthOrAp
 
   // Numeric and range validations
   let finalTemp = null;
+  let isTempUnavail = false;
   if (rawTemp !== null && rawTemp !== undefined) {
     const num = Number(rawTemp);
-    if (isNaN(num) || num < -40 || num > 80) {
+    if (isNaN(num)) {
+      isTempUnavail = true;
+    } else if (num < -40 || num > 80) {
       return res.status(400).json({ success: false, error: 'INVALID_TEMPERATURE', message: 'Temperature must be between -40°C and 80°C or null.' });
+    } else {
+      finalTemp = Number(num.toFixed(1));
     }
-    finalTemp = Number(num.toFixed(1));
+  } else {
+    isTempUnavail = true;
   }
 
   let finalHum = null;
+  let isHumUnavail = false;
   if (rawHum !== null && rawHum !== undefined) {
     const num = Number(rawHum);
-    if (isNaN(num) || num < 0 || num > 100) {
+    if (isNaN(num)) {
+      isHumUnavail = true;
+    } else if (num < 0 || num > 100) {
       return res.status(400).json({ success: false, error: 'INVALID_HUMIDITY', message: 'Humidity must be between 0% and 100% or null.' });
+    } else {
+      finalHum = Number(num.toFixed(1));
     }
-    finalHum = Number(num.toFixed(1));
+  } else {
+    isHumUnavail = true;
   }
 
   let finalGas = 400;
@@ -412,12 +491,14 @@ router.post(['/readings', '/sensors/ingest', '/sensors/record'], requireAuthOrAp
   }
 
   let finalLight = null;
+  let isLightUnavail = true;
   let finalLightClass = 'NOT INSTALLED';
   let finalLightRisk = 0;
   if (rawLight !== null && rawLight !== undefined) {
     const num = Number(rawLight);
     if (!isNaN(num) && num >= 0 && num <= 65535) {
       finalLight = Math.round(num);
+      isLightUnavail = false;
       if (finalLight < 100) {
         finalLightClass = 'LOW LIGHT';
         finalLightRisk = 30;
@@ -449,24 +530,40 @@ router.post(['/readings', '/sensors/ingest', '/sensors/record'], requireAuthOrAp
   const userId = req.user?.id || body.userId || null;
 
   try {
-    db.prepare(`
-      INSERT INTO sensor_readings (
-        id, user_id, device_id, temperature, humidity, gas_level, light_level,
-        spoilage_risk, light_risk, light_classification, storage_status, source, recorded_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'esp32', ?)
-    `).run(
-      id, userId, deviceId.trim(), finalTemp, finalHum, finalGas,
-      finalLight, finalRisk, finalLightRisk, finalLightClass, finalStatus, now
-    );
+    // Persist to SQLite and durable Vercel Blob store
+    await savePersistentReading({
+      id,
+      user_id: userId,
+      device_id: deviceId.trim(),
+      temperature: finalTemp,
+      humidity: finalHum,
+      gas_level: finalGas,
+      light_level: finalLight,
+      spoilage_risk: finalRisk,
+      light_risk: finalLightRisk,
+      light_classification: finalLightClass,
+      storage_status: finalStatus,
+      source: 'esp32',
+      is_temp_unavailable: isTempUnavail ? 1 : 0,
+      is_hum_unavailable: isHumUnavail ? 1 : 0,
+      is_gas_unavailable: 0,
+      is_light_unavailable: isLightUnavail ? 1 : 0,
+      recorded_at: now
+    });
 
-    // Update device last_seen and status in database
-    try {
-      db.prepare(`
-        UPDATE devices
-        SET last_seen = ?, status = 'connected', is_active = 1
-        WHERE id = ?
-      `).run(now, deviceId.trim());
-    } catch (_) {}
+    // Update device state and persist to durable store
+    await savePersistentDevice({
+      id: deviceId.trim(),
+      user_id: userId || 'usr_demo_vegsense_001',
+      device_name: deviceId.trim(),
+      device_identifier: deviceId.trim(),
+      ip_address: req.ip || req.headers['x-forwarded-for'] || '192.168.1.150',
+      mode: 'REAL',
+      status: 'connected',
+      is_active: 1,
+      last_seen: now,
+      last_connected: now
+    });
 
     return res.status(201).json({
       success: true,
@@ -479,7 +576,10 @@ router.post(['/readings', '/sensors/ingest', '/sensors/record'], requireAuthOrAp
         gas_level: finalGas,
         light_level: finalLight,
         spoilage_risk: finalRisk,
-        status: finalStatus
+        status: finalStatus,
+        is_temp_unavailable: isTempUnavail,
+        is_hum_unavailable: isHumUnavail,
+        is_light_unavailable: isLightUnavail
       }
     });
   } catch (err) {
@@ -487,6 +587,8 @@ router.post(['/readings', '/sensors/ingest', '/sensors/record'], requireAuthOrAp
     return res.status(500).json({ success: false, error: 'DATABASE_ERROR', message: err.message });
   }
 });
+
+
 
 /**
  * GET /api/data (Section 12: Real ESP32 API spec)

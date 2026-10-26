@@ -11,6 +11,7 @@
  */
 
 import { classifyLight } from '../utils/lightClassification.js';
+import apiClient, { buildApiUrl } from './apiClient.js';
 
 // Connection timeout in milliseconds: 5 seconds (Section 8)
 export const CONNECTION_TIMEOUT_MS = 5000;
@@ -395,3 +396,224 @@ export function disconnectDevice() {
     signal: 'None'
   };
 }
+
+/**
+ * =====================================================================================
+ * Cloud IoT Gateway Communication Services
+ * Communicates with the cloud endpoints without requiring LAN IP access:
+ * - GET /api/sensors/current?deviceId=ESP32-001
+ * - GET /api/sensors/history?deviceId=ESP32-001
+ * - GET /api/device/provision-info
+ * - POST /api/device/provision-token
+ * =====================================================================================
+ */
+
+/**
+ * Formats a raw cloud sensor response into the standard application sensorData model.
+ */
+export function formatCloudSensorResponse(data = {}) {
+  const isTempUnavailable = Boolean(
+    data.is_temp_unavailable ||
+    data.temperature === null ||
+    data.temperature === undefined ||
+    isNaN(Number(data.temperature))
+  );
+  const isHumUnavailable = Boolean(
+    data.is_hum_unavailable ||
+    data.humidity === null ||
+    data.humidity === undefined ||
+    isNaN(Number(data.humidity))
+  );
+  const isGasUnavailable = Boolean(
+    data.is_gas_unavailable ||
+    (data.gas_level === null && data.gasVOC === null && data.gasLevel === null)
+  );
+  const isLightUnavailable = Boolean(
+    data.is_light_unavailable ||
+    data.light_level === null ||
+    data.lightLevel === null ||
+    data.light_level === undefined ||
+    isNaN(Number(data.light_level ?? data.lightLevel))
+  );
+
+  const isStale = Boolean(data.is_stale);
+  const isOffline = data.device_status === 'offline' || isStale;
+
+  const temp = isTempUnavailable ? null : Number(Number(data.temperature).toFixed(1));
+  const humidity = isHumUnavailable ? null : Math.round(Number(data.humidity));
+  const rawGas = data.gas_level ?? data.gasVOC ?? data.gasLevel;
+  const gasLevel = !isGasUnavailable && rawGas !== null && rawGas !== undefined ? Math.round(Number(rawGas)) : null;
+  const rawLight = data.light_level ?? data.lightLevel;
+  const lightLevel = !isLightUnavailable && rawLight !== null && rawLight !== undefined ? Math.round(Number(rawLight)) : null;
+
+  const status = String(data.status || 'FRESH').toUpperCase();
+  const spoilageRisk = data.spoilage_risk !== null && data.spoilage_risk !== undefined ? Math.round(Number(data.spoilage_risk)) : 18;
+
+  let lightClassification = data.light_classification || data.lightClassification || 'NORMAL LIGHT';
+  if (isLightUnavailable) {
+    lightClassification = 'NOT INSTALLED';
+  }
+
+  const recordedAt = data.recorded_at || data.recordedAt || (data.timestamp ? new Date(data.timestamp).toISOString() : new Date().toISOString());
+
+  return {
+    temperature: temp,
+    humidity,
+    gasLevel,
+    gasVOC: gasLevel,
+    lightLevel,
+    lightClassification,
+    lightRisk: data.light_risk ?? data.lightRisk ?? 0,
+    spoilageRisk,
+    status,
+    storageCondition: status === 'FRESH' ? 'Stable' : status === 'WARNING' || status === 'MONITOR' ? 'Caution' : 'Critical',
+    isDhtUnavailable: isTempUnavailable || isHumUnavailable,
+    isTempUnavailable,
+    isHumUnavailable,
+    isGasUnavailable,
+    isLightUnavailable,
+    isStale,
+    isOffline,
+    ageSeconds: data.ageSeconds ?? 0,
+    lastUpdated: new Date(recordedAt),
+    recordedAt,
+    deviceId: data.deviceId || 'ESP32-001',
+    source: data.source || 'cloud-https'
+  };
+}
+
+/**
+ * Fetch latest sensor readings from the dedicated cloud endpoint:
+ * GET /api/sensors/current?deviceId={deviceId}
+ */
+export async function getCloudSensorData(deviceId = 'ESP32-001') {
+  const url = buildApiUrl(`/sensors/current?deviceId=${encodeURIComponent(deviceId)}`);
+  const res = await fetch(url, { method: 'GET', credentials: 'include' });
+
+  if (!res.ok) {
+    const err = new Error(`Cloud API returned HTTP status ${res.status}`);
+    err.code = 'CLOUD_HTTP_ERROR';
+    err.status = res.status;
+    throw err;
+  }
+
+  const data = await res.json();
+  if (!data || !data.success) {
+    const err = new Error(data?.message || 'Failed to retrieve cloud sensor readings.');
+    err.code = 'CLOUD_API_ERROR';
+    throw err;
+  }
+
+  return formatCloudSensorResponse(data.data || {});
+}
+
+/**
+ * Fetch cloud device status and health:
+ * GET /api/sensors/current?deviceId={deviceId}
+ */
+export async function getCloudDeviceStatus(deviceId = 'ESP32-001') {
+  const sensorData = await getCloudSensorData(deviceId);
+  return {
+    success: true,
+    data: {
+      id: sensorData.deviceId || deviceId,
+      name: sensorData.deviceId || deviceId,
+      status: sensorData.isOffline ? 'Offline' : 'connected',
+      isStale: sensorData.isStale,
+      ageSeconds: sensorData.ageSeconds,
+      recordedAt: sensorData.recordedAt,
+      network: 'Cloud Ingestion (HTTPS)',
+      signal: sensorData.isOffline ? 'None' : 'Strong',
+      controller: 'ESP32 DevKit V1',
+      firmware: 'v2.6.0-cloud',
+      mode: 'cloud',
+      lastConnected: sensorData.recordedAt
+    },
+    sensorData
+  };
+}
+
+/**
+ * Fetch cloud historical readings:
+ * GET /api/sensors/history?deviceId={deviceId}&limit={limit}
+ */
+export async function fetchCloudHistory(deviceId = 'ESP32-001', limit = 30) {
+  try {
+    const url = buildApiUrl(`/sensors/history?deviceId=${encodeURIComponent(deviceId)}&limit=${limit}`);
+    const res = await fetch(url, { method: 'GET', credentials: 'include' });
+    if (!res.ok) return [];
+
+    const json = await res.json();
+    if (!json || !json.success || !Array.isArray(json.data)) return [];
+
+    return json.data.map((item) => {
+      const timeStr = item.time || (item.recorded_at ? new Date(item.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--');
+      return {
+        time: timeStr,
+        temp: item.temperature ?? item.temp,
+        temperature: item.temperature ?? item.temp,
+        humidity: item.humidity,
+        gas: item.gas_level ?? item.gas,
+        gasLevel: item.gas_level ?? item.gas,
+        light: item.light_level ?? item.light,
+        lightLevel: item.light_level ?? item.light,
+        risk: item.spoilage_risk ?? item.risk,
+        spoilageRisk: item.spoilage_risk ?? item.risk,
+        recordedAt: item.recorded_at || item.time
+      };
+    });
+  } catch (err) {
+    console.warn('Failed to fetch cloud history:', err.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch device provisioning instructions and details:
+ * GET /api/device/provision-info
+ */
+export async function fetchProvisionInfo() {
+  try {
+    return await apiClient.get('/device/provision-info');
+  } catch (err) {
+    return {
+      success: true,
+      deviceId: 'ESP32-001',
+      cloudIngestionUrl: 'https://vegitables.vercel.app/api/readings',
+      authHeader: 'x-api-key',
+      authAlternatives: ['x-device-token', 'Authorization: Bearer <TOKEN>'],
+      format: {
+        deviceId: 'ESP32-001',
+        temperature: 24.5,
+        humidity: 65.2,
+        rawMQ135: 412,
+        light: 380,
+        timestamp: 1730000000000
+      }
+    };
+  }
+}
+
+/**
+ * Provision a dedicated token for this ESP32 hardware device:
+ * POST /api/device/provision-token
+ */
+export async function provisionDeviceToken(deviceId = 'ESP32-001', deviceName = 'ESP32-001') {
+  return apiClient.post('/device/provision-token', { deviceId, name: deviceName });
+}
+
+/**
+ * Connect to Cloud ESP32 Gateway:
+ * Validates connectivity to the cloud ingestion endpoint, reads telemetry & history.
+ */
+export async function connectToCloudDevice(deviceId = 'ESP32-001') {
+  const statusRes = await getCloudDeviceStatus(deviceId);
+  const historyData = await fetchCloudHistory(deviceId, 30);
+
+  return {
+    device: statusRes.data,
+    sensorData: statusRes.sensorData,
+    history: historyData
+  };
+}
+
