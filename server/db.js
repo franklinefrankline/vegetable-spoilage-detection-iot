@@ -166,7 +166,10 @@ const sensorReadingColumns = [
   { name: 'is_temp_unavailable', type: 'INTEGER DEFAULT 0' },
   { name: 'is_hum_unavailable', type: 'INTEGER DEFAULT 0' },
   { name: 'is_gas_unavailable', type: 'INTEGER DEFAULT 0' },
-  { name: 'is_light_unavailable', type: 'INTEGER DEFAULT 0' }
+  { name: 'is_light_unavailable', type: 'INTEGER DEFAULT 0' },
+  { name: 'raw_mq135', type: 'INTEGER' },
+  { name: 'gas_index', type: 'INTEGER' },
+  { name: 'health_score', type: 'INTEGER' }
 ];
 
 for (const col of sensorReadingColumns) {
@@ -319,7 +322,10 @@ const deviceColumns = [
   { name: 'last_seen', type: 'DATETIME' },
   { name: 'is_active', type: 'INTEGER DEFAULT 1' },
   { name: 'device_token', type: 'TEXT' },
-  { name: 'api_key', type: 'TEXT' }
+  { name: 'api_key', type: 'TEXT' },
+  { name: 'token_hash', type: 'TEXT' },
+  { name: 'revoked_at', type: 'DATETIME' },
+  { name: 'last_used_at', type: 'DATETIME' }
 ];
 
 for (const col of deviceColumns) {
@@ -694,13 +700,17 @@ export async function savePersistentReading(reading) {
     const safeHum = isHumUnavail ? -999.0 : Number(reading.humidity);
     const safeGas = reading.gas_level !== null && reading.gas_level !== undefined && !isNaN(Number(reading.gas_level)) ? Math.round(Number(reading.gas_level)) : 400;
 
+    const safeRawMQ = reading.raw_mq135 !== null && reading.raw_mq135 !== undefined ? Math.round(Number(reading.raw_mq135)) : safeGas;
+    const safeGasIdx = reading.gas_index !== null && reading.gas_index !== undefined ? Math.round(Number(reading.gas_index)) : Math.round(safeGas / 40);
+    const safeHealth = reading.health_score !== null && reading.health_score !== undefined ? Math.round(Number(reading.health_score)) : Math.max(0, 100 - (reading.spoilage_risk ?? 18));
+
     db.prepare(`
       INSERT OR REPLACE INTO sensor_readings (
         id, user_id, device_id, temperature, humidity, gas_level, light_level,
         spoilage_risk, light_risk, light_classification, storage_status, source,
         is_temp_unavailable, is_hum_unavailable, is_gas_unavailable, is_light_unavailable,
-        recorded_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        raw_mq135, gas_index, health_score, recorded_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       reading.id,
       reading.user_id || null,
@@ -718,6 +728,9 @@ export async function savePersistentReading(reading) {
       isHumUnavail ? 1 : 0,
       reading.is_gas_unavailable ? 1 : 0,
       reading.is_light_unavailable ? 1 : 0,
+      safeRawMQ,
+      safeGasIdx,
+      safeHealth,
       reading.recorded_at
     );
 
@@ -765,8 +778,8 @@ export async function syncPersistentDevices(fetchRemote = true) {
     }
 
     const insertStmt = db.prepare(`
-      INSERT INTO devices (id, user_id, device_name, device_identifier, ip_address, mode, status, is_active, device_token, api_key, last_connected, last_seen, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO devices (id, user_id, device_name, device_identifier, ip_address, mode, status, is_active, device_token, api_key, token_hash, revoked_at, last_used_at, last_connected, last_seen, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         device_name = excluded.device_name,
         ip_address = excluded.ip_address,
@@ -775,6 +788,9 @@ export async function syncPersistentDevices(fetchRemote = true) {
         last_connected = COALESCE(excluded.last_connected, devices.last_connected),
         device_token = COALESCE(excluded.device_token, devices.device_token),
         api_key = COALESCE(excluded.api_key, devices.api_key),
+        token_hash = COALESCE(excluded.token_hash, devices.token_hash),
+        revoked_at = COALESCE(excluded.revoked_at, devices.revoked_at),
+        last_used_at = COALESCE(excluded.last_used_at, devices.last_used_at),
         updated_at = excluded.updated_at
     `);
 
@@ -800,6 +816,9 @@ export async function syncPersistentDevices(fetchRemote = true) {
                 d.is_active !== undefined ? d.is_active : 1,
                 d.device_token || null,
                 d.api_key || null,
+                d.token_hash || null,
+                d.revoked_at || null,
+                d.last_used_at || null,
                 d.last_connected || new Date().toISOString(),
                 d.last_seen || new Date().toISOString(),
                 d.created_at || new Date().toISOString(),
@@ -871,8 +890,8 @@ export async function savePersistentDevice(device) {
   try {
     const now = new Date().toISOString();
     db.prepare(`
-      INSERT INTO devices (id, user_id, device_name, device_identifier, ip_address, mode, status, is_active, device_token, api_key, last_connected, last_seen, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO devices (id, user_id, device_name, device_identifier, ip_address, mode, status, is_active, device_token, api_key, token_hash, revoked_at, last_used_at, last_connected, last_seen, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         device_name = excluded.device_name,
         ip_address = excluded.ip_address,
@@ -880,6 +899,9 @@ export async function savePersistentDevice(device) {
         is_active = excluded.is_active,
         device_token = COALESCE(excluded.device_token, devices.device_token),
         api_key = COALESCE(excluded.api_key, devices.api_key),
+        token_hash = COALESCE(excluded.token_hash, devices.token_hash),
+        revoked_at = excluded.revoked_at,
+        last_used_at = COALESCE(excluded.last_used_at, devices.last_used_at),
         last_seen = excluded.last_seen,
         last_connected = COALESCE(excluded.last_connected, devices.last_connected),
         updated_at = excluded.updated_at
@@ -894,6 +916,9 @@ export async function savePersistentDevice(device) {
       device.is_active !== undefined ? (device.is_active ? 1 : 0) : 1,
       device.device_token || null,
       device.api_key || null,
+      device.token_hash || null,
+      device.revoked_at || null,
+      device.last_used_at || null,
       device.last_connected || now,
       device.last_seen || now,
       device.created_at || now,

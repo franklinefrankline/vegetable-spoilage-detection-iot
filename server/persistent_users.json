@@ -81,12 +81,12 @@
     "name": "Frankline (Main Administrator)",
     "email": "franklinesamy2006@gmail.com",
     "username": "franklinesamy",
-    "password_hash": "$2b$10$SW9seWx5/KyZSZ1BjhqXMu9FIwlEuhZUjB9GvUDiVttSxBTsiKEJW",
+    "password_hash": "$2b$10$6UWM5bfaB9TuujGafuiCa.gqeYlxicwIDotKpprYzz6qImoFoua6G",
     "role": "MAIN_ADMIN",
     "is_active": 1,
     "last_login_at": "2026-10-05T04:25:54.083Z",
-    "created_at": "2026-10-26T04:09:51.758Z",
-    "updated_at": "2026-10-26T04:09:51.758Z"
+    "created_at": "2026-10-26T06:01:06.888Z",
+    "updated_at": "2026-10-26T06:01:06.888Z"
   },
   {
     "id": "453182be-b3ea-43b5-8dd4-1b769443f256",
@@ -135,5 +135,29 @@
     "last_login_at": "2026-10-26T05:58:12.644Z",
     "created_at": "2026-10-26T05:58:12.503Z",
     "updated_at": "2026-10-26T05:58:12.667Z"
+  },
+  {
+    "id": "5ffbe03e-775b-45d7-ada9-78f543707e8c",
+    "name": "Test Agronomist",
+    "email": "agronomist_1792994481995@vegsense.org",
+    "username": null,
+    "password_hash": "$2b$10$MDiUQwooV.Nj/Jk.xEYWrep1LR5hATMwHbsbddzTszkTx3d7C/qpq",
+    "role": "USER",
+    "is_active": 1,
+    "last_login_at": "2026-10-26T06:01:23.382Z",
+    "created_at": "2026-10-26T06:01:22.713Z",
+    "updated_at": "2026-10-26T06:01:23.383Z"
+  },
+  {
+    "id": "ee1c1c1f-8138-492e-8bba-4716c468128e",
+    "name": "Test Agronomist",
+    "email": "agronomist_1792997530875@vegsense.org",
+    "username": null,
+    "password_hash": "$2b$10$ee6sTRO1xjhHdjwVf9rgwOs/ns5RRTQwt91tgCBJbHGBFgkXSPkSa",
+    "role": "USER",
+    "is_active": 1,
+    "last_login_at": "2026-10-26T06:52:12.076Z",
+    "created_at": "2026-10-26T06:52:11.930Z",
+    "updated_at": "2026-10-26T06:52:12.103Z"
   }
 ]

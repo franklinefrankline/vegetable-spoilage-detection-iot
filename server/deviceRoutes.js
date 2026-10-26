@@ -38,28 +38,58 @@ function isValidIPv4(ip) {
 router.get('/devices', (req, res) => {
   const userId = req.user?.id || req.query.userId || req.headers['x-user-id'] || 'usr_demo_vegsense_001';
   try {
-    const devices = db.prepare(`
+    const rawDevices = db.prepare(`
       SELECT * FROM devices
-      WHERE user_id = ?
+      WHERE user_id = ? OR id = 'ESP32-001' OR id = 'vegsense-esp32-001'
       ORDER BY created_at DESC
     `).all(userId);
 
-    // If user has no registered device, include the standard demo device
+    const fallbackList = [
+      {
+        id: 'ESP32-001',
+        user_id: userId,
+        device_name: 'ESP32-001 (Production Node)',
+        device_identifier: 'ESP32-001',
+        ip_address: '192.168.1.150',
+        mode: 'REAL',
+        status: 'connected',
+        is_active: 1,
+        last_connected: new Date().toISOString(),
+        last_seen: new Date().toISOString()
+      }
+    ];
+
+    const sourceList = rawDevices.length > 0 ? rawDevices : fallbackList;
+
+    const safeDevices = sourceList.map((d) => {
+      let maskedToken = null;
+      if (d.device_token) {
+        maskedToken = d.device_token.length > 8 ? `vgs_${d.device_token.slice(4, 8)}...****` : '****';
+      }
+      return {
+        id: d.id,
+        user_id: d.user_id,
+        device_name: d.device_name || d.id,
+        device_identifier: d.device_identifier || d.id,
+        ip_address: d.ip_address,
+        mode: d.mode,
+        status: d.status,
+        is_active: d.is_active,
+        has_token: Boolean(d.device_token || d.api_key),
+        device_token_masked: maskedToken,
+        revoked_at: d.revoked_at,
+        last_used_at: d.last_used_at,
+        last_connected: d.last_connected,
+        last_seen: d.last_seen,
+        created_at: d.created_at,
+        updated_at: d.updated_at
+      };
+    });
+
     return res.json({
       success: true,
-      devices: devices.length > 0 ? devices : [
-        {
-          id: 'ESP32-DEMO-001',
-          user_id: userId,
-          device_name: 'ESP32-DEMO-001',
-          ip_address: '192.168.1.150',
-          mode: 'DEMO',
-          status: 'connected',
-          is_active: 1,
-          last_connected: new Date().toISOString(),
-          last_seen: new Date().toISOString()
-        }
-      ]
+      count: safeDevices.length,
+      devices: safeDevices
     });
   } catch (err) {
     console.error('Error fetching devices:', err);
@@ -147,6 +177,360 @@ router.post('/devices', async (req, res) => {
     return res.status(500).json({ success: false, message: 'Database error saving device.' });
   }
 });
+
+/**
+ * GET /api/devices/:deviceId/latest
+ * Returns latest telemetry reading and status for the specified device
+ */
+function handleGetDeviceLatest(req, res) {
+  const deviceId = req.params.deviceId || req.query.deviceId || 'ESP32-001';
+  try {
+    const latest = db.prepare(`
+      SELECT * FROM sensor_readings
+      WHERE device_id = ?
+      ORDER BY recorded_at DESC
+      LIMIT 1
+    `).get(deviceId);
+
+    const device = db.prepare('SELECT * FROM devices WHERE id = ? OR device_identifier = ? LIMIT 1').get(deviceId, deviceId);
+
+    if (!latest) {
+      return res.json({
+        success: true,
+        deviceId,
+        status: 'offline',
+        device_status: 'offline',
+        data: null,
+        message: `No telemetry recorded for device ${deviceId} yet.`
+      });
+    }
+
+    const recordedMs = new Date(latest.recorded_at).getTime();
+    const nowMs = Date.now();
+    const ageSeconds = Math.max(0, Math.round((nowMs - recordedMs) / 1000));
+    const isStale = ageSeconds > 90;
+    const isOffline = ageSeconds > 300;
+
+    const isTempUnavail = Boolean(latest.is_temp_unavailable || latest.temperature === null || latest.temperature === -999.0);
+    const isHumUnavail = Boolean(latest.is_hum_unavailable || latest.humidity === null || latest.humidity === -999.0);
+    const isGasUnavail = Boolean(latest.is_gas_unavailable || latest.gas_level === null);
+    const isLightUnavail = Boolean(latest.is_light_unavailable || latest.light_level === null);
+
+    const temp = isTempUnavail ? null : latest.temperature;
+    const hum = isHumUnavail ? null : latest.humidity;
+    const mqRaw = latest.raw_mq135 ?? latest.gas_level;
+    const gasIndex = latest.gas_index ?? (latest.gas_level ? Math.round(latest.gas_level / 40) : null);
+    const risk = latest.spoilage_risk ?? 18;
+    const health = latest.health_score ?? Math.max(0, 100 - risk);
+    const light = isLightUnavail ? null : latest.light_level;
+    const status = latest.storage_status || 'FRESH';
+
+    return res.json({
+      success: true,
+      deviceId: latest.device_id,
+      deviceName: device?.device_name || latest.device_id,
+      status,
+      device_status: isOffline ? 'offline' : (isStale ? 'stale' : 'connected'),
+      is_stale: isStale,
+      is_offline: isOffline,
+      ageSeconds,
+      last_seen: latest.recorded_at,
+      recorded_at: latest.recorded_at,
+      timestamp: latest.recorded_at,
+      metrics: {
+        temperature: temp,
+        humidity: hum,
+        mqRaw,
+        gasIndex,
+        gas_level: latest.gas_level,
+        gasVOC: latest.gas_level,
+        lightLevel: light,
+        light_level: light,
+        lightClassification: latest.light_classification || (isLightUnavail ? 'NOT INSTALLED' : 'NORMAL LIGHT'),
+        risk,
+        spoilageRisk: risk,
+        health,
+        storageCondition: status === 'FRESH' ? 'Optimal' : (status === 'WARNING' ? 'Monitor' : 'Critical'),
+        availableSensors: {
+          dht22: !isTempUnavail && !isHumUnavail,
+          mq135: !isGasUnavail,
+          bh1750: !isLightUnavail
+        }
+      },
+      data: {
+        deviceId: latest.device_id,
+        temperature: temp,
+        humidity: hum,
+        mqRaw,
+        gasIndex,
+        gas_level: latest.gas_level,
+        gasVOC: latest.gas_level,
+        light_level: light,
+        lightLevel: light,
+        light_classification: latest.light_classification || (isLightUnavail ? 'NOT INSTALLED' : 'NORMAL LIGHT'),
+        status,
+        spoilage_risk: risk,
+        spoilageRisk: risk,
+        health,
+        device_status: isOffline ? 'offline' : (isStale ? 'stale' : 'connected'),
+        ageSeconds,
+        is_stale: isStale,
+        is_temp_unavailable: isTempUnavail,
+        is_hum_unavailable: isHumUnavail,
+        is_gas_unavailable: isGasUnavail,
+        is_light_unavailable: isLightUnavail,
+        recorded_at: latest.recorded_at,
+        recordedAt: latest.recorded_at
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching latest device reading:', err);
+    return res.status(500).json({ success: false, error: 'DATABASE_ERROR', message: err.message });
+  }
+}
+
+/**
+ * GET /api/devices/:deviceId/history
+ * Returns historical readings with pagination and time filters
+ */
+function handleGetDeviceHistory(req, res) {
+  const deviceId = req.params.deviceId || req.query.deviceId || 'ESP32-001';
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 500);
+  const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+  const from = req.query.from || req.query.since;
+  const to = req.query.to;
+
+  try {
+    let sql = 'SELECT * FROM sensor_readings WHERE device_id = ?';
+    const params = [deviceId];
+
+    if (from) {
+      sql += ' AND recorded_at >= ?';
+      params.push(from);
+    }
+    if (to) {
+      sql += ' AND recorded_at <= ?';
+      params.push(to);
+    }
+
+    sql += ' ORDER BY recorded_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const rows = db.prepare(sql).all(...params);
+    const totalRow = db.prepare('SELECT COUNT(*) as count FROM sensor_readings WHERE device_id = ?').get(deviceId);
+
+    const formatted = rows.map((r) => {
+      const isTempUnavail = Boolean(r.is_temp_unavailable || r.temperature === null || r.temperature === -999.0);
+      const isHumUnavail = Boolean(r.is_hum_unavailable || r.humidity === null || r.humidity === -999.0);
+      const isLightUnavail = Boolean(r.is_light_unavailable || r.light_level === null);
+      const risk = r.spoilage_risk ?? 18;
+
+      return {
+        id: r.id,
+        deviceId: r.device_id,
+        time: r.recorded_at ? new Date(r.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--',
+        recorded_at: r.recorded_at,
+        recordedAt: r.recorded_at,
+        timestamp: r.recorded_at,
+        temperature: isTempUnavail ? null : r.temperature,
+        temp: isTempUnavail ? null : r.temperature,
+        humidity: isHumUnavail ? null : r.humidity,
+        mqRaw: r.raw_mq135 ?? r.gas_level,
+        gasIndex: r.gas_index ?? (r.gas_level ? Math.round(r.gas_level / 40) : null),
+        gas_level: r.gas_level,
+        gasLevel: r.gas_level,
+        gasVOC: r.gas_level,
+        light_level: isLightUnavail ? null : r.light_level,
+        lightLevel: isLightUnavail ? null : r.light_level,
+        light_classification: r.light_classification || (isLightUnavail ? 'NOT INSTALLED' : 'NORMAL LIGHT'),
+        spoilage_risk: risk,
+        spoilageRisk: risk,
+        health: r.health_score ?? Math.max(0, 100 - risk),
+        status: r.storage_status || 'FRESH',
+        is_temp_unavailable: isTempUnavail,
+        is_hum_unavailable: isHumUnavail,
+        is_light_unavailable: isLightUnavail,
+        source: r.source || 'esp32'
+      };
+    });
+
+    return res.json({
+      success: true,
+      deviceId,
+      count: formatted.length,
+      total: totalRow?.count || formatted.length,
+      limit,
+      offset,
+      data: formatted,
+      readings: formatted
+    });
+  } catch (err) {
+    console.error('Error fetching device history:', err);
+    return res.status(500).json({ success: false, error: 'DATABASE_ERROR', message: err.message });
+  }
+}
+
+/**
+ * POST /api/devices/register
+ * Creates or registers a new device and generates a secure device token
+ */
+async function handleRegisterDevice(req, res) {
+  const userId = req.user?.id || req.body.userId || 'usr_demo_vegsense_001';
+  const { deviceId, deviceName } = req.body || {};
+
+  const cleanDeviceId = String(deviceId || 'ESP32-' + crypto.randomUUID().slice(0, 6).toUpperCase()).trim();
+  const token = 'vgs_' + crypto.randomBytes(24).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const now = new Date().toISOString();
+
+  try {
+    await savePersistentDevice({
+      id: cleanDeviceId,
+      user_id: userId,
+      device_name: deviceName?.trim() || cleanDeviceId,
+      device_identifier: cleanDeviceId,
+      device_token: token,
+      api_key: token,
+      token_hash: tokenHash,
+      mode: 'REAL',
+      status: 'registered',
+      is_active: 1,
+      last_connected: now,
+      last_seen: now
+    });
+
+    return res.status(201).json({
+      success: true,
+      deviceId: cleanDeviceId,
+      deviceToken: token,
+      cloudIngestionUrl: 'https://vegitables.vercel.app/api/device/ingest',
+      authHeader: 'x-api-key',
+      message: 'Device credential generated successfully. Store this token securely; it will not be displayed again.'
+    });
+  } catch (err) {
+    console.error('Error registering device:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+/**
+ * POST /api/devices/:deviceId/rotate-token
+ * Rotates the device token and invalidates the previous one
+ */
+async function handleRotateDeviceToken(req, res) {
+  const deviceId = req.params.deviceId || req.body.deviceId;
+  if (!deviceId) return res.status(400).json({ success: false, message: 'Device ID required.' });
+
+  const newToken = 'vgs_' + crypto.randomBytes(24).toString('hex');
+  const newTokenHash = crypto.createHash('sha256').update(newToken).digest('hex');
+  const now = new Date().toISOString();
+
+  try {
+    const existing = db.prepare('SELECT * FROM devices WHERE id = ? OR device_identifier = ? LIMIT 1').get(deviceId, deviceId);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Device not found.' });
+    }
+
+    await savePersistentDevice({
+      ...existing,
+      device_token: newToken,
+      api_key: newToken,
+      token_hash: newTokenHash,
+      is_active: 1,
+      status: 'active',
+      updated_at: now
+    });
+
+    return res.json({
+      success: true,
+      deviceId: existing.id,
+      newDeviceToken: newToken,
+      message: 'Device token rotated successfully. Update your ESP32 firmware with this new credential.'
+    });
+  } catch (err) {
+    console.error('Error rotating device token:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+/**
+ * POST /api/devices/:deviceId/revoke
+ * Revokes a device credential, blocking all future uploads
+ */
+async function handleRevokeDevice(req, res) {
+  const deviceId = req.params.deviceId || req.body.deviceId;
+  if (!deviceId) return res.status(400).json({ success: false, message: 'Device ID required.' });
+
+  const now = new Date().toISOString();
+
+  try {
+    const existing = db.prepare('SELECT * FROM devices WHERE id = ? OR device_identifier = ? LIMIT 1').get(deviceId, deviceId);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Device not found.' });
+    }
+
+    await savePersistentDevice({
+      ...existing,
+      is_active: 0,
+      status: 'REVOKED',
+      revoked_at: now,
+      updated_at: now
+    });
+
+    return res.json({
+      success: true,
+      deviceId: existing.id,
+      status: 'REVOKED',
+      message: 'Device credential has been revoked. Ingestion requests will be rejected with HTTP 403.'
+    });
+  } catch (err) {
+    console.error('Error revoking device:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+/**
+ * POST /api/devices/:deviceId/activate
+ * Re-activates a previously revoked device
+ */
+async function handleActivateDevice(req, res) {
+  const deviceId = req.params.deviceId || req.body.deviceId;
+  if (!deviceId) return res.status(400).json({ success: false, message: 'Device ID required.' });
+
+  const now = new Date().toISOString();
+
+  try {
+    const existing = db.prepare('SELECT * FROM devices WHERE id = ? OR device_identifier = ? LIMIT 1').get(deviceId, deviceId);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Device not found.' });
+    }
+
+    await savePersistentDevice({
+      ...existing,
+      is_active: 1,
+      status: 'ACTIVE',
+      revoked_at: null,
+      updated_at: now
+    });
+
+    return res.json({
+      success: true,
+      deviceId: existing.id,
+      status: 'ACTIVE',
+      message: 'Device has been re-activated.'
+    });
+  } catch (err) {
+    console.error('Error activating device:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+router.get('/devices/:deviceId/latest', handleGetDeviceLatest);
+router.get('/devices/:deviceId/history', handleGetDeviceHistory);
+router.post(['/devices/register', '/device/register'], handleRegisterDevice);
+router.post(['/devices/:deviceId/rotate-token', '/device/:deviceId/rotate-token'], handleRotateDeviceToken);
+router.post(['/devices/:deviceId/revoke', '/device/:deviceId/revoke'], handleRevokeDevice);
+router.post(['/devices/:deviceId/activate', '/device/:deviceId/activate'], handleActivateDevice);
 
 /**
  * GET /api/devices/:id
@@ -437,7 +821,7 @@ router.get('/device/:userId', (req, res) => {
  * Accepts real telemetry via header x-api-key, x-device-token, or Bearer JWT session.
  * Stores readings in durable production storage (SQLite + Vercel Blob permanent backup).
  */
-router.post(['/readings', '/sensors/ingest', '/sensor/ingest', '/sensors/record', '/ingest'], requireAuthOrApiKey, async (req, res) => {
+router.post(['/device/ingest', '/devices/ingest', '/readings', '/sensors/ingest', '/sensor/ingest', '/sensors/record', '/ingest'], requireAuthOrApiKey, async (req, res) => {
   const body = req.body || {};
   const deviceId = body.deviceId || body.device_id || body.device || 'ESP32-001';
 
@@ -445,9 +829,15 @@ router.post(['/readings', '/sensors/ingest', '/sensor/ingest', '/sensors/record'
     return res.status(400).json({ success: false, error: 'INVALID_PAYLOAD', message: 'Valid deviceId is required.' });
   }
 
+  // Payload size safety guard: reject payloads > 16KB
+  const rawBodyLength = JSON.stringify(body).length;
+  if (rawBodyLength > 16384) {
+    return res.status(413).json({ success: false, error: 'PAYLOAD_TOO_LARGE', message: 'Payload size exceeds 16KB limit.' });
+  }
+
   const rawTemp = body.temperature ?? body.temp ?? body.t;
   const rawHum = body.humidity ?? body.hum ?? body.h;
-  const rawGas = body.gasLevel ?? body.gas_level ?? body.gas ?? body.rawGas;
+  const rawGas = body.mqRaw ?? body.rawMQ135 ?? body.gasLevel ?? body.gas_level ?? body.gas ?? body.rawGas;
   const rawLight = body.lightLevel ?? body.light_level ?? body.light ?? body.light_lux ?? body.lux;
 
   // Numeric and range validations
@@ -490,6 +880,8 @@ router.post(['/readings', '/sensors/ingest', '/sensor/ingest', '/sensors/record'
     finalGas = Math.round(num);
   }
 
+  const finalGasIndex = body.gasIndex !== undefined ? Math.round(Number(body.gasIndex)) : (body.gas_index !== undefined ? Math.round(Number(body.gas_index)) : Math.round(finalGas / 40));
+
   let finalLight = null;
   let isLightUnavail = true;
   let finalLightClass = 'NOT INSTALLED';
@@ -514,8 +906,8 @@ router.post(['/readings', '/sensors/ingest', '/sensor/ingest', '/sensors/record'
 
   // Calculate spoilage risk if not provided
   let finalRisk = 18;
-  if (body.spoilageRisk !== undefined || body.spoilage_risk !== undefined) {
-    finalRisk = Math.max(0, Math.min(100, Math.round(Number(body.spoilageRisk ?? body.spoilage_risk))));
+  if (body.risk !== undefined || body.spoilageRisk !== undefined || body.spoilage_risk !== undefined) {
+    finalRisk = Math.max(0, Math.min(100, Math.round(Number(body.risk ?? body.spoilageRisk ?? body.spoilage_risk))));
   } else if (finalTemp !== null && finalHum !== null) {
     let score = 10;
     if (finalTemp > 24) score += (finalTemp - 24) * 3.5;
@@ -524,6 +916,7 @@ router.post(['/readings', '/sensors/ingest', '/sensor/ingest', '/sensors/record'
     finalRisk = Math.max(0, Math.min(100, Math.round(score)));
   }
 
+  const finalHealth = body.health !== undefined ? Math.max(0, Math.min(100, Math.round(Number(body.health)))) : Math.max(0, 100 - finalRisk);
   const finalStatus = finalRisk > 60 ? 'SPOILAGE_RISK' : (finalRisk > 30 ? 'WARNING' : 'FRESH');
   const now = new Date().toISOString();
   const id = 'rd_' + crypto.randomUUID().slice(0, 10);
@@ -538,6 +931,9 @@ router.post(['/readings', '/sensors/ingest', '/sensor/ingest', '/sensors/record'
       temperature: finalTemp,
       humidity: finalHum,
       gas_level: finalGas,
+      raw_mq135: finalGas,
+      gas_index: finalGasIndex,
+      health_score: finalHealth,
       light_level: finalLight,
       spoilage_risk: finalRisk,
       light_risk: finalLightRisk,
@@ -562,7 +958,8 @@ router.post(['/readings', '/sensors/ingest', '/sensor/ingest', '/sensors/record'
       status: 'connected',
       is_active: 1,
       last_seen: now,
-      last_connected: now
+      last_connected: now,
+      last_used_at: now
     });
 
     return res.status(201).json({
@@ -573,9 +970,15 @@ router.post(['/readings', '/sensors/ingest', '/sensor/ingest', '/sensors/record'
       metrics: {
         temperature: finalTemp,
         humidity: finalHum,
+        mqRaw: finalGas,
+        gasIndex: finalGasIndex,
         gas_level: finalGas,
+        gasVOC: finalGas,
         light_level: finalLight,
+        lightLevel: finalLight,
+        risk: finalRisk,
         spoilage_risk: finalRisk,
+        health: finalHealth,
         status: finalStatus,
         is_temp_unavailable: isTempUnavail,
         is_hum_unavailable: isHumUnavail,

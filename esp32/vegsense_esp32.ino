@@ -63,6 +63,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <time.h>
 
 // =====================================================================================
 // WI-FI CONFIGURATION
@@ -75,11 +76,104 @@ const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
 // CLOUD API CONFIGURATION
 // Dedicated Cloud Ingestion Endpoint for VegSense (Vercel Serverless Production API)
 // =====================================================================================
-const char* DEVICE_ID             = "ESP32-001";
-const char* CLOUD_API_URL         = "https://vegitables.vercel.app/api/readings";
+const char* DEVICE_ID             = "vegsense-esp32-001";
+const char* CLOUD_API_URL         = "https://vegitables.vercel.app/api/device/ingest";
 const char* DEVICE_API_KEY        = "YOUR_VEGSENSE_API_KEY"; // Enter configured VEGSENSE_API_KEY or provisioned device token
-const unsigned long CLOUD_PUSH_INTERVAL_MS = 15000;          // Send cloud telemetry every 15s
+const unsigned long CLOUD_PUSH_INTERVAL_MS = 10000;          // Send cloud telemetry every 10s per specification
 const int   HTTP_TIMEOUT_MS       = 8000;                    // 8-second HTTP timeout
+
+// =====================================================================================
+// ROOT CA CERTIFICATE BUNDLE FOR vegitables.vercel.app
+// Contains trusted Root CAs used by Vercel Serverless Infrastructure:
+// 1. Google Trust Services (GTS Root R1) — Primary issuer for *.vercel.app (Valid to 2036)
+// 2. GlobalSign Root CA (R1) — Cross-signing Root CA for GTS Root R1 (Valid to 2028)
+// 3. Internet Security Research Group (ISRG Root X1) — Let's Encrypt Root CA (Valid to 2035)
+// Enables strict TLS certificate and hostname validation without setInsecure().
+// =====================================================================================
+const char* ROOT_CA_CERTIFICATE_BUNDLE = \
+"-----BEGIN CERTIFICATE-----\n" \
+"MIIFYjCCBEqgAwIBAgIQd70NbNs2+RrqIQ/E8FjTDTANBgkqhkiG9w0BAQsFADBX\n" \
+"MQswCQYDVQQGEwJCRTEZMBcGA1UEChMQR2xvYmFsU2lnbiBudi1zYTEQMA4GA1UE\n" \
+"CxMHUm9vdCBDQTEbMBkGA1UEAxMSR2xvYmFsU2lnbiBSb290IENBMB4XDTIwMDYx\n" \
+"OTAwMDA0MloXDTI4MDEyODAwMDA0MlowRzELMAkGA1UEBhMCVVMxIjAgBgNVBAoT\n" \
+"GUdvb2dsZSBUcnVzdCBTZXJ2aWNlcyBMTEMxFDASBgNVBAMTC0dUUyBSb290IFIx\n" \
+"MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAthECix7joXebO9y/lD63\n" \
+"ladAPKH9gvl9MgaCcfb2jH/76Nu8ai6Xl6OMS/kr9rH5zoQdsfnFl97vufKj6bwS\n" \
+"iV6nqlKr+CMny6SxnGPb15l+8Ape62im9MZaRw1NEDPjTrETo8gYbEvs/AmQ351k\n" \
+"KSUjB6G00j0uYODP0gmHu81I8E3CwnqIiru6z1kZ1q+PsAewnjHxgsHA3y6mbWwZ\n" \
+"DrXYfiYaRQM9sHmklCitD38m5agI/pboPGiUU+6DOogrFZYJsuB6jC511pzrp1Zk\n" \
+"j5ZPaK49l8KEj8C8QMALXL32h7M1bKwYUH+E4EzNktMg6TO8UpmvMrUpsyUqtEj5\n" \
+"cuHKZPfmghCN6J3Cioj6OGaK/GP5Afl4/Xtcd/p2h/rs37EOeZVXtL0m79YB0esW\n" \
+"CruOC7XFxYpVq9Os6pFLKcwZpDIlTirxZUTQAs6qzkm06p98g7BAe+dDq6dso499\n" \
+"iYH6TKX/1Y7DzkvgtdizjkXPdsDtQCv9Uw+wp9U7DbGKogPeMa3Md+pvez7W35Ei\n" \
+"Eua++tgy/BBjFFFy3l3WFpO9KWgz7zpm7AeKJt8T11dleCfeXkkUAKIAf5qoIbap\n" \
+"sZWwpbkNFhHax2xIPEDgfg1azVY80ZcFuctL7TlLnMQ/0lUTbiSw1nH69MG6zO0b\n" \
+"9f6BQdgAmD06yK56mDcYBZUCAwEAAaOCATgwggE0MA4GA1UdDwEB/wQEAwIBhjAP\n" \
+"BgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBTkrysmcRorSCeFL1JmLO/wiRNxPjAf\n" \
+"BgNVHSMEGDAWgBRge2YaRQ2XyolQL30EzTSo//z9SzBgBggrBgEFBQcBAQRUMFIw\n" \
+"JQYIKwYBBQUHMAGGGWh0dHA6Ly9vY3NwLnBraS5nb29nL2dzcjEwKQYIKwYBBQUH\n" \
+"MAKGHWh0dHA6Ly9wa2kuZ29vZy9nc3IxL2dzcjEuY3J0MDIGA1UdHwQrMCkwJ6Al\n" \
+"oCOGIWh0dHA6Ly9jcmwucGtpLmdvb2cvZ3NyMS9nc3IxLmNybDA7BgNVHSAENDAy\n" \
+"MAgGBmeBDAECATAIBgZngQwBAgIwDQYLKwYBBAHWeQIFAwIwDQYLKwYBBAHWeQIF\n" \
+"AwMwDQYJKoZIhvcNAQELBQADggEBADSkHrEoo9C0dhemMXoh6dFSPsjbdBZBiLg9\n" \
+"NR3t5P+T4Vxfq7vqfM/b5A3Ri1fyJm9bvhdGaJQ3b2t6yMAYN/olUazsaL+yyEn9\n" \
+"WprKASOshIArAoyZl+tJaox118fessmXn1hIVw41oeQa1v1vg4Fv74zPl6/AhSrw\n" \
+"9U5pCZEt4Wi4wStz6dTZ/CLANx8LZh1J7QJVj2fhMtfTJr9w4z30Z209fOU0iOMy\n" \
+"+qduBmpvvYuR7hZL6Dupszfnw0Skfths18dG9ZKb59UhvmaSGZRVbNQpsg3BZlvi\n" \
+"d0lIKO2d1xozclOzgjXPYovJJIultzkMu34qQb9Sz/yilrbCgj8=\n" \
+"-----END CERTIFICATE-----\n" \
+"-----BEGIN CERTIFICATE-----\n" \
+"MIIDdTCCAl2gAwIBAgILBAAAAAABFUtaw5QwDQYJKoZIhvcNAQEFBQAwVzELMAkG\n" \
+"A1UEBhMCQkUxGTAXBgNVBAoTEEdsb2JhbFNpZ24gbnYtc2ExEDAOBgNVBAsTB1Jv\n" \
+"b3QgQ0ExGzAZBgNVBAMTEkdsb2JhbFNpZ24gUm9vdCBDQTAeFw05ODA5MDExMjAw\n" \
+"MDBaFw0yODAxMjgxMjAwMDBaMFcxCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9i\n" \
+"YWxTaWduIG52LXNhMRAwDgYDVQQLEwdSb290IENBMRswGQYDVQQDExJHbG9iYWxT\n" \
+"aWduIFJvb3QgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDaDuaZ\n" \
+"jc6j40+Kfvvxi4Mla+pIH/EqsLmVEQS98GPR4mdmzxzdzxtIK+6NiY6arymAZavp\n" \
+"xy0Sy6AcUUR9TLGFXUwUxKeMmZK+GDJbqqbFU8Oi27KjOtUTagPFDHv56UVedYSV\n" \
+"wvUCKG+tPaU/+SReimUn25YOuhVWujwn5XAXsGsRUj8NxsfsgVY5y82Ls758NReI\n" \
+"JBRZsJAGB777phSk3jOBg/lhTdd427ZFs/S17150PaJBgnSl3VC28b4DbNycNoxZ\n" \
+"7GMrDunZUE9Ty3sv+/08gIKddAenEGnej4Z9ZZrcgvNkgd9mmq6hqCrHrDsZeRdc\n" \
+"ZSnNXbCu4NlQmvXLAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8E\n" \
+"BTADAQH/MB0GA1UdDgQWBBRge2YaRQ2XyolQL30EzTSo//z9SzANBgkqhkiG9w0B\n" \
+"AQUFAAOCAQEA1nPnfE920I2/7LqivjTFKDK1fPxsnCwrvQmeU79UxR8JeQh7234N\n" \
+"crZwtevWboL8GJzBn4fCrPRukLeszr/jagGfDTjnetTnhmbHI97tk6leFOLP5J//\n" \
+"VOmKr9J523nHcn++t5ztezUcOmC973IhKeNmfiZXTxspGChWlpWDgA34nPpcpdJA\n" \
+"8CzYOtP8IfR57kkBX8sNT5PnZB/yO9Tx0iMGxD509nDZISSm61EKn7KhQYEBzo3j\n" \
+"3GThpc2Cz4NgXOijY68DLhFcdzsPruk76tTMszb2OAX74HgAtOM7335wc4987Iv1\n" \
+"XA1azCm570cHY38ljBsHb55iEIYxm0Mb/w==\n" \
+"-----END CERTIFICATE-----\n" \
+"-----BEGIN CERTIFICATE-----\n" \
+"MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw\n" \
+"TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh\n" \
+"cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4\n" \
+"WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu\n" \
+"ZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBY\n" \
+"MTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAK3oJHP0FDfzm54rVygc\n" \
+"h77ct984kIxuPOZXoHj3dcKi/vVqbvYATyjb3miGbESTtrFj/RQSa78f0uoxmyF+\n" \
+"0TM8ukj13Xnfs7j/EvEhmkvBioZxaUpmZmyPfjxwv60pIgbz5MDmgK7iS4+3mX6U\n" \
+"A5/TR5d8mUgjU+g4rk8Kb4Mu0UlXjIB0ttov0DiNewNwIRt18jA8+o+u3dpjq+sW\n" \
+"T8KOEUt+zwvo/7V3LvSye0rgTBIlDHCNAymg4VMk7BPZ7hm/ELNKjD+Jo2FR3qyH\n" \
+"B5T0Y3HsLuJvW5iB4YlcNHlsdu87kGJ55tukmi8mxdAQ4Q7e2RCOFvu396j3x+UC\n" \
+"B5iPNgiV5+I3lg02dZ77DnKxHZu8A/lJBdiB3QW0KtZB6awBdpUKD9jf1b0SHzUv\n" \
+"KBds0pjBqAlkd25HN7rOrFleaJ1/ctaJxQZBKT5ZPt0m9STJEadao0xAH0ahmbWn\n" \
+"OlFuhjuefXKnEgV4We0+UXgVCwOPjdAvBbI+e0ocS3MFEvzG6uBQE3xDk3SzynTn\n" \
+"jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw\n" \
+"qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI\n" \
+"rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV\n" \
+"HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq\n" \
+"hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL\n" \
+"ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ\n" \
+"3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK\n" \
+"NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5\n" \
+"ORAzI4JMPJ+GslWYHb4phowim57iaztXOoJwTdwJx4nLCgdNbOhdjsnvzqvHu7Ur\n" \
+"TkXWStAmzOVyyghqpZXjFaH3pO3JLF+l+/+sKAIuvtd7u+Nxe5AW0wdeRlN8NwdC\n" \
+"jNPElpzVmbUq4JUagEiuTDkHzsxHpFKVK7q4+63SM1N95R1NbdWhscdCb+ZAJzVc\n" \
+"oyi3B43njTOQ5yOf+1CceWxG1bQVs5ZufpsMljq4Ui0/1lvh+wjChP4kqKOJ2qxq\n" \
+"4RgqsahDYVvTH9w7jXbyLeiNdd8XM2w9U/t7y0Ff/9yi0GE44Za4rF2LN9d11TPA\n" \
+"mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d\n" \
+"emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=\n" \
+"-----END CERTIFICATE-----\n";
 
 // =====================================================================================
 // PIN ASSIGNMENTS
@@ -87,9 +181,9 @@ const int   HTTP_TIMEOUT_MS       = 8000;                    // 8-second HTTP ti
 #define DHT_PIN         4        // DHT22 digital data pin (needs 3.3V and 10k pull-up)
 #define DHT_TYPE        DHT22    // DHT22 (AM2302) sensor type
 #define MQ135_PIN       34       // MQ-135 Analog A0 connected via voltage divider to GPIO 34 (ADC1)
-#define LED_GREEN       18       // GPIO 18: Fresh / Low Risk indicator LED
-#define LED_YELLOW      19       // GPIO 19: Warning / Medium Risk indicator LED
-#define LED_RED         23       // GPIO 23: High Spoilage Risk indicator LED
+#define LED_RED         25       // GPIO 25: High Spoilage Risk indicator LED (Alt wiring: GPIO 23)
+#define LED_YELLOW      26       // GPIO 26: Warning / Medium Risk indicator LED (Alt wiring: GPIO 19)
+#define LED_GREEN       27       // GPIO 27: Fresh / Low Risk indicator LED (Alt wiring: GPIO 18)
 
 // =====================================================================================
 // OLED DISPLAY CONFIGURATION (SSD1306 128x64 I2C display)
@@ -223,7 +317,7 @@ void handleStatus() {
   json += "\"status\":\"connected\",";
   json += "\"ip\":\"" + ipStr + "\",";
   json += "\"network\":\"Wi-Fi\",";
-  json += "\"firmware\":\"v2.6.0\",";
+  json += "\"firmware\":\"v2.7.0\",";
   json += "\"cloudConnected\":" + String(lastCloudStatus == "OK" ? "true" : "false") + ",";
   json += "\"bh1750Installed\":" + String(bh1750Installed ? "true" : "false");
   json += "}";
@@ -476,6 +570,41 @@ void updateOLED() {
 // - Includes optional light measurement ONLY if the BH1750 is installed
 // - Includes x-api-key authentication header
 // =====================================================================================
+// =====================================================================================
+// SYNCHRONIZE SYSTEM TIME VIA NTP
+// Required for accurate X.509 certificate validity date verification (notBefore/notAfter).
+// =====================================================================================
+void syncNtpTime() {
+  Serial.print("[TLS] Synchronizing system time via NTP for X.509 validity verification...");
+  configTime(0, 0, "pool.ntp.org", "time.google.com", "time.cloudflare.com");
+  time_t now = time(nullptr);
+  int retry = 0;
+  while (now < 1700000000 && retry < 25) { // Ensure time is past 2023
+    delay(300);
+    Serial.print(".");
+    now = time(nullptr);
+    retry++;
+  }
+  if (now >= 1700000000) {
+    struct tm timeinfo;
+    gmtime_r(&now, &timeinfo);
+    char timeStr[32];
+    strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S UTC", &timeinfo);
+    Serial.print("\n[TLS] NTP Time Synchronized: ");
+    Serial.println(timeStr);
+  } else {
+    Serial.println("\n[TLS WARNING] NTP sync timed out. Proceeding with TLS upload.");
+  }
+}
+
+// =====================================================================================
+// HTTPS TELEMETRY UPLOAD TO DEDICATED CLOUD INGESTION ENDPOINT
+// - Strict TLS Root CA certificate verification (No setInsecure bypass)
+// - Endpoints: https://vegitables.vercel.app/api/device/ingest
+// - Includes device ID, temperature, humidity, raw MQ-135 ADC reading, gas index, risk, health
+// - Includes optional light measurement ONLY if the BH1750 is installed
+// - Includes x-api-key authentication header
+// =====================================================================================
 void pushTelemetryToCloud() {
   if (WiFi.status() != WL_CONNECTED) {
     lastCloudStatus = "NO_WIFI";
@@ -483,12 +612,12 @@ void pushTelemetryToCloud() {
   }
 
   WiFiClientSecure client;
-  client.setInsecure(); // Secure TLS connection to Vercel HTTPS without hardcoded expiring certs
+  client.setCACert(ROOT_CA_CERTIFICATE_BUNDLE); // Strict X.509 Root CA verification
   client.setTimeout(HTTP_TIMEOUT_MS / 1000);
 
   HTTPClient https;
   if (!https.begin(client, CLOUD_API_URL)) {
-    Serial.println("[Cloud] Failed to initialize HTTPS connection.");
+    Serial.println("[TLS ERROR] Failed to initialize HTTPS connection to cloud endpoint.");
     lastCloudStatus = "INIT_FAIL";
     return;
   }
@@ -506,14 +635,16 @@ void pushTelemetryToCloud() {
     payload += "\"temperature\":null,";
     payload += "\"humidity\":null,";
   }
-  payload += "\"gasLevel\":" + String(currentGasLevel);
+  payload += "\"mqRaw\":" + String(currentGasLevel) + ",";
+  payload += "\"gasIndex\":" + String(currentGasLevel / 40) + ",";
+  payload += "\"risk\":" + String(currentSpoilageRisk) + ",";
+  payload += "\"health\":" + String(max(0, 100 - currentSpoilageRisk));
   
-  // Include light measurement ONLY if the BH1750 is installed
+  // Include light measurement ONLY if the optional BH1750 is installed
   if (bh1750Installed && currentLightLevel >= 0.0) {
     payload += ",\"lightLevel\":" + String(currentLightLevel, 1);
   }
   
-  payload += ",\"spoilageRisk\":" + String(currentSpoilageRisk);
   payload += "}";
 
   int httpCode = https.POST(payload);
@@ -521,17 +652,17 @@ void pushTelemetryToCloud() {
     Serial.print("[Cloud Ingestion] HTTP Code: ");
     Serial.println(httpCode);
     if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_CREATED) {
-      Serial.println("[Cloud Ingestion] Telemetry persisted successfully.");
+      Serial.println("[Cloud Ingestion] Telemetry persisted successfully (HTTPS TLS verified).");
       lastCloudStatus = "OK";
       lastCloudPushTime = millis();
     } else {
       String resp = https.getString();
-      Serial.print("[Cloud Ingestion] Server Response: ");
+      Serial.print("[Cloud Ingestion] Response: ");
       Serial.println(resp);
       lastCloudStatus = "HTTP_" + String(httpCode);
     }
   } else {
-    Serial.print("[Cloud Ingestion] Request error: ");
+    Serial.print("[TLS/HTTP ERROR] Cloud push failed: ");
     Serial.println(https.errorToString(httpCode));
     lastCloudStatus = "ERR";
   }
@@ -544,15 +675,15 @@ void pushTelemetryToCloud() {
 void setup() {
   Serial.begin(115200);
   delay(500);
-  Serial.println("\n[VegSense] Initializing ESP32 Storage Node Firmware v2.6.0...");
+  Serial.println("\n[VegSense] Initializing ESP32 Storage Node Firmware v2.7.0...");
 
-  // Initialize status LEDs
-  pinMode(LED_GREEN, OUTPUT);
-  pinMode(LED_YELLOW, OUTPUT);
+  // Initialize status LEDs (Red: GPIO 25, Yellow: GPIO 26, Green: GPIO 27)
   pinMode(LED_RED, OUTPUT);
-  digitalWrite(LED_GREEN, LOW);
-  digitalWrite(LED_YELLOW, HIGH); // Amber during boot
+  pinMode(LED_YELLOW, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
   digitalWrite(LED_RED, LOW);
+  digitalWrite(LED_YELLOW, HIGH); // Amber during boot
+  digitalWrite(LED_GREEN, LOW);
 
   // Initialize Sensors
   dht.begin();
@@ -604,6 +735,9 @@ void setup() {
     Serial.println("\nWiFi connected!");
     Serial.print("ESP32 IP Address: ");
     Serial.println(WiFi.localIP());
+
+    // Synchronize system clock via NTP for strict TLS X.509 certificate validation
+    syncNtpTime();
   } else {
     Serial.println("\n[Wi-Fi] Initial connection timeout. Will retry in background loop.");
   }
@@ -644,6 +778,9 @@ void loop() {
       lastWifiReconnectAttempt = now;
       Serial.println("[Wi-Fi] Network lost. Reconnecting non-blocking...");
       WiFi.reconnect();
+      if (WiFi.status() == WL_CONNECTED) {
+        syncNtpTime();
+      }
     }
   }
 
@@ -654,7 +791,7 @@ void loop() {
     updateOLED();
   }
 
-  // 3. Upload telemetry to cloud API every 15 seconds
+  // 3. Upload telemetry to cloud API every 10 seconds (Section 5)
   if (now - lastCloudPush >= CLOUD_PUSH_INTERVAL_MS) {
     lastCloudPush = now;
     pushTelemetryToCloud();

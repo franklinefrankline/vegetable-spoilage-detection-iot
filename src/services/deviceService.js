@@ -617,3 +617,63 @@ export async function connectToCloudDevice(deviceId = 'ESP32-001') {
   };
 }
 
+/**
+ * Fetch latest device telemetry from dedicated device endpoint:
+ * GET /api/devices/:deviceId/latest
+ */
+export async function fetchDeviceLatest(deviceId = 'ESP32-001') {
+  const url = buildApiUrl(`/devices/${encodeURIComponent(deviceId)}/latest`);
+  const res = await fetch(url, { method: 'GET', credentials: 'include' });
+  if (!res.ok) throw new Error(`HTTP ${res.status} fetching latest device telemetry`);
+  return res.json();
+}
+
+/**
+ * Fetch historical device telemetry with pagination and date filters:
+ * GET /api/devices/:deviceId/history?limit=...&offset=...&from=...&to=...
+ */
+export async function fetchDeviceHistory(deviceId = 'ESP32-001', options = {}) {
+  const { limit = 50, offset = 0, from = '', to = '' } = options;
+  const params = new URLSearchParams({ limit, offset });
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+
+  const url = buildApiUrl(`/devices/${encodeURIComponent(deviceId)}/history?${params.toString()}`);
+  const res = await fetch(url, { method: 'GET', credentials: 'include' });
+  if (!res.ok) throw new Error(`HTTP ${res.status} fetching device history`);
+  return res.json();
+}
+
+/**
+ * Register a new device and generate dedicated credential:
+ * POST /api/devices/register
+ */
+export async function registerCloudDevice(payload) {
+  return apiClient.post('/devices/register', payload);
+}
+
+/**
+ * Rotate a device's credential:
+ * POST /api/devices/:deviceId/rotate-token
+ */
+export async function rotateDeviceToken(deviceId) {
+  return apiClient.post(`/devices/${encodeURIComponent(deviceId)}/rotate-token`, {});
+}
+
+/**
+ * Revoke a device's credential:
+ * POST /api/devices/:deviceId/revoke
+ */
+export async function revokeCloudDevice(deviceId) {
+  return apiClient.post(`/devices/${encodeURIComponent(deviceId)}/revoke`, {});
+}
+
+/**
+ * Re-activate a revoked device:
+ * POST /api/devices/:deviceId/activate
+ */
+export async function activateCloudDevice(deviceId) {
+  return apiClient.post(`/devices/${encodeURIComponent(deviceId)}/activate`, {});
+}
+
+
