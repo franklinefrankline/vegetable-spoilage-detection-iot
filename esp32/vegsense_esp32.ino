@@ -77,8 +77,9 @@ const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
 // Dedicated Cloud Ingestion Endpoint for VegSense (Vercel Serverless Production API)
 // =====================================================================================
 const char* DEVICE_ID             = "vegsense-esp32-001";
-const char* CLOUD_API_URL         = "https://vegitables.vercel.app/api/device/ingest";
-const char* DEVICE_API_KEY        = "YOUR_VEGSENSE_API_KEY"; // Enter configured VEGSENSE_API_KEY or provisioned device token
+const char* CLOUD_INGEST_URL      = "https://vegitables.vercel.app/api/device/ingest";
+const char* CLOUD_API_URL         = CLOUD_INGEST_URL; // Backward-compatibility alias
+const char* DEVICE_API_KEY        = "PASTE_YOUR_DEVICE_API_KEY_HERE"; // Enter provisioned device token (e.g. vgs_...)
 const unsigned long CLOUD_PUSH_INTERVAL_MS = 10000;          // Send cloud telemetry every 10s per specification
 const int   HTTP_TIMEOUT_MS       = 8000;                    // 8-second HTTP timeout
 
