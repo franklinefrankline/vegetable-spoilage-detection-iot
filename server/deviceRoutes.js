@@ -953,7 +953,7 @@ router.post(['/device/ingest', '/devices/ingest', '/readings', '/sensors/ingest'
       user_id: userId || 'usr_demo_vegsense_001',
       device_name: deviceId.trim(),
       device_identifier: deviceId.trim(),
-      ip_address: req.ip || req.headers['x-forwarded-for'] || '192.168.1.150',
+      ip_address: body.ipAddress || body.ip || req.ip || req.headers['x-forwarded-for'] || '192.168.1.150',
       mode: 'REAL',
       status: 'connected',
       is_active: 1,

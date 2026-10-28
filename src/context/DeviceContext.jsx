@@ -10,7 +10,10 @@ import {
   getCloudDeviceStatus,
   getCloudSensorData,
   fetchCloudHistory,
-  connectToCloudDevice
+  connectToCloudDevice,
+  connectWebSerial,
+  disconnectWebSerial,
+  isWebSerialSupported
 } from '../services/deviceService';
 import {
   classifyLight,
@@ -805,9 +808,125 @@ export function DeviceProvider({ children }) {
     };
   }, [currentUser]);
 
+  // Connect to ESP32 via Web Serial API (Direct USB connection)
+  const connectSerialDevice = useCallback(
+    async (options = {}) => {
+      stopSensorPolling();
+      setIsCheckingReachability(true);
+      setLoadingStage('Waiting for permission...');
+
+      try {
+        const result = await connectWebSerial({
+          onStateChange: (stage) => {
+            setLoadingStage(stage);
+            if (options.onStateChange) options.onStateChange(stage);
+          },
+          onData: (newData) => {
+            setSensorData((prev) => {
+              if (prev && prev.temperature !== undefined) {
+                setPreviousData(prev);
+              }
+              return newData;
+            });
+            setLastKnownData(newData);
+            setConnectionLost(false);
+            setDevice((prev) => ({
+              ...prev,
+              status: 'connected',
+              signal: 'Strong'
+            }));
+
+            // Dynamically update history chart points
+            if (newData.temperature !== null) {
+              const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+              setHistory((prev) => {
+                const newPoint = {
+                  time: nowStr,
+                  temp: newData.temperature,
+                  temperature: newData.temperature,
+                  humidity: newData.humidity,
+                  gas: newData.gasLevel,
+                  light: newData.lightLevel,
+                  lightLevel: newData.lightLevel,
+                  risk: newData.spoilageRisk,
+                  spoilageRisk: newData.spoilageRisk
+                };
+                return [...prev.slice(-29), newPoint];
+              });
+            }
+
+            evaluateAlerts({
+              deviceId: result?.device?.id || 'ESP32-001',
+              sensorData: newData,
+              spoilageData: {
+                spoilageRisk: newData.spoilageRisk,
+                classification: newData.status || 'FRESH'
+              },
+              deviceStatus: 'connected',
+              storageBatches: vegetables
+            }).catch(() => {});
+          },
+          onError: (err) => {
+            console.warn('Web Serial stream error:', err);
+            setIsConnected(false);
+            setConnectionLost(true);
+            setDevice((prev) => ({
+              ...prev,
+              status: 'Offline',
+              signal: 'None'
+            }));
+            if (options.onError) options.onError(err);
+          }
+        });
+
+        const deviceData = {
+          deviceId: result.device.id,
+          id: result.device.id,
+          deviceName: result.device.name,
+          name: result.device.name,
+          ip: 'USB-Serial',
+          ipAddress: 'USB-Serial',
+          status: 'connected',
+          network: 'Web Serial (USB)',
+          signal: 'Strong',
+          mode: 'serial',
+          controller: 'ESP32 DevKit V1',
+          firmware: result.device.firmware || 'v2.7.0',
+          lastConnected: result.device.lastConnected
+        };
+
+        setDevice(deviceData);
+        setSensorData(result.sensorData);
+        setLastKnownData(result.sensorData);
+        setIsConnected(true);
+        setConnectionLost(false);
+        setSavedDevice(deviceData);
+
+        if (currentUser) {
+          const storageKey = getDeviceStorageKey(currentUser);
+          localStorage.setItem(storageKey, JSON.stringify(deviceData));
+        }
+
+        evaluateAlerts({
+          deviceId: result.device.id,
+          sensorData: result.sensorData,
+          deviceStatus: 'connected',
+          storageBatches: vegetables
+        }).catch(() => {});
+
+        return result;
+      } finally {
+        setIsCheckingReachability(false);
+        setLoadingStage('Connected');
+      }
+    },
+    [currentUser, vegetables]
+  );
+
   // Disconnect device without logging out user session
   const disconnectDevice = useCallback(() => {
     stopSensorPolling();
+    disconnectWebSerial().catch(() => {});
     setIsConnected(false);
     setConnectionLost(false);
     setDevice((prev) => ({
@@ -818,16 +937,19 @@ export function DeviceProvider({ children }) {
     }));
   }, []);
 
-  // Reconnect previously saved device (cloud by default, or local if explicit)
+  // Reconnect previously saved device (cloud by default, or serial/local if explicit)
   const reconnectDevice = useCallback(async () => {
     if (savedDevice?.isDemo || device?.isDemo || savedDevice?.id === 'ESP32-DEMO-001') {
       return connectDemoDevice();
+    }
+    if (savedDevice?.mode === 'serial' || device?.mode === 'serial') {
+      return connectSerialDevice();
     }
     if (savedDevice?.mode === 'local' && savedDevice?.ipAddress) {
       return connectDevice(savedDevice.ipAddress);
     }
     return connectCloudDeviceHandler(savedDevice?.id || device?.id || 'ESP32-001');
-  }, [savedDevice, device, connectDevice, connectDemoDevice, connectCloudDeviceHandler]);
+  }, [savedDevice, device, connectDevice, connectSerialDevice, connectDemoDevice, connectCloudDeviceHandler]);
 
   // Clear saved device preferences
   const clearSavedDevice = useCallback(() => {
@@ -1067,10 +1189,12 @@ export function DeviceProvider({ children }) {
     thresholds,
     unreadAlertsCount,
     connectDevice,
+    connectSerialDevice,
     connectCloudDevice: connectCloudDeviceHandler,
     connectDemoDevice,
     disconnectDevice,
     reconnectDevice,
+    isWebSerialSupported,
     lastKnownData,
     previousData,
     loadingStage,

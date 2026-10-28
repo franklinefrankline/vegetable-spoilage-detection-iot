@@ -13,11 +13,18 @@
 import { classifyLight } from '../utils/lightClassification.js';
 import apiClient, { buildApiUrl } from './apiClient.js';
 
-// Connection timeout in milliseconds: 5 seconds (Section 8)
-export const CONNECTION_TIMEOUT_MS = 5000;
+// Connection timeout in milliseconds: 15 seconds for robust LAN / PNA handshakes
+export const CONNECTION_TIMEOUT_MS = 15000;
 
 // Active polling interval reference
 let activePollingTimer = null;
+
+// Active Web Serial references
+let activeSerialPort = null;
+let activeSerialReader = null;
+let activeSerialStreamClosed = null;
+let serialDisconnectListener = null;
+let serialKeepReading = false;
 
 /**
  * Validates whether the given string is a valid IPv4 address.
@@ -63,7 +70,7 @@ export function isHttpsContext() {
 }
 
 /**
- * Helper to fetch with an AbortController timeout (5 seconds, Section 8).
+ * Helper to fetch with an AbortController timeout (15 seconds).
  */
 async function fetchWithTimeout(url, options = {}, timeoutMs = CONNECTION_TIMEOUT_MS) {
   const controller = new AbortController();
@@ -79,7 +86,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = CONNECTION_TIMEOU
   } catch (error) {
     clearTimeout(timer);
     if (error.name === 'AbortError') {
-      const timeoutError = new Error('Connection timed out. ESP32 did not respond.');
+      const timeoutError = new Error(`Connection timed out after ${Math.round(timeoutMs / 1000)} seconds.`);
       timeoutError.code = 'TIMEOUT';
       throw timeoutError;
     }
@@ -111,11 +118,12 @@ export async function getDeviceStatus(ip) {
     const res = await fetchWithTimeout(directUrl, {
       method: 'GET',
       mode: 'cors'
-    });
+    }, CONNECTION_TIMEOUT_MS);
 
     if (!res.ok) {
       const err = new Error(`ESP32 returned HTTP status ${res.status}`);
       err.code = 'HTTP_ERROR';
+      err.status = res.status;
       throw err;
     }
 
@@ -123,7 +131,7 @@ export async function getDeviceStatus(ip) {
 
     // Verify response.status === "connected" (case-insensitive)
     if (!data || typeof data !== 'object' || String(data.status).toLowerCase() !== 'connected') {
-      const err = new Error('ESP32 returned an invalid response.');
+      const err = new Error(`ESP32 responded, but status was '${data?.status || 'unknown'}' instead of 'connected'.`);
       err.code = 'INVALID_STATUS';
       throw err;
     }
@@ -135,37 +143,47 @@ export async function getDeviceStatus(ip) {
         name: data.device || 'ESP32-001',
         status: 'connected',
         ipAddress: data.ip || cleanIp,
-        firmware: data.firmware || 'v2.5.0',
+        firmware: data.firmware || 'v2.7.0',
         network: data.network || 'Wi-Fi'
       },
       rawResponse: data
     };
   } catch (directErr) {
-    if (directErr.code === 'INVALID_STATUS' || directErr.code === 'INVALID_IP') {
+    if (directErr.code === 'INVALID_STATUS' || directErr.code === 'INVALID_IP' || directErr.code === 'HTTP_ERROR') {
       throw directErr;
-    }
-
-    if (directErr.code === 'TIMEOUT') {
-      const timeoutErr = new Error('ESP32 did not respond.\n\nCheck:\n• ESP32 is powered\n• ESP32 is connected to Wi-Fi\n• Computer and ESP32 are on the same Wi-Fi\n• IP address is correct\n• ESP32 HTTP server is running');
-      timeoutErr.code = 'TIMEOUT';
-      throw timeoutErr;
     }
 
     // Check if the request failed due to HTTPS Mixed Content or Private Network Access restrictions
     if (isHttpsContext()) {
       const httpsErr = new Error(
-        'Mixed Content Restriction: This browser is running VegSense over HTTPS (https://' +
-        window.location.host +
-        '). Browsers block secure HTTPS sites from directly accessing local HTTP IP addresses (' +
-        directUrl +
-        ').\n\nTo connect directly to your local ESP32:\n• Run the frontend locally over HTTP: npm run dev\n• Open http://localhost:5173/connect-device on the same Wi-Fi.'
+        `Mixed Content & Private Network Restriction:\n\n` +
+        `This browser is accessing VegSense over HTTPS (${window.location.origin}). ` +
+        `Browsers block secure HTTPS sites from directly accessing local HTTP IP addresses (${directUrl}) to enforce security.\n\n` +
+        `Compatible connection options:\n` +
+        `• Web Serial: Connect your ESP32 via USB and click "Connect via Web Serial"\n` +
+        `• Cloud Gateway: Let the ESP32 upload to VegSense Cloud via HTTPS\n` +
+        `• Local HTTP: Run the web interface locally at http://localhost:5173`
       );
       httpsErr.code = 'HTTPS_MIXED_CONTENT';
       throw httpsErr;
     }
 
+    if (directErr.code === 'TIMEOUT') {
+      const timeoutErr = new Error(
+        `Connection timed out after 15 seconds. ESP32 at ${cleanIp} did not respond.\n\n` +
+        `Troubleshooting:\n` +
+        `• Ensure ESP32 is powered on\n` +
+        `• Confirm ESP32 is connected to the same Wi-Fi network\n` +
+        `• Check that IP ${cleanIp} is correct\n` +
+        `• Check if http://${cleanIp}/status opens directly in a browser tab`
+      );
+      timeoutErr.code = 'TIMEOUT';
+      throw timeoutErr;
+    }
+
     const netErr = new Error(
-      'ESP32 did not respond.\n\nCheck:\n• ESP32 is powered\n• ESP32 is connected to Wi-Fi\n• Computer and ESP32 are on the same Wi-Fi\n• IP address is correct\n• ESP32 HTTP server is running'
+      `Network communication error with ESP32 at ${cleanIp}: ${directErr.message || 'Device unreachable'}.\n\n` +
+      `Check:\n• ESP32 is powered\n• ESP32 is connected to Wi-Fi\n• Computer and ESP32 are on the same Wi-Fi\n• IP address is correct`
     );
     netErr.code = 'NETWORK_ERROR';
     throw netErr;
@@ -202,38 +220,38 @@ export async function getSensorData(ip) {
     const res = await fetchWithTimeout(directUrl, {
       method: 'GET',
       mode: 'cors'
-    });
+    }, CONNECTION_TIMEOUT_MS);
 
     if (!res.ok) {
-      const err = new Error(`Sensor API returned status ${res.status}`);
+      const err = new Error(`Sensor API returned HTTP status ${res.status}`);
       err.code = 'HTTP_ERROR';
+      err.status = res.status;
       throw err;
     }
 
     const data = await res.json();
     return validateAndParseSensorResponse(data);
   } catch (directErr) {
-    if (directErr.code === 'INVALID_SENSOR_DATA' || directErr.code === 'INVALID_IP') {
+    if (directErr.code === 'INVALID_SENSOR_DATA' || directErr.code === 'INVALID_IP' || directErr.code === 'HTTP_ERROR') {
       throw directErr;
-    }
-
-    if (directErr.code === 'TIMEOUT') {
-      const timeoutErr = new Error('ESP32 did not respond.\n\nCheck:\n• ESP32 is powered\n• ESP32 is connected to Wi-Fi\n• Computer and ESP32 are on the same Wi-Fi\n• IP address is correct\n• ESP32 HTTP server is running');
-      timeoutErr.code = 'TIMEOUT';
-      throw timeoutErr;
     }
 
     if (isHttpsContext()) {
       const httpsErr = new Error(
-        'Mixed Content Restriction: Browsers block HTTPS cloud frontends from directly accessing private HTTP endpoints (' +
-        directUrl +
-        '). Run locally over HTTP at http://localhost:5173/connect-device.'
+        `Mixed Content Restriction: Browsers block HTTPS cloud frontends from directly accessing private HTTP endpoints (${directUrl}). ` +
+        `Connect via Web Serial (USB) or use the Cloud IoT Gateway.`
       );
       httpsErr.code = 'HTTPS_MIXED_CONTENT';
       throw httpsErr;
     }
 
-    const netErr = new Error('ESP32 did not respond.');
+    if (directErr.code === 'TIMEOUT') {
+      const timeoutErr = new Error(`Sensor reading timed out after 15 seconds. ESP32 at ${cleanIp} did not respond.`);
+      timeoutErr.code = 'TIMEOUT';
+      throw timeoutErr;
+    }
+
+    const netErr = new Error(`Failed to read sensor data from ESP32 at ${cleanIp}: ${directErr.message || 'Endpoint unreachable'}.`);
     netErr.code = 'NETWORK_ERROR';
     throw netErr;
   }
@@ -390,11 +408,352 @@ export async function reconnectDevice(ip) {
  */
 export function disconnectDevice() {
   stopSensorPolling();
+  disconnectWebSerial().catch(() => {});
   return {
     status: 'Not Connected',
     ipAddress: '',
     signal: 'None'
   };
+}
+
+/**
+ * =====================================================================================
+ * Web Serial API Communication Services
+ * Direct browser-to-microcontroller USB connection:
+ * - W3C Standard supported on Chrome, Edge, Brave, Opera
+ * - Works natively on HTTPS (https://vegitables.vercel.app) without Mixed Content or LAN issues
+ * - Communicates with ESP32 DevKit V1 CP2102 / CH340 / CH9102 UART at 115200 baud
+ * =====================================================================================
+ */
+
+/**
+ * Check if the current browser environment supports the Web Serial API.
+ */
+export function isWebSerialSupported() {
+  return typeof navigator !== 'undefined' && 'serial' in navigator;
+}
+
+/**
+ * Helper to safely extract a JSON object from a Serial line.
+ * Handles prefixes, dirty lines, and trailing characters.
+ */
+export function extractJsonFromSerialLine(line) {
+  if (!line || typeof line !== 'string') return null;
+  const trimmed = line.trim();
+  const start = trimmed.indexOf('{');
+  const end = trimmed.lastIndexOf('}');
+  if (start !== -1 && end !== -1 && end > start) {
+    try {
+      const jsonStr = trimmed.substring(start, end + 1);
+      return JSON.parse(jsonStr);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Get current Web Serial connection status.
+ */
+export function getWebSerialStatus() {
+  return {
+    isOpen: Boolean(activeSerialPort && activeSerialPort.readable),
+    port: activeSerialPort
+  };
+}
+
+/**
+ * Connect to ESP32 DevKit V1 via Web Serial API:
+ * 1. Request port from user with 'Waiting for permission' state
+ * 2. Open serial port at 115200 baud with 'Connecting' state
+ * 3. Read stream, send query commands, and verify real sensor data
+ * 4. Only once valid telemetry is received, transition to 'Connected'
+ */
+export async function connectWebSerial({
+  onData,
+  onError,
+  onStateChange,
+  timeoutMs = 15000
+} = {}) {
+  if (!isWebSerialSupported()) {
+    const unsupportedErr = new Error(
+      'Web Serial is not supported in this browser.\n\n' +
+      'Please use Google Chrome, Microsoft Edge, Brave, or Opera to connect your ESP32 directly via USB cable.'
+    );
+    unsupportedErr.code = 'SERIAL_UNSUPPORTED';
+    throw unsupportedErr;
+  }
+
+  // Close any existing active serial port first
+  if (activeSerialPort) {
+    await disconnectWebSerial();
+  }
+
+  // State 1: Waiting for permission
+  onStateChange?.('Waiting for permission');
+
+  let port;
+  try {
+    port = await navigator.serial.requestPort();
+  } catch (err) {
+    if (
+      err.name === 'NotFoundError' ||
+      err.name === 'AbortError' ||
+      err.message?.toLowerCase().includes('no port selected') ||
+      err.message?.toLowerCase().includes('cancelled')
+    ) {
+      const cancelErr = new Error('No serial port selected. Port selection was cancelled.');
+      cancelErr.code = 'PERMISSION_CANCELLED';
+      throw cancelErr;
+    }
+    const permErr = new Error(`Browser permission denied: ${err.message || 'Permission request failed'}`);
+    permErr.code = 'PERMISSION_ERROR';
+    throw permErr;
+  }
+
+  if (!port) {
+    const cancelErr = new Error('No serial port selected.');
+    cancelErr.code = 'PERMISSION_CANCELLED';
+    throw cancelErr;
+  }
+
+  // State 2: Connecting
+  onStateChange?.('Connecting');
+
+  try {
+    await port.open({ baudRate: 115200 });
+  } catch (err) {
+    if (
+      err.name === 'InvalidStateError' ||
+      err.name === 'NetworkError' ||
+      err.message?.toLowerCase().includes('already open') ||
+      err.message?.toLowerCase().includes('busy') ||
+      err.message?.toLowerCase().includes('access denied')
+    ) {
+      const busyErr = new Error(
+        'Serial port is already in use by another application.\n\n' +
+        'Troubleshooting:\n' +
+        '• Close the Arduino IDE Serial Monitor (Tools > Serial Monitor)\n' +
+        '• Close any other terminal, screen, or browser tab connected to this COM port\n' +
+        '• Unplug and reconnect the USB cable, then click "Try Again".'
+      );
+      busyErr.code = 'PORT_BUSY';
+      throw busyErr;
+    }
+    const openErr = new Error(`Failed to open serial port: ${err.message}`);
+    openErr.code = 'PORT_OPEN_ERROR';
+    throw openErr;
+  }
+
+  activeSerialPort = port;
+  serialKeepReading = true;
+
+  // Add hardware disconnect event listener
+  if (navigator.serial?.addEventListener) {
+    serialDisconnectListener = (event) => {
+      if (event.port === port || event.target === port) {
+        disconnectWebSerial();
+        if (onError) {
+          onError(new Error('ESP32 was disconnected from the USB port.'));
+        }
+      }
+    };
+    navigator.serial.addEventListener('disconnect', serialDisconnectListener);
+  }
+
+  // Send handshake command to prompt immediate response from ESP32
+  try {
+    const encoder = new TextEncoder();
+    const writer = port.writable.getWriter();
+    await writer.write(encoder.encode("STATUS\nDATA\n"));
+    writer.releaseLock();
+  } catch (wErr) {
+    console.warn('Initial serial handshake command warning:', wErr);
+  }
+
+  // Setup stream reading pipeline
+  const textDecoder = new TextDecoderStream();
+  activeSerialStreamClosed = port.readable.pipeTo(textDecoder.writable).catch((e) => {
+    // Pipe error is expected on manual port close
+    console.debug('Serial pipe stream closed:', e?.message);
+  });
+  const reader = textDecoder.readable.getReader();
+  activeSerialReader = reader;
+
+  let lineBuffer = '';
+  let initialDeviceData = null;
+  let initialSensorData = null;
+
+  // Promise that resolves when real sensor data is verified or rejects on timeout
+  const handshakePromise = new Promise((resolve, reject) => {
+    const handshakeTimer = setTimeout(() => {
+      reject(
+        new Error(
+          'Serial communication established, but ESP32 did not return sensor readings within 15 seconds.\n\n' +
+          'Troubleshooting:\n' +
+          '• Verify the ESP32 is flashed with VegSense firmware v2.7.0\n' +
+          '• Check that the baud rate is 115200\n' +
+          '• Press the EN / RST button on the ESP32 to restart it'
+        )
+      );
+    }, timeoutMs);
+
+    const checkResolve = () => {
+      if (initialSensorData) {
+        clearTimeout(handshakeTimer);
+        resolve({
+          device: initialDeviceData || {
+            id: 'ESP32-001',
+            name: 'ESP32 DevKit V1 (USB Serial)',
+            ip: 'USB-Serial',
+            ipAddress: 'USB-Serial',
+            status: 'connected',
+            network: 'Web Serial (USB)',
+            signal: 'Strong',
+            mode: 'serial',
+            controller: 'ESP32 DevKit V1',
+            firmware: 'v2.7.0',
+            lastConnected: new Date().toISOString()
+          },
+          sensorData: initialSensorData
+        });
+      }
+    };
+
+    // Asynchronous read pump loop
+    (async () => {
+      try {
+        while (serialKeepReading) {
+          const { value, done } = await reader.read();
+          if (done) {
+            break;
+          }
+
+          if (value) {
+            lineBuffer += value;
+            const lines = lineBuffer.split('\n');
+            lineBuffer = lines.pop(); // keep unfinished line in buffer
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed) continue;
+
+              const parsed = extractJsonFromSerialLine(trimmed);
+              if (parsed) {
+                // If it's status payload
+                if (parsed.status === 'connected' && parsed.device) {
+                  initialDeviceData = {
+                    id: parsed.device || 'ESP32-001',
+                    name: parsed.device || 'ESP32 DevKit V1 (USB Serial)',
+                    ip: parsed.ip || 'USB-Serial',
+                    ipAddress: parsed.ip || 'USB-Serial',
+                    status: 'connected',
+                    network: 'Web Serial (USB)',
+                    signal: 'Strong',
+                    mode: 'serial',
+                    controller: 'ESP32 DevKit V1',
+                    firmware: parsed.firmware || 'v2.7.0',
+                    lastConnected: new Date().toISOString()
+                  };
+                }
+
+                // If it's telemetry payload
+                try {
+                  const sensor = validateAndParseSensorResponse(parsed);
+                  if (sensor) {
+                    sensor.source = 'web-serial';
+                    if (!initialSensorData) {
+                      initialSensorData = sensor;
+                      checkResolve();
+                    } else if (onData) {
+                      onData(sensor);
+                    }
+                  }
+                } catch {
+                  // Ignore JSON lines that do not contain complete sensor metrics
+                }
+              }
+            }
+          }
+        }
+      } catch (readErr) {
+        if (serialKeepReading) {
+          console.warn('Web Serial reader error:', readErr);
+          if (onError) onError(readErr);
+        }
+      } finally {
+        clearTimeout(handshakeTimer);
+      }
+    })();
+  });
+
+  try {
+    const result = await handshakePromise;
+    onStateChange?.('Connected');
+    return result;
+  } catch (err) {
+    await disconnectWebSerial();
+    throw err;
+  }
+}
+
+/**
+ * Send a text command over the active Web Serial connection (e.g. "STATUS\n", "DATA\n").
+ */
+export async function sendWebSerialCommand(command) {
+  if (!activeSerialPort || !activeSerialPort.writable) {
+    throw new Error('Web Serial port is not open or writable.');
+  }
+
+  const encoder = new TextEncoder();
+  const cmd = command.endsWith('\n') ? command : command + '\n';
+  const writer = activeSerialPort.writable.getWriter();
+  try {
+    await writer.write(encoder.encode(cmd));
+  } finally {
+    writer.releaseLock();
+  }
+}
+
+/**
+ * Disconnect and release the active Web Serial port cleanly.
+ */
+export async function disconnectWebSerial() {
+  serialKeepReading = false;
+
+  if (serialDisconnectListener && navigator.serial?.removeEventListener) {
+    navigator.serial.removeEventListener('disconnect', serialDisconnectListener);
+    serialDisconnectListener = null;
+  }
+
+  if (activeSerialReader) {
+    try {
+      await activeSerialReader.cancel();
+      activeSerialReader.releaseLock();
+    } catch (e) {
+      console.debug('Error canceling serial reader:', e?.message);
+    }
+    activeSerialReader = null;
+  }
+
+  if (activeSerialStreamClosed) {
+    try {
+      await activeSerialStreamClosed;
+    } catch (e) {
+      // Ignore
+    }
+    activeSerialStreamClosed = null;
+  }
+
+  if (activeSerialPort) {
+    try {
+      await activeSerialPort.close();
+    } catch (e) {
+      console.debug('Error closing serial port:', e?.message);
+    }
+    activeSerialPort = null;
+  }
 }
 
 /**

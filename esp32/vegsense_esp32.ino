@@ -296,13 +296,64 @@ float readBH1750Lux() {
 void setCorsHeaders() {
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  server.sendHeader("Access-Control-Allow-Headers", "Content-Type, Origin, Accept, X-Requested-With, x-api-key");
+  server.sendHeader("Access-Control-Allow-Headers", "Content-Type, Origin, Accept, X-Requested-With, x-api-key, Access-Control-Request-Private-Network");
   server.sendHeader("Access-Control-Allow-Private-Network", "true");
+  server.sendHeader("Access-Control-Max-Age", "86400");
 }
 
 void handleOptions() {
   setCorsHeaders();
-  server.send(204);
+  server.send(204, "text/plain", "");
+}
+
+// =====================================================================================
+// SHARED JSON TELEMETRY & STATUS BUILDERS
+// Reused across HTTP endpoints and USB Web Serial communication
+// =====================================================================================
+String buildStatusJson() {
+  String ipStr = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : "0.0.0.0";
+
+  String json = "{";
+  json += "\"device\":\"" + String(DEVICE_ID) + "\",";
+  json += "\"status\":\"connected\",";
+  json += "\"ip\":\"" + ipStr + "\",";
+  json += "\"network\":\"" + String(WiFi.status() == WL_CONNECTED ? "Wi-Fi" : "Serial/USB") + "\",";
+  json += "\"firmware\":\"v2.7.0\",";
+  json += "\"cloudConnected\":" + String(lastCloudStatus == "OK" ? "true" : "false") + ",";
+  json += "\"bh1750Installed\":" + String(bh1750Installed ? "true" : "false");
+  json += "}";
+  return json;
+}
+
+String buildTelemetryJson() {
+  String json = "{";
+  json += "\"device\":\"" + String(DEVICE_ID) + "\",";
+  if (dhtReadSuccess) {
+    json += "\"temperature\":" + String(currentTemperature, 1) + ",";
+    json += "\"humidity\":" + String(currentHumidity, 1) + ",";
+  } else {
+    json += "\"temperature\":null,";
+    json += "\"humidity\":null,";
+    json += "\"error\":\"DHT22_READ_FAILED\",";
+  }
+  json += "\"gas_level\":" + String(currentGasLevel) + ",";
+  json += "\"rawGas\":" + String(currentGasLevel) + ",";
+  
+  if (bh1750Installed && currentLightLevel >= 0.0) {
+    json += "\"light_level\":" + String(currentLightLevel, 1) + ",";
+    json += "\"lightLevel\":" + String(currentLightLevel, 1) + ",";
+    json += "\"light_classification\":\"" + currentLightClassification + "\",";
+    json += "\"light_risk\":" + String(currentLightRisk) + ",";
+  } else {
+    json += "\"light_level\":null,";
+    json += "\"lightLevel\":null,";
+    json += "\"light_classification\":\"NOT INSTALLED\",";
+    json += "\"light_risk\":0,";
+  }
+  json += "\"status\":\"" + currentStatus + "\",";
+  json += "\"spoilage_risk\":" + String(currentSpoilageRisk);
+  json += "}";
+  return json;
 }
 
 // =====================================================================================
@@ -311,19 +362,7 @@ void handleOptions() {
 // =====================================================================================
 void handleStatus() {
   setCorsHeaders();
-  String ipStr = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : "0.0.0.0";
-
-  String json = "{";
-  json += "\"device\":\"" + String(DEVICE_ID) + "\",";
-  json += "\"status\":\"connected\",";
-  json += "\"ip\":\"" + ipStr + "\",";
-  json += "\"network\":\"Wi-Fi\",";
-  json += "\"firmware\":\"v2.7.0\",";
-  json += "\"cloudConnected\":" + String(lastCloudStatus == "OK" ? "true" : "false") + ",";
-  json += "\"bh1750Installed\":" + String(bh1750Installed ? "true" : "false");
-  json += "}";
-
-  server.send(200, "application/json", json);
+  server.send(200, "application/json", buildStatusJson());
 }
 
 // =====================================================================================
@@ -426,36 +465,7 @@ void readSensors() {
 // =====================================================================================
 void handleData() {
   setCorsHeaders();
-
-  String json = "{";
-  json += "\"device\":\"" + String(DEVICE_ID) + "\",";
-  if (dhtReadSuccess) {
-    json += "\"temperature\":" + String(currentTemperature, 1) + ",";
-    json += "\"humidity\":" + String(currentHumidity, 1) + ",";
-  } else {
-    json += "\"temperature\":null,";
-    json += "\"humidity\":null,";
-    json += "\"error\":\"DHT22_READ_FAILED\",";
-  }
-  json += "\"gas_level\":" + String(currentGasLevel) + ",";
-  json += "\"rawGas\":" + String(currentGasLevel) + ",";
-  
-  if (bh1750Installed && currentLightLevel >= 0.0) {
-    json += "\"light_level\":" + String(currentLightLevel, 1) + ",";
-    json += "\"lightLevel\":" + String(currentLightLevel, 1) + ",";
-    json += "\"light_classification\":\"" + currentLightClassification + "\",";
-    json += "\"light_risk\":" + String(currentLightRisk) + ",";
-  } else {
-    json += "\"light_level\":null,";
-    json += "\"lightLevel\":null,";
-    json += "\"light_classification\":\"NOT INSTALLED\",";
-    json += "\"light_risk\":0,";
-  }
-  json += "\"status\":\"" + currentStatus + "\",";
-  json += "\"spoilage_risk\":" + String(currentSpoilageRisk);
-  json += "}";
-
-  server.send(200, "application/json", json);
+  server.send(200, "application/json", buildTelemetryJson());
 }
 
 // =====================================================================================
@@ -629,6 +639,10 @@ void pushTelemetryToCloud() {
   // Build JSON payload matching server ingestion contract
   String payload = "{";
   payload += "\"deviceId\":\"" + String(DEVICE_ID) + "\",";
+  if (WiFi.status() == WL_CONNECTED) {
+    payload += "\"ip\":\"" + WiFi.localIP().toString() + "\",";
+    payload += "\"ipAddress\":\"" + WiFi.localIP().toString() + "\",";
+  }
   if (dhtReadSuccess) {
     payload += "\"temperature\":" + String(currentTemperature, 1) + ",";
     payload += "\"humidity\":" + String(currentHumidity, 1) + ",";
@@ -766,10 +780,35 @@ void setup() {
 }
 
 // =====================================================================================
+// SECTION 20: USB WEB SERIAL COMMAND DISPATCHER
+// Enables two-way communication with the browser via Web Serial API (115200 baud).
+// Responds to STATUS, DATA, PING, READ, SENSORS commands.
+// =====================================================================================
+void handleSerialCommands() {
+  while (Serial.available() > 0) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+    if (cmd.length() == 0) continue;
+
+    String upperCmd = cmd;
+    upperCmd.toUpperCase();
+
+    if (upperCmd.indexOf("STATUS") >= 0 || upperCmd == "PING") {
+      Serial.println(buildStatusJson());
+    } else if (upperCmd.indexOf("DATA") >= 0 || upperCmd == "READ" || upperCmd == "SENSORS") {
+      Serial.println(buildTelemetryJson());
+    } else if (upperCmd.indexOf("HELP") >= 0) {
+      Serial.println("{\"commands\":[\"STATUS\",\"DATA\",\"PING\"]}");
+    }
+  }
+}
+
+// =====================================================================================
 // MAIN EXECUTION LOOP
 // =====================================================================================
 void loop() {
   server.handleClient();
+  handleSerialCommands();
 
   unsigned long now = millis();
 
@@ -790,6 +829,8 @@ void loop() {
     lastSensorRead = now;
     readSensors();
     updateOLED();
+    // Emit real sensor telemetry JSON over Serial for Web Serial & Serial Monitor
+    Serial.println(buildTelemetryJson());
   }
 
   // 3. Upload telemetry to cloud API every 10 seconds (Section 5)
